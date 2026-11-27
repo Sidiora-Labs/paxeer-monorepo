@@ -14,6 +14,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store/accountingtest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	sharedredis "github.com/Sidiora-Technologies/KindleLaunch/shared/redis"
 	"github.com/go-chi/chi/v5"
@@ -79,7 +80,7 @@ func TestUntradedPoolPageCacheAndFirstCommit(t *testing.T) {
 					if !ok {
 						t.Fatal(data)
 					}
-					if _, err := uuid.Parse(id); err != nil || data["seriesModelVersion"] != accountingtest.Version {
+					if _, err := uuid.Parse(id); err != nil || data["seriesModelVersion"] != candlewire.SeriesModelVersion {
 						t.Fatalf("candle identity: %v", data)
 					}
 				}
@@ -154,8 +155,19 @@ func TestUntradedPoolPageCacheAndFirstCommit(t *testing.T) {
 	for _, path := range paths {
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/v2/pools/"+accountingtest.Pool+path, nil))
-		if response.Code != 503 || !strings.Contains(response.Body.String(), "DEPENDENCY_UNAVAILABLE") {
-			t.Fatalf("uncommitted market: %d %s", response.Code, response.Body.String())
+		if response.Code != 200 || interfaces.ValidateJSON("TradesResponse", response.Body.Bytes()) != nil && interfaces.ValidateJSON("CandlesResponse", response.Body.Bytes()) != nil {
+			t.Fatalf("market awaiting consumer commits: %d %s", response.Code, response.Body.String())
+		}
+		var pending struct {
+			Revision   *string         `json:"revision"`
+			Watermark  json.RawMessage `json:"watermark"`
+			NextCursor *string         `json:"nextCursor"`
+			Data       struct {
+				Items []json.RawMessage `json:"items"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &pending); err != nil || pending.Revision != nil || string(pending.Watermark) != "null" || pending.NextCursor != nil || pending.Data.Items == nil || len(pending.Data.Items) != 0 {
+			t.Fatalf("pending market envelope: %s %v", response.Body.String(), err)
 		}
 	}
 	f.Commit(t, fill, position)

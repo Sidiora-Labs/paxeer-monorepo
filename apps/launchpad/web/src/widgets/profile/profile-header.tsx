@@ -28,7 +28,9 @@ export interface ProfileHeaderProps {
   onEdit?: (field: ProfileEditField) => void;
   /** Right side of the action row: Follow for visitors, share for everyone. */
   actions?: ReactNode;
-  /** Rendered under the name: follower counts and joined date. */
+  /** Total value, result and period. */
+  summary?: ReactNode;
+  /** Follower counts and joined date in one line. */
   stats?: ReactNode;
   /** Last row of the header (the one-line wallets row). */
   extra?: ReactNode;
@@ -51,7 +53,7 @@ export function avatarFallbackName(wallet: string, displayName: string | null): 
   return displayName?.trim() || wallet;
 }
 
-export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, bannerUrl, links, isOwner, loading = false, onEdit, actions, stats, extra, className }: ProfileHeaderProps) {
+export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, bannerUrl, links, isOwner, loading = false, onEdit, actions, summary, stats, extra, className }: ProfileHeaderProps) {
   const [bannerFailed, setBannerFailed] = useState(false);
   useEffect(() => { setBannerFailed(false); }, [bannerUrl]);
   const named = Boolean(displayName?.trim());
@@ -85,6 +87,7 @@ export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, ban
           </h1>
           <ShortAddress address={wallet} head={4} tail={4} explorerHref={`https://paxscan.paxeer.app/address/${wallet}`} className="self-start text-xs text-text-faint" />
         </div>
+        {summary}
         {stats}
         <div className="min-h-[var(--sl-leading-sm)]">
           {loading ? <Skeleton className="max-w-prose h-[1lh] text-sm" /> : bio ? <p className="max-w-prose whitespace-pre-line text-sm text-text">{bio}</p> : null}
@@ -97,7 +100,7 @@ export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, ban
                   href={links[key] as string}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="inline-flex h-control-height-sm items-center rounded-pill bg-surface-2 px-3 text-sm font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text"
+                  className="inline-flex h-control-height-sm items-center rounded-pill bg-surface-2 px-3 text-sm font-medium text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text"
                 >
                   {linkLabel[key]}
                 </a>

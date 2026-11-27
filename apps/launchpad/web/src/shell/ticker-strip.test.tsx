@@ -6,6 +6,7 @@ import type { QueryClient as QueryClientType } from '@tanstack/react-query';
 import { createRequire } from 'node:module';
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import { SdkClient, type V2ContractTypes } from '@kindle/sdk';
+import { marketRetryPace } from '@/core/retry-pace';
 import { v2Reads } from '@/core/test-fixtures/market-production/v2-reads';
 
 // jsdom swaps AbortController while fetch stays undici, so run in node and install only the missing browser globals (see widgets/terminal/left-rail/left-rail.render.test.tsx).
@@ -132,7 +133,7 @@ async function tickerUnavailableFeedStaysEmpty() {
 }
 
 describe('shell reads against a real HTTP origin that answers a transient failure first', () => {
-  afterEach(() => { cleanup?.(); cleanup = null; served.paths.length = 0; served.script.clear(); window.localStorage.clear(); });
+  afterEach(() => { cleanup?.(); cleanup = null; marketRetryPace.clear(); served.paths.length = 0; served.script.clear(); window.localStorage.clear(); });
   afterAll(async () => {
     await new Promise<void>(resolve => served.server.close(() => resolve()));
     dom.window.close();
@@ -153,25 +154,19 @@ describe('shell reads against a real HTTP origin that answers a transient failur
     expect(container.querySelector('[aria-busy="true"]')).toBeNull();
   });
 
-  it('keeps the "Open top earners" link whole in the empty state, with a short message for narrow screens', async () => {
+  it('shows a single muted empty line with a short message for narrow screens', async () => {
     served.script.set(LEADERBOARD, [ok]);
     const { container } = mount(<TickerStrip />);
     await waitFor(() => container.querySelector('[data-ticker-empty]') !== null);
     const empty = container.querySelector<HTMLElement>('[data-ticker-empty]')!;
-    const link = Array.from(empty.querySelectorAll('a')).find(anchor => anchor.textContent === 'Open top earners')!;
-    expect(link.getAttribute('href')).toBeTruthy();
-    const linkClasses = link.className.split(/\s+/);
-    expect(linkClasses).toEqual(expect.arrayContaining(['shrink-0', 'whitespace-nowrap']));
-    expect(linkClasses).not.toContain('truncate');
-    // Only the message span may truncate; the link is never inside it.
-    expect(empty.className.split(/\s+/)).not.toContain('truncate');
+    expect(empty.querySelector('a, button')).toBeNull();
+    expect(empty.classList).toContain('text-xs');
+    expect(empty.classList).toContain('text-text-faint');
     const message = empty.querySelector('.truncate')!;
-    expect(message.contains(link)).toBe(false);
-    const narrow = message.querySelector('.sm\\:hidden');
+    expect(message.querySelector('.sm\\:hidden')?.textContent).toBe('None in 24h');
     const wide = message.querySelector('.sm\\:inline');
-    expect(narrow?.textContent).toBe('None in 24h');
     expect(wide?.textContent).toBe('No top earners in the last 24h');
-    expect(wide?.className.split(/\s+/)).toContain('hidden');
+    expect(wide?.classList).toContain('hidden');
   });
 
   it('waits out a 429 RATE_LIMITED with retryAfterMs and then renders the ready state', async () => {
@@ -208,19 +203,18 @@ describe('shell reads against a real HTTP origin that answers a transient failur
     const quick: Answer = { status: 429, body: envelope('RATE_LIMITED', true, 5) };
     served.script.set(LEADERBOARD, [quick]);
     const { container, seen } = mount(<TickerStrip />);
-    await waitFor(() => container.textContent?.includes("Couldn't load top earners.") === true);
+    await waitFor(() => container.textContent?.includes("Couldn't load top earners.") === true, 16_000);
     // 1 attempt + 4 transient retries; 429 is never retried inside the SDK transport.
     expect(hits(LEADERBOARD)).toBe(5);
     const firstError = seen.findIndex(text => ERROR_COPY.test(text));
     expect(seen.slice(0, firstError).every(text => text.includes('Loading top earners'))).toBe(true);
     await settle(200);
     expect(hits(LEADERBOARD)).toBe(5);
-  });
+  }, 20_000);
 
   it('renders a single ranked trader as exactly one pill, never repeated to fill the strip', async () => {
-    // Production 200 after the 2026-10-13 live test: one ranked wallet, net -52.72 USDL.
     const wallet = '0x1dae78b53c9f39930a2ff2b6b7aac12ec75fb154';
-    const one = { ...leaderboard, data: { snapshot: { ...leaderboard.data.snapshot, entries: [{ metricRaw: '52721088', metricSigned: '-52721088', quality: 'complete', rank: 1, wallet }] } } };
+    const one = { ...leaderboard, data: { snapshot: { ...leaderboard.data.snapshot, entries: [{ metricRaw: '52721088', metricSigned: '52721088', quality: 'complete', rank: 1, wallet }] } } };
     served.script.set(LEADERBOARD, [{ status: 200, body: one }]);
     const { container } = mount(<TickerStrip />);
     await waitFor(() => container.querySelector(`a[href="/profile/${wallet}"]`) !== null);

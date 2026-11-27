@@ -1,4 +1,21 @@
 import { retryTransientOnly } from './transient-retry';
+import { marketRetryPace } from './retry-pace';
+
+type RetryQuery = { state: { error: unknown; fetchFailureReason: unknown } };
+const marketRetryPolicy = {
+  ...retryTransientOnly,
+  retry: (failureCount: number, error: Error) => {
+    const pace = marketRetryPace.state(error);
+    return (!pace || pace.failures < 5 && marketRetryPace.waiting(error) > 0) && retryTransientOnly.retry(failureCount, error);
+  },
+  retryDelay: (failureCount: number, error: Error) => Math.max(retryTransientOnly.retryDelay(failureCount, error), marketRetryPace.delay(error) || 0),
+  refetchInterval: (query: RetryQuery) => marketRetryPace.delay(query.state.error ?? query.state.fetchFailureReason),
+  refetchOnWindowFocus: (query: RetryQuery) => {
+    const error = query.state.error ?? query.state.fetchFailureReason;
+    marketRetryPace.retryNow(error);
+    return true;
+  },
+};
 
 /**
  * Explicit stale-data tolerance policy (T03.2).
@@ -46,32 +63,32 @@ export type CacheTier = keyof typeof cachePolicy;
  * 503 / 429 with retryAfterMs, a dropped connection) on the server's delay,
  * bounded by core/transient-retry.ts. Any other failed contract request is
  * surfaced at once as the real error (or an Unsupported marker).
- * Live deltas, not polling, refresh pool-scoped families; the stale windows
- * are therefore short and no family polls.
+ * Live deltas refresh healthy pool-scoped families; failed resources retry
+ * on the shared resource pace without discarding their last good values.
  */
 export const marketCachePolicy = {
-  poolSnapshot: { staleTime: 10_000, gcTime: 30_000, ...retryTransientOnly },
-  poolDetail: { staleTime: 10_000, gcTime: 30_000, ...retryTransientOnly },
-  statsBatch: { staleTime: 10_000, gcTime: 30_000, ...retryTransientOnly },
-  rankings: { staleTime: 10_000, gcTime: 30_000, ...retryTransientOnly },
-  candles: { staleTime: 15_000, gcTime: 60_000, ...retryTransientOnly },
-  sparkline: { staleTime: 60_000, gcTime: 5 * 60_000, ...retryTransientOnly },
-  holders: { staleTime: 10_000, gcTime: 30_000, ...retryTransientOnly },
-  profile: { staleTime: 60_000, gcTime: 10 * 60_000, ...retryTransientOnly },
-  walletIdentity: { staleTime: 5 * 60_000, gcTime: 30 * 60_000, ...retryTransientOnly },
+  poolSnapshot: { staleTime: 10_000, gcTime: 30_000, ...marketRetryPolicy },
+  poolDetail: { staleTime: 10_000, gcTime: 30_000, ...marketRetryPolicy },
+  statsBatch: { staleTime: 10_000, gcTime: 30_000, ...marketRetryPolicy },
+  rankings: { staleTime: 10_000, gcTime: 30_000, ...marketRetryPolicy },
+  candles: { staleTime: 15_000, gcTime: 60_000, ...marketRetryPolicy },
+  sparkline: { staleTime: 60_000, gcTime: 5 * 60_000, ...marketRetryPolicy },
+  holders: { staleTime: 10_000, gcTime: 30_000, ...marketRetryPolicy },
+  profile: { staleTime: 60_000, gcTime: 10 * 60_000, ...marketRetryPolicy },
+  walletIdentity: { staleTime: 5 * 60_000, gcTime: 30 * 60_000, ...marketRetryPolicy },
   leaderboard: {
-    staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly,
-    refetchInterval: false, refetchOnWindowFocus: false, refetchOnReconnect: false, retryOnMount: false,
+    staleTime: 30_000, gcTime: 60_000, ...marketRetryPolicy,
+    refetchOnReconnect: false, retryOnMount: false,
   },
-  feed: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
-  callouts: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
-  watchlistRows: { staleTime: 10_000, gcTime: 30_000, ...retryTransientOnly },
-  metadata: { staleTime: 30_000, gcTime: 30_000, ...retryTransientOnly },
-  bounties: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
-  holderRewards: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
-  cups: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
-  profileReplies: { staleTime: 30_000, gcTime: 60_000, ...retryTransientOnly },
-  calloutHistory: { staleTime: 60_000, gcTime: 5 * 60_000, ...retryTransientOnly },
+  feed: { staleTime: 30_000, gcTime: 60_000, ...marketRetryPolicy },
+  callouts: { staleTime: 30_000, gcTime: 60_000, ...marketRetryPolicy },
+  watchlistRows: { staleTime: 10_000, gcTime: 30_000, ...marketRetryPolicy, retry: false },
+  metadata: { staleTime: 30_000, gcTime: 30_000, ...marketRetryPolicy },
+  bounties: { staleTime: 30_000, gcTime: 60_000, ...marketRetryPolicy },
+  holderRewards: { staleTime: 30_000, gcTime: 60_000, ...marketRetryPolicy },
+  cups: { staleTime: 30_000, gcTime: 60_000, ...marketRetryPolicy },
+  profileReplies: { staleTime: 30_000, gcTime: 60_000, ...marketRetryPolicy },
+  calloutHistory: { staleTime: 60_000, gcTime: 5 * 60_000, ...marketRetryPolicy },
 } as const;
 
 export type MarketCacheFamily = keyof typeof marketCachePolicy;

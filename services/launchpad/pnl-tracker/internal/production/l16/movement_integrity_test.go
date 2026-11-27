@@ -13,6 +13,7 @@ import (
 )
 
 func TestIndexedMovementsRequireCanonicalLogOrderAndContent(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, pool := recordedRebuildService(t, ctx)
 	origin := coordinatorReplayRecordedRPC(t)
@@ -39,6 +40,7 @@ func TestIndexedMovementsRequireCanonicalLogOrderAndContent(t *testing.T) {
 			})
 			a := *s.authority
 			a.rpc = client
+			a.nodeWindowBlocks = 33963733 - 33963716 + 1
 			tx, err := pool.Begin(ctx)
 			if err != nil {
 				t.Fatal(err)
@@ -65,6 +67,7 @@ func TestIndexedMovementsRequireCanonicalLogOrderAndContent(t *testing.T) {
 }
 
 func TestReceiptLogRecoveryRejectsConflictingBlockAndReceipt(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, _ := recordedRebuildService(t, ctx)
 	origin := coordinatorReplayRecordedRPC(t)
@@ -132,6 +135,7 @@ func TestReceiptLogRecoveryRejectsConflictingBlockAndReceipt(t *testing.T) {
 }
 
 func TestFactorySupplyRequiresCompleteOrderedMintAndSeed(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	s, _ := recordedRebuildService(t, ctx)
 	logs, err := s.authority.rpc.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: big.NewInt(33963716), ToBlock: big.NewInt(33963716), Addresses: []common.Address{common.HexToAddress(realMarketToken)}, Topics: [][]common.Hash{{transferTopic}}})

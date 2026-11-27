@@ -232,6 +232,26 @@
           "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
           "key": "Shift"
         }
+      ],
+      "states": [
+        {
+          "name": "colour-mode-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) header button[aria-label=\"Open account menu\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Device"
+            },
+            {
+              "action": "press",
+              "selector": "[role=\"radiogroup\"][aria-label=\"Colour mode\"] button[aria-checked=\"true\"]",
+              "key": "Shift"
+            }
+          ]
+        }
       ]
     },
     {
@@ -393,5 +413,5 @@
       "max": 28
     }
   ],
-  "buildMs": 600000
+  "buildMs": 1800000
 }

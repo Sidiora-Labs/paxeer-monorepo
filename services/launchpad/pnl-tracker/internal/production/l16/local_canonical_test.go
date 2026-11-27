@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -30,6 +29,7 @@ import (
 type localCanonicalChain struct {
 	RPC, Factory, Wallet, Token, Stream string
 	Height                              uint64
+	SecondWallet                        string
 }
 
 type localCanonicalFixture struct {
@@ -39,6 +39,7 @@ type localCanonicalFixture struct {
 	authority *BaselineAuthority
 	env       []string
 	root      string
+	control   string
 }
 
 func newLocalCanonicalFixture(t *testing.T, mode string) localCanonicalFixture {
@@ -53,26 +54,19 @@ func newLocalCanonicalFixture(t *testing.T, mode string) localCanonicalFixture {
 		t.Fatal(err)
 	}
 	env := append(os.Environ(), "GOWORK=off", "L16_FIXTURE_MODE="+mode, "L16_FIXTURE_CONTROL="+control, "L16_FIXTURE_ROOT="+root, "L16_FIXTURE_ADMIN_DSN="+db.AdminDSN, "L16_FIXTURE_WALLET_KEY="+hex.EncodeToString(crypto.FromECDSA(key)))
-	source, err := filepath.Abs("testdata/local_canonical/indexer_test.go.overlay")
-	if err != nil {
-		t.Fatal(err)
-	}
-	overlay, err := json.Marshal(struct{ Replace map[string]string }{map[string]string{filepath.Join(root, "services/launchpad/indexer/internal/processor/pnl_canonical_fixture_test.go"): source}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	overlayPath := filepath.Join(control, "overlay.json")
-	if err = os.WriteFile(overlayPath, overlay, 0600); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.CommandContext(ctx, "go", "test", "-count=1", "-timeout=13m", "-overlay", overlayPath, "-run", "^TestPnlCanonicalFixture$", "-v", "./internal/processor")
-	cmd.Dir, cmd.Env = filepath.Join(root, "services/launchpad/indexer"), env
+	binary := localCanonicalProducer.load(t, "canonical producer", func() (string, error) {
+		return buildLocalCanonicalProducer(ctx, root, env)
+	})
+	indexer := filepath.Join(root, "services/launchpad/indexer")
+	cmd := exec.CommandContext(ctx, binary, "-test.count=1", "-test.timeout=13m", "-test.run=^TestPnlCanonicalFixture$", "-test.v")
+	cmd.Dir, cmd.Env = filepath.Join(indexer, "internal/processor"), env
 	logPath := filepath.Join(control, "indexer.log")
 	log, err := os.Create(logPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	cmd.Stdout, cmd.Stderr = log, log
+	started := time.Now()
 	if err = cmd.Start(); err != nil {
 		_ = log.Close()
 		t.Fatal(err)
@@ -120,6 +114,7 @@ func newLocalCanonicalFixture(t *testing.T, mode string) localCanonicalFixture {
 		case <-ticker.C:
 		}
 	}
+	t.Logf("canonical producer ready: %s", time.Since(started))
 	pool, err := pgxpool.New(ctx, db.Runtimes["pnl_runtime"].DSN)
 	if err != nil {
 		t.Fatal(err)
@@ -139,7 +134,7 @@ func newLocalCanonicalFixture(t *testing.T, mode string) localCanonicalFixture {
 		t.Fatal(err)
 	}
 	authority.factory = chain.Factory
-	return localCanonicalFixture{ctx: ctx, chain: chain, db: db, authority: authority, env: env, root: root}
+	return localCanonicalFixture{ctx: ctx, chain: chain, db: db, authority: authority, env: env, root: root, control: control}
 }
 
 func localCanonicalBaseline(t *testing.T) (context.Context, *BaselineAuthority, string, string) {
@@ -148,7 +143,7 @@ func localCanonicalBaseline(t *testing.T) (context.Context, *BaselineAuthority, 
 	return fixture.ctx, fixture.authority, fixture.chain.Wallet, fixture.chain.Token
 }
 
-func localCanonicalWorker(t *testing.T, prefix string) (context.Context, *LiveTransferWorker, auth.IdentityPrincipal) {
+func localCanonicalWorker(t *testing.T, prefix string) (context.Context, *LiveTransferWorker, auth.IdentityPrincipal, liveFixtureValues) {
 	t.Helper()
 	mode := map[string]string{"L16_GIFT_": "gift", "L16_DENSE_": "dense", "L16_MIXED_": "mixed"}[prefix]
 	if mode == "" {
@@ -184,12 +179,11 @@ func localCanonicalWorker(t *testing.T, prefix string) (context.Context, *LiveTr
 	if err != nil || principal.Wallet != fixture.chain.Wallet {
 		t.Fatal(principal.Wallet, err)
 	}
-	t.Setenv(prefix+"WALLET", fixture.chain.Wallet)
-	t.Setenv(prefix+"TOKEN", fixture.chain.Token)
+	values := liveFixtureValues{prefix + "WALLET": fixture.chain.Wallet, prefix + "TOKEN": fixture.chain.Token}
 	if mode == "dense" {
-		t.Setenv(prefix+"EXPECTED_HISTORY_COUNT", "10001")
+		values[prefix+"EXPECTED_HISTORY_COUNT"] = "10001"
 	}
-	return ctx, worker, principal
+	return ctx, worker, principal, values
 }
 
 func localCanonicalSecondNode(t *testing.T, fixture localCanonicalFixture) *ethclient.Client {
@@ -237,39 +231,13 @@ func localCanonicalSecondNode(t *testing.T, fixture localCanonicalFixture) *ethc
 // authority in a temporary module that may import the gateway's internal API.
 func localCanonicalIdentity(t *testing.T, fixture localCanonicalFixture) (auth.HTTPIdentityAuthority, string) {
 	t.Helper()
-	source := filepath.Join(fixture.root, "services/launchpad/gateway")
 	dir := t.TempDir()
-	module, err := os.ReadFile(filepath.Join(source, "go.mod"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	const gateway = "github.com/Sidiora-Technologies/KindleLaunch/media/gateway"
-	mod := strings.Replace(string(module), "module "+gateway, "module "+gateway+"/pnlfixture", 1)
-	relative := regexp.MustCompile(`(?m)(=>\s+)(\.[^\s]+)`)
-	mod = relative.ReplaceAllStringFunc(mod, func(line string) string {
-		parts := relative.FindStringSubmatch(line)
-		return parts[1] + filepath.Clean(filepath.Join(source, parts[2]))
+	env := append(fixture.env, "L16_FIXTURE_RPC="+fixture.chain.RPC)
+	binary := localCanonicalIdentityProgram.load(t, "canonical identity", func() (string, error) {
+		return buildLocalCanonicalIdentity(fixture.ctx, fixture.root, env)
 	})
-	mod += "\nrequire " + gateway + " v0.0.0\nreplace " + gateway + " => " + source + "\n"
-	if err = os.WriteFile(filepath.Join(dir, "go.mod"), []byte(mod), 0600); err != nil {
-		t.Fatal(err)
-	}
-	sum, err := os.ReadFile(filepath.Join(source, "go.sum"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = os.WriteFile(filepath.Join(dir, "go.sum"), sum, 0600); err != nil {
-		t.Fatal(err)
-	}
-	raw, err := os.ReadFile("testdata/local_canonical/identity.go.overlay")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = os.WriteFile(filepath.Join(dir, "main.go"), raw, 0600); err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.CommandContext(fixture.ctx, "go", "run", "-mod=mod", ".")
-	cmd.Dir, cmd.Env = dir, append(fixture.env, "L16_FIXTURE_RPC="+fixture.chain.RPC)
+	cmd := exec.CommandContext(fixture.ctx, binary)
+	cmd.Dir, cmd.Env = filepath.Dir(binary), env
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		t.Fatal(err)
@@ -284,6 +252,7 @@ func localCanonicalIdentity(t *testing.T, fixture localCanonicalFixture) (auth.H
 		t.Fatal(err)
 	}
 	cmd.Stderr = log
+	started := time.Now()
 	if err = cmd.Start(); err != nil {
 		_ = log.Close()
 		t.Fatal(err)
@@ -301,5 +270,6 @@ func localCanonicalIdentity(t *testing.T, fixture localCanonicalFixture) (auth.H
 		raw, _ := os.ReadFile(logPath)
 		t.Fatalf("identity session: %v\n%s", err, raw)
 	}
+	t.Logf("canonical identity ready: %s", time.Since(started))
 	return auth.HTTPIdentityAuthority{Endpoint: identity.URL, ServiceToken: identity.ServiceToken, Client: &http.Client{Timeout: 2 * time.Second}}, identity.AccessToken
 }

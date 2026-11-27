@@ -17,6 +17,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@paxeer-network/agent-kit": "workspace:*",
     "@paxeer-network/chart": "workspace:*",
     "@paxeer-network/hooks": "workspace:*",
     "@paxeer-network/i18n": "workspace:*",

@@ -539,6 +539,9 @@ func SocialConnectedRoutes() []ConnectedRoute {
 		"/v3/voice-rooms": postMethod, "/v3/voice-rooms/{roomId}/moderation-actions": postMethod, "/v3/voice-rooms/{roomId}/tickets": postMethod,
 		"/v2/voice-rooms/{roomId}": getMethod, "/v2/voice-rooms/{roomId}:end": postMethod, "/v2/voice-rooms/{roomId}:leave": postMethod,
 	}
+	publicReads := []string{
+		"/v2/social/users/{wallet}/comments",
+	}
 	paths := make([]string, 0, len(methods))
 	for path := range methods {
 		paths = append(paths, path)
@@ -567,6 +570,9 @@ func SocialConnectedRoutes() []ConnectedRoute {
 		for _, method := range strings.Fields(methods[path]) {
 			routes = append(routes, ConnectedRoute{Method: method, Template: path, Authenticate: true})
 		}
+	}
+	for _, path := range publicReads {
+		routes = append(routes, ConnectedRoute{Method: http.MethodGet, Template: path, Optional: true})
 	}
 	return routes
 }

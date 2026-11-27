@@ -29,11 +29,11 @@ func TestPublicProjectionPropagatesUnavailableStorage(t *testing.T) {
 		{"reserve source", "stats.accounting_market_commits", func(tx pgx.Tx) error { _, e := p.realUsdlTx(f.ctx, tx, anchor, f.real.Pool, nil); return e }},
 		{"latest fill", "stats.accounting_market_commits", func(tx pgx.Tx) error { _, e := p.latestFillTx(f.ctx, tx, anchor, f.real.Pool, -1); return e }},
 		{"reserve checkpoint", "stats.public_stats_sync_baselines", func(tx pgx.Tx) error {
-			_, e := p.syncEventsTx(f.ctx, tx, anchor, []string{f.real.EventEmitter}, f.real.Pool)
+			_, e := p.syncEventsTx(f.ctx, tx, anchor, []string{f.real.EventEmitter}, f.real.Pool, stamp+1)
 			return e
 		}},
 		{"reserve raw logs", "indexer.indexer_raw_logs_v1", func(tx pgx.Tx) error {
-			_, e := p.syncEventsTx(f.ctx, tx, anchor, []string{f.real.EventEmitter}, f.real.Pool)
+			_, e := p.syncEventsTx(f.ctx, tx, anchor, []string{f.real.EventEmitter}, f.real.Pool, stamp+1)
 			return e
 		}},
 		{"holder metadata", publicTestHolders + ".tokens", func(tx pgx.Tx) error {
@@ -49,7 +49,7 @@ func TestPublicProjectionPropagatesUnavailableStorage(t *testing.T) {
 			return e
 		}},
 		{"pool totals", "stats.trade_facts", func(tx pgx.Tx) error {
-			_, _, e := p.poolStatsTx(f.ctx, tx, anchor, nil, f.real.Pool, f.real.Token, f.real.Transactions[0].From, stamp)
+			_, _, e := p.poolStatsTx(f.ctx, tx, anchor, nil, f.real.Pool, f.real.Token, f.real.Transactions[0].From, stamp, stamp+1)
 			return e
 		}},
 		{"window baseline", "stats.accounting_market_commits", func(tx pgx.Tx) error {

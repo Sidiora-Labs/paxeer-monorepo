@@ -18,7 +18,7 @@ const statusText: Record<EvidenceItem['status'], string> = {
 
 function EvidenceRow({ item, onRemove, onRetry, onRefresh }: { item: EvidenceItem; onRemove(): void; onRetry(): void; onRefresh(): void }) {
   return (
-    <li className="flex items-center gap-3 rounded-sm bg-surface-3 p-2">
+    <li className="flex items-center gap-3 rounded-sm bg-surface-2 p-2">
       <img src={item.previewUrl} alt="" width={48} height={48} decoding="async" className="size-12 shrink-0 rounded-sm object-cover" />
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm text-text">{item.file.name}</span>
@@ -86,7 +86,7 @@ export function SubmissionComposer({ bounty, className }: SubmissionComposerProp
 
   return (
     <form noValidate onSubmit={submit} aria-labelledby={`${id}-heading`} className={cn('flex flex-col gap-4 rounded-lg bg-surface-1 p-4 [&_.sl-field]:py-[calc(var(--sl-space-2)-var(--sl-edge-width))] [&_textarea]:text-base [&_textarea]:leading-[calc(var(--sl-leading-base)/var(--sl-text-base))]', className)}>
-      <h2 id={`${id}-heading`} className="text-md font-bold text-text">Submit your entry</h2>
+      <h2 id={`${id}-heading`} className="text-md font-semibold text-text">Submit your entry</h2>
       <FormField
         id={`${id}-body`}
         label="Proof"
@@ -97,17 +97,17 @@ export function SubmissionComposer({ bounty, className }: SubmissionComposerProp
         textareaProps={{ value: body, onChange: event => { setBody(event.target.value); if (mutation.isSuccess) mutation.reset(); }, rows: 4 }}
       />
       <div className="flex flex-col gap-2">
-        <span className="text-sm font-bold text-text">Images <span className="font-semibold text-text-faint">(optional)</span></span>
+        <span className="text-sm font-semibold text-text">Images <span className="font-semibold text-text-faint">(optional)</span></span>
         <div
           onDragOver={event => { event.preventDefault(); if (!full) setDragging(true); }}
           onDragLeave={() => setDragging(false)}
           onDrop={drop}
-          className={cn('flex min-h-30 flex-col items-center justify-center gap-2 rounded-lg p-4 text-center transition-colors duration-fast', dragging ? 'bg-accent-soft' : fileProblem ? 'bg-danger-soft' : 'bg-surface-2')}
+          className={cn('flex min-h-30 flex-col items-center justify-center gap-2 rounded-sm bg-surface-2 p-4 text-center transition-colors duration-fast', dragging && 'outline-2 outline-focus', fileProblem && 'outline-1 outline-danger')}
         >
           <ImagePlus aria-hidden="true" className={cn('size-10', dragging ? 'text-accent' : 'text-text-faint')} />
           <p className={cn('text-md', dragging ? 'text-accent' : 'text-text')}>{full ? 'Image limit reached' : 'Drop images here'}</p>
           <p className="text-xs text-text-faint">PNG, JPEG or WebP, up to 6 MB each, max {EVIDENCE_MAX_FILES}</p>
-          <Button type="button" variant="primary" size="sm" icon={<Upload />} disabled={full} onClick={() => inputRef.current?.click()}>Select images</Button>
+          <Button type="button" variant="secondary" size="sm" icon={<Upload />} disabled={full} onClick={() => inputRef.current?.click()}>Select images</Button>
           <input
             ref={inputRef}
             type="file"
@@ -130,14 +130,14 @@ export function SubmissionComposer({ bounty, className }: SubmissionComposerProp
       </div>
 
       {failure && failure.state === 'unsupported' ? (
-        <UnavailableState title="Submitting" operation={failure.operation} status={failure.status} message="Try again in a moment" />
+        <UnavailableState title="Submitting" operation={failure.operation} status={failure.status} notServed={failure.notServed} message="Try again in a moment" />
       ) : null}
       {failure && failure.state === 'error' ? <NoticeBar tone="danger" announce title="Couldn't submit">{userFacingMessage(failure.error)}</NoticeBar> : null}
       {mutation.isSuccess ? <NoticeBar tone="success" announce>Submitted! The creator will review it</NoticeBar> : null}
 
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-end">
         {pendingEvidence ? <p className="text-xs text-text-faint">Waiting for your images to be checked...</p> : null}
-        <Button type="submit" variant="primary" size="md" icon={<Send />} loading={mutation.isPending} disabled={signedIn && (!evidence.ready || evidence.items.some(item => item.status === 'rejected'))} className="w-full md:w-auto">
+        <Button type="submit" variant={signedIn ? 'primary' : 'inverse'} size="md" icon={<Send />} loading={mutation.isPending} disabled={signedIn && (!evidence.ready || evidence.items.some(item => item.status === 'rejected'))} className="w-full md:w-auto">
           {signedIn ? 'Submit' : 'Sign in to submit'}
         </Button>
       </div>

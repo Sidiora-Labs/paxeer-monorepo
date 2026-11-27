@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -148,6 +149,8 @@ func (h AccountingV2Handler) cursor(r store.AccountingPageRequest, candles bool,
 	r.CursorExpires = int64(expiry)
 	r.SnapshotObservedAt = time.UnixMilli(int64(observed)).UTC().Format("2006-01-02T15:04:05.000Z")
 	value := int64(boundary)
+	pinned := int64(upper)
+	r.SnapshotSequence = &pinned
 	if candles {
 		if value > 253402300799 || value*1000 < r.From || value*1000 >= r.To {
 			return invalid()
@@ -158,8 +161,6 @@ func (h AccountingV2Handler) cursor(r store.AccountingPageRequest, candles bool,
 			return invalid()
 		}
 		r.AfterSequence = &value
-		pinned := int64(upper)
-		r.SnapshotSequence = &pinned
 		height := binary.BigEndian.Uint64(raw[67:75])
 		if height > 9223372036854775807 {
 			return invalid()
@@ -291,16 +292,19 @@ func (h AccountingV2Handler) serve(w http.ResponseWriter, req *http.Request, can
 	}
 	if err != nil && !errors.Is(err, store.ErrAccountingUntraded) {
 		if errors.Is(err, store.ErrDataIntegrity) {
+			LogAccountingUnavailable(w, req, err)
 			WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		} else if token != "" && errors.Is(err, store.ErrAccountingNotReady) {
 			WriteV2APIError(w, req, 400, literalCURSORINVALID)
 		} else {
+			LogAccountingUnavailable(w, req, err)
 			WriteV2APIError(w, req, 503, literalDEPENDENCYUNAVAILABLE)
 		}
 		return
 	}
 	body, err := h.EncodeCachePage(r, candles, page, responseRequestID(w))
 	if err != nil {
+		LogAccountingUnavailable(w, req, err)
 		WriteV2APIError(w, req, 503, literalINTEGRITYQUARANTINED)
 		return
 	}
@@ -370,4 +374,14 @@ func (h AccountingV2Handler) EncodeCachePage(r store.AccountingPageRequest, cand
 		return nil, store.ErrDataIntegrity
 	}
 	return body, nil
+}
+
+func LogAccountingUnavailable(w http.ResponseWriter, r *http.Request, err error) {
+	route := r.Pattern
+	if ctx := chi.RouteContext(r.Context()); ctx != nil {
+		if pattern := ctx.RoutePattern(); pattern != "" {
+			route = pattern
+		}
+	}
+	slog.ErrorContext(r.Context(), "accounting request unavailable", "route", route, "request_id", responseRequestID(w), "error", err)
 }

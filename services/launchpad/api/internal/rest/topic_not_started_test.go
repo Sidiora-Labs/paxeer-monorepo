@@ -38,7 +38,7 @@ func TestTopicNotStartedProductionSnapshots(t *testing.T) {
 	started := "market.stats." + address
 	otherAddress := "0x3333333333333333333333333333333333333333"
 	missing := "market.stats." + otherAddress
-	read := func(topics []string, status int, code string) {
+	read := func(topics []string, status int, code string, expected ...string) {
 		t.Helper()
 		response, err := server.Client().Get(server.URL + "/v2/snapshots?" + url.Values{"topics": {strings.Join(topics, ",")}}.Encode())
 		if err != nil {
@@ -60,8 +60,16 @@ func TestTopicNotStartedProductionSnapshots(t *testing.T) {
 					} `json:"snapshot"`
 				} `json:"data"`
 			}
-			if err := json.Unmarshal(raw, &result); err != nil || len(result.Data.Snapshot.Topics) != len(topics) {
+			if len(expected) == 0 {
+				expected = topics
+			}
+			if err := json.Unmarshal(raw, &result); err != nil || len(result.Data.Snapshot.Topics) != len(expected) {
 				t.Fatalf("snapshot topics: %s %v", raw, err)
+			}
+			for i, entry := range result.Data.Snapshot.Topics {
+				if entry.Topic != expected[i] {
+					t.Fatalf("snapshot topic: %s, want %s", entry.Topic, expected[i])
+				}
 			}
 			return
 		}
@@ -78,7 +86,7 @@ func TestTopicNotStartedProductionSnapshots(t *testing.T) {
 		}
 	}
 	read([]string{missing}, 404, "TOPIC_NOT_STARTED")
-	read([]string{started, missing}, 404, "TOPIC_NOT_STARTED")
+	read([]string{started, missing}, 200, "", started)
 	var schema string
 	if err := pool.QueryRow(context.Background(), `SELECT nspname FROM pg_namespace WHERE nspname LIKE 'l22_stream_%'`).Scan(&schema); err != nil {
 		t.Fatal(err)
@@ -113,7 +121,7 @@ func TestTopicNotStartedProductionSnapshots(t *testing.T) {
 	if err := tx.Commit(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	read([]string{started, missing}, 200, "")
+	read([]string{started, missing}, 200, "", missing, started)
 	if logs.Len() != 0 {
 		t.Fatalf("snapshot errors logged: %s", logs.String())
 	}

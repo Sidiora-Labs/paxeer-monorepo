@@ -44,6 +44,8 @@ type streamRelayDocument struct {
 	IdleInterval time.Duration `json:"idleInterval"`
 	// MaxLag is the readiness budget for the oldest unpublished frame.
 	MaxLag time.Duration `json:"maxLag"`
+	// RetentionWindow preserves the reader replay window; zero uses the default.
+	RetentionWindow time.Duration `json:"retentionWindow,omitempty"`
 
 	Concurrency     int     `json:"concurrency"`
 	EventsPerSecond float64 `json:"eventsPerSecond"`
@@ -62,6 +64,9 @@ type streamRelay struct {
 }
 
 func (d streamRelayDocument) validate() error {
+	if d.RetentionWindow != 0 && d.RetentionWindow < delivery.StreamReplayWindow {
+		return errors.New("stream relay retention window is shorter than the 72h reader replay window")
+	}
 	if d.Epoch < 1 || d.Region == "" || d.Batch < 1 || d.Batch > 1000 || d.MaxAttempts < 1 || d.MaxAttempts > 100 ||
 		d.LeaseDuration < time.Second || d.LeaseDuration > 5*time.Minute || d.PublishTimeout <= 0 || d.PublishTimeout >= d.LeaseDuration ||
 		d.RetryDelay < time.Second || d.RetryDelay > time.Hour || d.IdleInterval < 50*time.Millisecond || d.IdleInterval > 10*time.Second ||
@@ -170,7 +175,7 @@ func newStreamRelay(ctx context.Context, pool *pgxpool.Pool, nc *nats.Conn, owne
 	if err != nil {
 		return nil, err
 	}
-	relay, err := delivery.NewStreamOutboxRelay(pool, nc, delivery.StreamOutboxConfig{Owner: owner, Routes: d.Routes, Batch: d.Batch, MaxAttempts: d.MaxAttempts, LeaseDuration: d.LeaseDuration, PublishTimeout: d.PublishTimeout, RetryDelay: d.RetryDelay}, guard.Assert, budget)
+	relay, err := delivery.NewStreamOutboxRelay(pool, nc, delivery.StreamOutboxConfig{Owner: owner, Routes: d.Routes, Batch: d.Batch, MaxAttempts: d.MaxAttempts, LeaseDuration: d.LeaseDuration, PublishTimeout: d.PublishTimeout, RetryDelay: d.RetryDelay, RetentionWindow: d.RetentionWindow}, guard.Assert, budget)
 	if err != nil {
 		return nil, err
 	}
@@ -199,6 +204,11 @@ func (s *streamRelay) Run(ctx context.Context, logger *slog.Logger) {
 	for ctx.Err() == nil {
 		before, statsErr := s.relay.Stats(ctx)
 		err := s.relay.RunOnce(ctx)
+		removed, pruneErr := s.relay.Prune(ctx)
+		err = errors.Join(err, pruneErr)
+		if logger != nil && removed > 0 {
+			logger.Info("stream relay retention pass", slog.Int64("removed_frames", removed))
+		}
 		if ctx.Err() != nil {
 			return
 		}
@@ -208,7 +218,12 @@ func (s *streamRelay) Run(ctx context.Context, logger *slog.Logger) {
 		wait := s.doc.IdleInterval
 		if err != nil || statsErr != nil {
 			if logger != nil {
-				logger.Error("stream relay pass failed", slog.Any("err", errors.Join(statsErr, err)))
+				var pass *delivery.StreamRetryPassError
+				if statsErr == nil && pruneErr == nil && errors.As(err, &pass) && pass.RetriedOnly && pass.Attempts <= s.doc.MaxAttempts {
+					logger.Warn("stream relay publication retried", slog.Any("err", err))
+				} else {
+					logger.Error("stream relay pass failed", slog.Any("err", errors.Join(statsErr, err)))
+				}
 			}
 			wait = backoff
 			if backoff *= 2; backoff > 30*time.Second {

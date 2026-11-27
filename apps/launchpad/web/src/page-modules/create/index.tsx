@@ -7,7 +7,7 @@ import CreateWizard from '@/widgets/create/create-wizard';
 
 /**
  * Server-rendered frame shown until the wizard hydrates. It mirrors the wizard's
- * layout (H1, details card with the 2-column name/ticker row, preview column) so
+ * layout (image, details, closed option rows and preview column) so
  * the page never collapses to a single heading while the client bundle loads.
  */
 export function CreatePageFallback() {
@@ -23,26 +23,26 @@ export function CreatePageFallback() {
               <p className="text-xs text-text-faint">Choose carefully, the name and ticker can&apos;t be changed once the coin is created</p>
             </div>
             <div className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4">
+              <Skeleton variant="block" className="aspect-square w-40" />
               <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
                 {['Coin name', 'Ticker'].map(label => (
                   <div key={label} className="flex flex-col gap-1.5">
-                    <p className="text-sm font-bold text-text">{label}</p>
+                    <p className="text-sm font-semibold text-text">{label}</p>
                     <Skeleton variant="block" height={surfaceSpacing(9)} />
                   </div>
                 ))}
               </div>
               <div className="flex flex-col gap-1.5">
-                <p className="text-sm font-bold text-text">Description <span className="font-normal text-text-faint">(Optional)</span></p>
+                <p className="text-sm font-semibold text-text">Description <span className="font-normal text-text-faint">(Optional)</span></p>
                 <Skeleton variant="block" height={surfaceSpacing(28)} />
               </div>
-              <Skeleton variant="block" height={surfaceSpacing(11)} />
-              <Skeleton variant="block" height={surfaceSpacing(14)} />
+              {['Social links', 'Pair', 'Creator rewards', 'Trading rules'].map(label => <Skeleton key={label} variant="block" height={surfaceSpacing(12)} />)}
             </div>
           </section>
         </div>
         <aside aria-hidden="true" className="flex shrink-0 flex-col gap-3 lg:w-56 2xl:w-60">
           <p className="text-md font-semibold text-text">Preview</p>
-          <div className="min-h-40 rounded-lg bg-surface-1 lg:min-h-72" />
+          <div className="rounded-lg bg-surface-1 p-4" />
         </aside>
       </div>
     </div>

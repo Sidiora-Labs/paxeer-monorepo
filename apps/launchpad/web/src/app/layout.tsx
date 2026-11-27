@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { cloneElement, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
 import localFont from 'next/font/local';
 import { launchpadCanvasColors } from './presentation-tokens';
+import { deploymentColorMode } from '@/core/app-foundation/color-mode';
 import renderRootLayout from './root-layout';
 import './globals.css';
 
@@ -10,7 +11,6 @@ const manrope = localFont({
     { path: '../../public/fonts/manrope-medium.otf', weight: '500', style: 'normal' },
     { path: '../../public/fonts/manrope-semibold.otf', weight: '600', style: 'normal' },
     { path: '../../public/fonts/manrope-bold.otf', weight: '700', style: 'normal' },
-    { path: '../../public/fonts/manrope-extrabold.otf', weight: '800', style: 'normal' },
   ],
   variable: '--sl-font-sans',
   display: 'swap',
@@ -27,23 +27,20 @@ export const metadata: Metadata = {
     apple: '/Kindle-Launch-logo-dark.png',
   },
   manifest: '/manifest.json',
-  other: { 'color-scheme': 'light dark' },
+  other: { 'color-scheme': deploymentColorMode() === 'device' ? 'light dark' : deploymentColorMode() },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: launchpadCanvasColors.light },
-    { media: '(prefers-color-scheme: dark)', color: launchpadCanvasColors.dark },
-  ],
+  themeColor: launchpadCanvasColors[deploymentColorMode() === 'light' ? 'light' : 'dark'],
 };
 
 export default async function RootLayout(props: { children: ReactNode }) {
   const layout = await renderRootLayout(props);
-  const body = layout.props.children;
-  return cloneElement(layout, undefined, cloneElement(body, {
-    className: `${manrope.variable} ${body.props.className}`,
+  return cloneElement(layout, undefined, Children.map(layout.props.children, child => {
+    if (!isValidElement<{ className?: string }>(child) || child.type !== 'body') return child;
+    return cloneElement(child, { className: `${manrope.variable} ${child.props.className ?? ''}` });
   }));
 }

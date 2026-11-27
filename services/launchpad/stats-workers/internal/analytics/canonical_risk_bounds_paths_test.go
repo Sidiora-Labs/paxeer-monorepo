@@ -22,7 +22,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-func TestCanonicalRiskInputsValidatePersistedSourceFacts(t *testing.T) {
+func canonicalRiskPostgresFixture(t *testing.T) (analytics.CanonicalRiskInputs, accounting.FillV1, int64) {
+	t.Helper()
 	ctx := context.Background()
 	db := internaltest.NewPostgres(t)
 	archive := riskInputsFixture(t)
@@ -155,8 +156,14 @@ func TestCanonicalRiskInputsValidatePersistedSourceFacts(t *testing.T) {
 	exec(`UPDATE risk_holders.tokens SET coverage='complete' WHERE token=$1`, creation.Token)
 
 	source := analytics.CanonicalRiskInputs{Authority: authority, HolderSchema: "risk_holders", SourceSchema: "indexer", SourceStream: "canonical", ProjectionVersion: "projection-v1"}
+	return source, fill, archive.Now.Unix()
+}
+
+func TestCanonicalRiskInputsValidatePersistedSourceFacts(t *testing.T) {
+	source, fill, now := canonicalRiskPostgresFixture(t)
+	ctx := context.Background()
+	db := source.Authority.Pool
 	wm := analytics.Watermark{ChainID: "125", Height: fill.Position.Height, BlockHash: fill.Position.BlockHash, ProjectionRevision: "1", ObservedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"), Integrity: "healthy"}
-	now := archive.Now.Unix()
 	for _, tc := range []struct {
 		name, sql string
 		want      error

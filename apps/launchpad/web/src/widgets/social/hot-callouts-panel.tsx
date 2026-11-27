@@ -123,7 +123,7 @@ function CalloutPages({ feed, pool, viewer, onCompose }: { feed: CalloutFeedKind
         </div>
       ) : source.state === 'unsupported' ? (
         <div className={noticeFrameClass}>
-          <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Callouts" operation={source.operation} status={source.status} message={source.status === 503 ? 'Check back in a bit' : undefined} onRetry={retry} />
+          <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Callouts" operation={source.operation} status={source.status} notServed={source.notServed} error={source.error} message={source.status === 503 ? 'Check back in a bit' : undefined} onRetry={source.retry ?? retry} />
         </div>
       ) : source.state === 'error' ? (
         <div className={noticeFrameClass}>

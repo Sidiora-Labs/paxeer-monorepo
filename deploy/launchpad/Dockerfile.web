@@ -4,6 +4,7 @@ RUN apk add --no-cache gcompat python3 make g++ && apk info -v gcompat python3 m
 WORKDIR /src/apps/launchpad
 ENV NEXT_TELEMETRY_DISABLED=1 CI=1 NODE_OPTIONS=--max-old-space-size=4096
 COPY services/launchpad/security/control/cap-admission.ts /src/services/launchpad/security/control/cap-admission.ts
+COPY services/wallet/gateway/src/auth/did.ts /src/services/wallet/gateway/src/auth/did.ts
 COPY apps/launchpad/ /src/apps/launchpad/
 COPY sdk/launchpad/packages/ /src/sdk/launchpad/packages/
 COPY apps/perps/apps/web/public/static/charting_library/charting_library.d.ts /src/apps/perps/apps/web/public/static/charting_library/charting_library.d.ts

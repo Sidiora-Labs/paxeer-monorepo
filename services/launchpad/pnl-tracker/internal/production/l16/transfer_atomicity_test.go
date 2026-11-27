@@ -9,6 +9,7 @@ import (
 )
 
 func TestTransferCancellationPreservesBothInventoryPartitions(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	_, pool := recordedRebuildService(t, ctx)
 	buy := testLeg(1)

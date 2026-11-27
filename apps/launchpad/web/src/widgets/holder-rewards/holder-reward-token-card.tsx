@@ -87,7 +87,7 @@ export function TokenLinkIcons({ links, tokenAddress, className }: { links: Soci
 
 /**
  * Ranked holder-rewards coin card: top-paying rail, grid view and the create
- * form preview share it. Top-3 ranks tint the surface (no outline); the
+ * form preview share it. Top-three ranks use their rank colours; the
  * whole card is reachable through the name link overlay while copy and
  * external links stay separately focusable.
  */
@@ -111,7 +111,6 @@ export default function HolderRewardTokenCard({
   const name = displayCoinText(rawName, tokenAddress);
   const symbol = displayCoinText(rawSymbol, tokenAddress);
   const cardBg = surface === 'canvas' ? 'bg-surface-1' : 'bg-surface-2';
-  const top3 = rank !== undefined && rank >= 1 && rank <= 3;
 
   if (loading) {
     return (
@@ -148,7 +147,7 @@ export default function HolderRewardTokenCard({
   );
 
   return (
-    <article className={cn('group relative flex h-full min-h-47 min-w-0 flex-col gap-3 rounded-md p-4 transition-colors duration-fast', cardBg, href && 'hover:bg-surface-hover', top3 && 'bg-rank-1-soft', className)}>
+    <article className={cn('group relative flex h-full min-h-47 min-w-0 flex-col gap-3 rounded-md p-4 transition-colors duration-fast', cardBg, href && 'hover:bg-surface-hover', className)}>
       <div className="flex flex-wrap items-start gap-3">
         <Avatar src={image} name={name} size="lg" shape="square" decorative />
         <div className="min-w-0 flex-1 basis-24">
@@ -164,7 +163,7 @@ export default function HolderRewardTokenCard({
           </div>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))] text-text-faint">
             {symbol ? <span className="truncate font-semibold" title={symbol}>${symbol}</span> : null}
-            <AgeChip iso={createdAt} className="font-bold text-warning" />
+            <AgeChip iso={createdAt} className="font-medium text-text-faint" />
             <TokenLinkIcons links={links} tokenAddress={tokenAddress} />
             {!strategyActive ? <StatusBadge status="neutral">Strategy changed</StatusBadge> : null}
           </div>
@@ -174,13 +173,13 @@ export default function HolderRewardTokenCard({
       <dl className="flex flex-col gap-1">
         <div className="flex min-w-0 flex-col gap-1">
           <dt className="text-2xs leading-[calc(var(--sl-leading-2xs)/var(--sl-text-2xs))] font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Holder rewards</dt>
-          <dd data-numeric className={cn('min-w-0 text-xl leading-[calc(var(--sl-leading-xl)/var(--sl-text-xl))] font-bold tabular-nums', distributedRaw === null ? 'text-text-faint' : 'text-success')}>
+          <dd data-numeric className={cn('min-w-0 overflow-x-auto whitespace-nowrap text-xl leading-[calc(var(--sl-leading-xl)/var(--sl-text-xl))] font-bold tabular-nums', distributedRaw === null ? 'text-text-faint' : 'text-text')}>
             {distributedRaw === null ? <span aria-label="Not available yet">{'—'}</span> : <>{usdlAmountText(distributedRaw)}<span className="ml-1 text-xs font-semibold text-text-faint">USDL</span></>}
           </dd>
         </div>
         <div className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))]">
           <dt className="text-text-faint">Market cap</dt>
-          <dd data-numeric className={cn('min-w-0 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold tabular-nums', mcapRaw === null ? 'text-text-faint' : 'text-text')}>
+          <dd data-numeric className={cn('min-w-0 max-w-full overflow-x-auto whitespace-nowrap text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold tabular-nums', mcapRaw === null ? 'text-text-faint' : 'text-text')}>
             {mcapRaw === null ? <span aria-label="Not available yet">{'—'}</span> : `${mcapText(mcapRaw)} USDL`}
           </dd>
         </div>

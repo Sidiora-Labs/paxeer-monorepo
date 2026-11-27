@@ -1,12 +1,13 @@
 'use client';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
+import { type UseQueryResult } from '@tanstack/react-query';
 import type { Operations } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { marketAddress } from '@/page-modules/token/market-session';
 import { priceNumber } from '@/page-modules/token/market-presentation';
 import { useOperations } from './operations';
-import { validateCandles, type Candle } from './use-candles';
+import { validateCandles, type Candle, type CandlesResponse } from './use-candles';
 
 export const sparklineHours = 24;
 
@@ -57,9 +58,10 @@ export function useSparkline(poolAddress: string | null | undefined): UseQueryRe
   const operations = useOperations();
   const pool = poolAddress && /^0x[0-9a-fA-F]{40}$/.test(poolAddress) ? poolAddress.toLowerCase() : null;
   const window = sparklineWindow();
-  return useQuery({
-    queryKey: queryKeys.sparkline(pool ?? '', window.from),
-    queryFn: ({ signal }) => loadSparkline(operations, pool as string, window, signal),
+  return useMarketQuery({
+    queryKey: queryKeys.candles(pool ?? '', '1h', window.from, window.to, sparklineHours),
+    queryFn: ({ signal }) => gate.run(() => operations.call('IF_CANDLES', { path: { poolAddress: pool as string }, query: { interval: '1h', from: window.from, to: window.to, limit: sparklineHours } }, { signal })).then(response => validateCandles(response, pool as string, '1h')),
+    select: (response: CandlesResponse) => sparklineFromCandles(response.data.items, response.generatedAt),
     enabled: pool !== null,
     ...marketCachePolicy.sparkline,
   });

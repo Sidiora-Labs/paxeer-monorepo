@@ -115,7 +115,7 @@ func (r IntegratedRequest) Validate() (Query, error) {
 	if e != nil {
 		return q, e
 	}
-	if r.Limit < 1 || r.Limit > PublicMaxLimit || r.Kind != valuePool && r.Kind != valueToken && r.Kind != valueProfile || r.Sort != "address" || r.Cursor != nil || r.Filter.Validate() != nil {
+	if r.Limit < 1 || r.Limit > PublicMaxLimit || r.Kind != valuePool && r.Kind != valueToken && r.Kind != valueProfile || r.Sort != valueAddress || r.Cursor != nil || r.Filter.Validate() != nil {
 		return q, ErrInvalid
 	}
 	if r.Kind == valueProfile && (r.Filter.PoolStatus != "" || r.Filter.requiresProjection()) {
@@ -136,7 +136,7 @@ func (r IntegratedRequest) Validate() (Query, error) {
 	return q, nil
 }
 func ParseIntegratedRequest(values url.Values) (IntegratedRequest, error) {
-	r := IntegratedRequest{Request: Request{Limit: PublicMaxLimit}, Sort: "address"}
+	r := IntegratedRequest{Request: Request{Limit: PublicMaxLimit}, Sort: valueAddress}
 	for key, v := range values {
 		if len(v) != 1 || key != "q" && key != "type" && key != "limit" && key != "filter" && key != "cursor" && key != "sort" {
 			return r, ErrInvalid
@@ -360,7 +360,7 @@ func (s Store) searchProfiles(ctx context.Context, q Query, r IntegratedRequest)
 			return IntegratedPage{}, fmt.Errorf("%w: profile document: %v", ErrUnavailable, ErrInvalid)
 		}
 		address := wallet
-		page.Items = append(page.Items, IntegratedHit{Hit: Hit{Kind: valueProfile, ID: "125:" + wallet, Label: label, Wallet: &address, Score: "1"}, Creator: wallet, RiskFlags: []string{}, ConfusableWarnings: []string{}})
+		page.Items = append(page.Items, IntegratedHit{Hit: Hit{Kind: valueProfile, ID: "125:profile:" + wallet, Label: label, Wallet: &address, Score: "1"}, Creator: wallet, RiskFlags: []string{}, ConfusableWarnings: []string{}})
 	}
 	err = rows.Err()
 	rows.Close()

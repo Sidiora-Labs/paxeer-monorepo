@@ -1,6 +1,8 @@
 "use client";
 
 import { queryOptions, useQuery } from "@tanstack/react-query";
+import { useSyncExternalStore } from "react";
+import { isPageActive } from "@paxeer-network/paxeer-backend/core/net/realtime";
 import { gqlQuery } from "@paxeer-network/paxeer-backend/core/graphql/client";
 import { registerVenueSymbols } from "@paxeer-network/paxeer-backend/core/net/venueStream";
 import {
@@ -59,17 +61,39 @@ export async function loadPerpsMarkets(): Promise<PerpsMarketsCatalog> {
   return { catalog, tradeable };
 }
 
-export function perpsMarketsQueryOptions() {
+export function catalogRetryDelay(failureCount: number) {
+  return [2000, 5000, 15000][failureCount] ?? 30000;
+}
+
+function subscribePageActivity(onChange: () => void) {
+  window.addEventListener("online", onChange);
+  window.addEventListener("offline", onChange);
+  document.addEventListener("visibilitychange", onChange);
+  return () => {
+    window.removeEventListener("online", onChange);
+    window.removeEventListener("offline", onChange);
+    document.removeEventListener("visibilitychange", onChange);
+  };
+}
+
+export function perpsMarketsQueryOptions(active = isPageActive()) {
   return queryOptions({
     queryKey: ["perps", "markets"],
     queryFn: loadPerpsMarkets,
-    retry: false,
+    enabled: active,
+    retry: true,
+    retryDelay: catalogRetryDelay,
   });
 }
 
 export function usePerpsMarkets() {
-  const query = useQuery(perpsMarketsQueryOptions());
-  const data = query.isError ? undefined : query.data;
+  const active = useSyncExternalStore(
+    subscribePageActivity,
+    isPageActive,
+    () => false,
+  );
+  const query = useQuery(perpsMarketsQueryOptions(active));
+  const data = query.data;
   return {
     catalog: data?.catalog ?? [],
     tradeable: data?.tradeable ?? [],

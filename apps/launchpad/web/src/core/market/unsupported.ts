@@ -3,13 +3,13 @@ import { CapabilityUnavailableError, HttpError } from '@kindle/sdk';
 import { isTransientError } from '@/core/transient-retry';
 import { userFacingMessage } from '@/core/user-facing-error';
 
-export interface Unsupported { state: 'unsupported'; operation: string; status: number | null; message: string }
-export type Loadable<T> = { state: 'loading' } | { state: 'ready'; data: T } | Unsupported | { state: 'error'; error: Error; retry(): void };
+export interface Unsupported { state: 'unsupported'; operation: string; status: number | null; message: string; notServed?: boolean; error?: unknown; retry?: () => void }
+export type Loadable<T> = { state: 'loading' } | { state: 'ready'; data: T; stale?: boolean } | Unsupported | { state: 'error'; error: Error; retry(): void };
 
 export const unsupportedStatuses: ReadonlySet<number> = new Set([404, 501, 503, 412]);
 
-export function unsupported(operation: string, status: number | null, message: string): Unsupported {
-  return { state: 'unsupported', operation, status, message };
+export function unsupported(operation: string, status: number | null, message: string, error?: unknown): Unsupported {
+  return { state: 'unsupported', operation, status, message, ...(error instanceof CapabilityUnavailableError || status === 412 || status === 501 ? { notServed: true } : {}), ...(status === 503 && error !== undefined ? { error } : {}) };
 }
 
 export function isUnsupported(value: unknown): value is Unsupported {
@@ -26,11 +26,11 @@ interface StatusCarrier { status?: unknown; code?: unknown }
  * so the caller keeps treating it as a genuine error.
  */
 export function toUnsupported(operation: string, error: unknown): Unsupported | null {
-  if (error instanceof CapabilityUnavailableError) return unsupported(operation, error.status, error.message);
-  if (error instanceof HttpError) return unsupportedStatuses.has(error.status) ? unsupported(operation, error.status, error.envelope?.code ?? error.message) : null;
+  if (error instanceof CapabilityUnavailableError) return unsupported(operation, error.status, error.message, error);
+  if (error instanceof HttpError) return unsupportedStatuses.has(error.status) ? unsupported(operation, error.status, error.envelope?.code ?? error.message, error) : null;
   if (typeof error === 'object' && error !== null && error instanceof Error) {
     const status = (error as StatusCarrier).status;
-    if (typeof status === 'number' && unsupportedStatuses.has(status)) return unsupported(operation, status, typeof (error as StatusCarrier).code === 'string' ? String((error as StatusCarrier).code) : error.message);
+    if (typeof status === 'number' && unsupportedStatuses.has(status)) return unsupported(operation, status, typeof (error as StatusCarrier).code === 'string' ? String((error as StatusCarrier).code) : error.message, error);
   }
   return null;
 }
@@ -44,10 +44,10 @@ export function toUnsupported(operation: string, error: unknown): Unsupported | 
  */
 export function loadable<T>(query: Pick<UseQueryResult<T>, 'status' | 'data' | 'error' | 'refetch'>, operation: string): Loadable<T> {
   if (query.status === 'pending') return { state: 'loading' };
-  if (query.status === 'error' && query.data !== undefined && isTransientError(query.error)) return { state: 'ready', data: query.data };
+  if (query.status === 'error' && query.data !== undefined && isTransientError(query.error)) return { state: 'ready', data: query.data, stale: true };
   if (query.status === 'error') {
     const marker = toUnsupported(operation, query.error);
-    if (marker) return marker;
+    if (marker) return { ...marker, error: query.error, retry: () => { void query.refetch(); } };
     const error = query.error instanceof Error ? query.error : new Error(String(query.error));
     return { state: 'error', error, retry: () => { void query.refetch(); } };
   }

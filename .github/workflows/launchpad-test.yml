@@ -170,7 +170,7 @@ jobs:
       PNL_TEST_NATS_URL: nats://127.0.0.1:24222
     services: &launchpad_go_services
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: kindle_fixture
           POSTGRES_PASSWORD: kindle_fixture_password

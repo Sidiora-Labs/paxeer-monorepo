@@ -130,7 +130,19 @@ func RegisterCanonicalSearch(r chi.Router, st canonicalsearch.Store) {
 			}
 			return
 		}
-		page, err := st.Search(r.Context(), request)
+		var page canonicalsearch.Page
+		var profileNext *canonicalsearch.IntegratedCursor
+		if request.Kind == "profile" {
+			var profiles canonicalsearch.IntegratedPage
+			profiles, err = st.SearchIntegrated(r.Context(), request)
+			page = canonicalsearch.Page{Items: make([]canonicalsearch.Hit, 0, len(profiles.Items)), MatchKind: profiles.MatchKind, Status: profiles.Status, Generation: profiles.Generation, Watermark: profiles.Revision}
+			for _, hit := range profiles.Items {
+				page.Items = append(page.Items, hit.Hit)
+			}
+			profileNext = profiles.Next
+		} else {
+			page, err = st.Search(r.Context(), request.Request)
+		}
 		if err != nil {
 			logReadError(r, err)
 			switch {
@@ -144,8 +156,13 @@ func RegisterCanonicalSearch(r chi.Router, st canonicalsearch.Store) {
 			return
 		}
 		var next *string
-		if page.Next != nil {
-			body, err := json.Marshal(page.Next)
+		if page.Next != nil || profileNext != nil {
+			var body []byte
+			if profileNext != nil {
+				body, err = json.Marshal(profileNext)
+			} else {
+				body, err = json.Marshal(page.Next)
+			}
 			if err != nil || len(body) > 2048 {
 				writeSearchError(w, r, 500, "INTERNAL_ERROR")
 				return
@@ -168,7 +185,7 @@ func searchRequestID(w http.ResponseWriter, r *http.Request) string {
 	return id
 }
 func writeSearchError(w http.ResponseWriter, r *http.Request, status int, code string) {
-	messages := map[string]string{"QUERY_INVALID": "Invalid query syntax", "FIELD_INVALID": "Search field violates its declared bounds", "PAYLOAD_TOO_LARGE": "Search request exceeds its byte limit", "PRECONDITION_FAILED": "Profile search is unavailable", "FEATURE_UNAVAILABLE": "Search filter capability is unavailable", "CURSOR_INVALID": "Invalid or stale cursor; restart pagination", "DEPENDENCY_UNAVAILABLE": "Search dependency temporarily unavailable", "INTERNAL_ERROR": "An unexpected error occurred"}
+	messages := map[string]string{"QUERY_INVALID": "Invalid query syntax", "FIELD_INVALID": "Search field violates its declared bounds", "PAYLOAD_TOO_LARGE": "Search request exceeds its byte limit", "FEATURE_UNAVAILABLE": "Search filter capability is unavailable", "CURSOR_INVALID": "Invalid or stale cursor; restart pagination", "DEPENDENCY_UNAVAILABLE": "Search dependency temporarily unavailable", "INTERNAL_ERROR": "An unexpected error occurred"}
 	message, ok := messages[code]
 	if !ok {
 		status, code, message = 500, "INTERNAL_ERROR", messages["INTERNAL_ERROR"]

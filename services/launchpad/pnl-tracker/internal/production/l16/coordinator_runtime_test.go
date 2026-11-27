@@ -263,7 +263,7 @@ func TestCoordinatorRuntimeCompleteDependencyMigrations(t *testing.T) {
 		applied[id] = migration.SHA256
 		sources[migration.Schema] += "\n" + string(raw)
 	}
-	for _, id := range []int64{60000, 160001, 160004, 180000, 180001, 150002, 440000} {
+	for _, id := range []int64{60000, 160001, 160004, 180000, 180001, 150002, 150012, 440000} {
 		if applied[id] == "" {
 			t.Errorf("complete runtime plan omitted dependency %d", id)
 		}

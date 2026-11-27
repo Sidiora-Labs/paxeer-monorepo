@@ -5,6 +5,9 @@ import React, { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createRoot, hydrateRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
+import { COLOR_MODE_STORAGE_KEY } from '@/core/app-foundation/color-mode';
+import { WalletRuntimeProvider } from '@/core/wallet-sdk/runtime';
+import WalletModal from './wallet-modal';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { mock } from 'wagmi/connectors';
@@ -88,7 +91,9 @@ async function render(node: React.ReactNode, pathname = '/') {
       <WagmiProvider config={config}>
         <QueryClientProvider client={queries}>
           <AppRouterContext.Provider value={router}>
-            <PathnameContext.Provider value={pathname}>{node}</PathnameContext.Provider>
+            <PathnameContext.Provider value={pathname}>
+              <WalletRuntimeProvider>{node}</WalletRuntimeProvider>
+            </PathnameContext.Provider>
           </AppRouterContext.Provider>
         </QueryClientProvider>
       </WagmiProvider>
@@ -101,6 +106,8 @@ afterEach(() => {
   for (const root of mounted.splice(0)) act(() => root.unmount());
   document.body.innerHTML = '';
   window.localStorage.clear();
+  document.documentElement.removeAttribute('data-color-mode');
+  document.documentElement.style.removeProperty('color-scheme');
   wide = true;
 });
 
@@ -137,7 +144,7 @@ describe('navigation rail', () => {
     ).toEqual(['Home', 'Explore', 'Leaderboard', 'Live']);
     expect(
       Array.from(secondary.querySelectorAll('a')).map((link) => link.getAttribute('aria-label'))
-    ).toEqual(['Bounties', 'Holder rewards', 'Terminal']);
+    ).toEqual(['Bounties', 'Holder rewards', 'Agents', 'Terminal']);
     expect(classes(secondary)).toContain('mt-4');
     expect(container.querySelector('nav[aria-label="Primary"]')!.outerHTML).not.toMatch(NO_STROKES);
   });
@@ -151,13 +158,14 @@ describe('navigation rail', () => {
     expect(controls.map((control) => control.getAttribute('aria-label'))).toEqual([
       'Help and docs',
       'Terms and privacy',
+      'Colour mode',
       'Toggle sidebar',
     ]);
     expect(controls.slice(0, 2).map((control) => control.getAttribute('href'))).toEqual([
       '/docs',
       '/docs/terms',
     ]);
-    expect(controls[2].getAttribute('aria-expanded')).toBe('false');
+    expect(controls[3].getAttribute('aria-expanded')).toBe('false');
   });
 
   it('expands from the bottom toggle and collapses again, persisting the choice', async () => {
@@ -215,7 +223,7 @@ describe('top bar anatomy', () => {
     const container = await render(<TopBar />);
     const field = container.querySelector('[data-search-field]')!;
     expect(classes(field)).toEqual(
-      expect.arrayContaining(['hidden', 'lg:block', '[&>button]:h-8', '[&>button]:bg-surface-1'])
+      expect.arrayContaining(['hidden', 'lg:block', '[&>button]:h-8', '[&>button]:bg-surface-2'])
     );
     expect(field.nextElementSibling?.className).toContain('lg:hidden');
     const paste = container.querySelector(
@@ -243,7 +251,7 @@ describe('top bar anatomy', () => {
     expect(assertControlEdges(container.querySelector('header')!.outerHTML)).not.toMatch(
       NO_STROKES
     );
-    // Reference order on the right: paste, search icon, create, sign in.
+    // Control order on the right: paste, search icon, create, account.
     const order = labels(container).map((entry) => entry.label ?? '');
     const paste = order.indexOf('Open a coin from a pasted address');
     const searchIcon = order.lastIndexOf(
@@ -264,15 +272,71 @@ describe('top bar anatomy', () => {
   });
 });
 
+async function colourModeIsReachableWithoutSigningIn() {
+  const container = await render(
+    <>
+      <TopBar />
+      <SidebarNav />
+    </>
+  );
+  const account = container.querySelector<HTMLButtonElement>('button[aria-label="Open account menu"]')!;
+  expect(account).not.toBeNull();
+  await act(async () => account.click());
+  const choices = document.querySelector('[role="radiogroup"][aria-label="Colour mode"]')!;
+  expect([...choices.querySelectorAll('button')].map(button => button.textContent)).toEqual(['Dark', 'Light', 'Device']);
+  await act(async () => (choices.querySelectorAll('button')[1] as HTMLButtonElement).click());
+  expect(document.documentElement.dataset.colorMode).toBe('light');
+  expect(window.localStorage.getItem(COLOR_MODE_STORAGE_KEY)).toBe('light');
+  await act(async () => document.querySelector<HTMLButtonElement>('button[aria-label="Close account menu"]')!.click());
+  const railControl = container.querySelector<HTMLButtonElement>('[data-rail-group="utility"] button[aria-label="Colour mode"]')!;
+  railControl.focus();
+  await act(async () => railControl.click());
+  const railChoices = document.querySelector('[role="radiogroup"][aria-label="Colour mode"]')!;
+  expect(railChoices.querySelector('[aria-checked="true"]')?.textContent).toBe('Light');
+  await act(async () => (railChoices.querySelectorAll('button')[2] as HTMLButtonElement).click());
+  expect(document.documentElement.dataset.colorMode).toBe('device');
+  expect(window.localStorage.getItem(COLOR_MODE_STORAGE_KEY)).toBe('device');
+  const dialog = railChoices.closest('dialog')!;
+  await act(async () => dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  expect(document.querySelector('[role="radiogroup"][aria-label="Colour mode"]')).toBeNull();
+  expect(document.activeElement).toBe(railControl);
+}
+
+async function signedInAccountKeepsTheColourModeChoice() {
+  await render(
+    <WalletModal
+      open
+      tab="account"
+      onTabChange={() => {}}
+      onClose={() => {}}
+      address="0x1111111111111111111111111111111111111111"
+      displayName="Trader"
+      avatarUrl={null}
+      connectorName={null}
+      connectorIcon={null}
+      onLogOut={async () => {}}
+    />
+  );
+  const choices = document.querySelector('[role="radiogroup"][aria-label="Colour mode"]')!;
+  expect(choices).not.toBeNull();
+  await act(async () => (choices.querySelectorAll('button')[0] as HTMLButtonElement).click());
+  expect(document.documentElement.dataset.colorMode).toBe('dark');
+  expect(window.localStorage.getItem(COLOR_MODE_STORAGE_KEY)).toBe('dark');
+  expect(choices.querySelector('[aria-checked="true"]')?.textContent).toBe('Dark');
+}
+
+it(colourModeIsReachableWithoutSigningIn.name, colourModeIsReachableWithoutSigningIn);
+it(signedInAccountKeepsTheColourModeChoice.name, signedInAccountKeepsTheColourModeChoice);
+
 describe('ticker strip', () => {
-  it('is hidden below md and never shows placeholder pills while its feed loads', async () => {
+  it('is hidden below md and reserves chip shapes while its feed loads', async () => {
     const container = await render(<TickerStrip />);
     const strip = container.querySelector('section[aria-label="Market ticker"]')!;
     expect(classes(strip)).toEqual(expect.arrayContaining(['hidden', 'md:flex']));
     expect(container.querySelector('[data-ticker-loading]')?.textContent).toBe(
       'Loading top earners'
     );
-    expect(container.querySelectorAll('.sl-skeleton')).toHaveLength(0);
+    expect(container.querySelectorAll('.sl-skeleton')).toHaveLength(2);
     expect(container.querySelector('[role="radiogroup"]')).not.toBeNull();
   });
 
@@ -323,9 +387,11 @@ describe('footer placement', () => {
           >
             <AppRouterContext.Provider value={router}>
               <PathnameContext.Provider value={pathname}>
-                <AppShell>
-                  <p>short page</p>
-                </AppShell>
+                <WalletRuntimeProvider>
+                  <AppShell>
+                    <p>short page</p>
+                  </AppShell>
+                </WalletRuntimeProvider>
               </PathnameContext.Provider>
             </AppRouterContext.Provider>
           </QueryClientProvider>
@@ -362,12 +428,14 @@ describe('shell hydration', () => {
       <QueryClientProvider client={queries}>
         <AppRouterContext.Provider value={router}>
           <PathnameContext.Provider value={pathname}>
-            <SidebarNav />
-            <div className={SHELL_TOP_VARS}>
-              <TopBar />
-              <TickerStrip />
-            </div>
-            <ShellFooter />
+            <WalletRuntimeProvider>
+              <SidebarNav />
+              <div className={SHELL_TOP_VARS}>
+                <TopBar />
+                <TickerStrip />
+              </div>
+              <ShellFooter />
+            </WalletRuntimeProvider>
           </PathnameContext.Provider>
         </AppRouterContext.Provider>
       </QueryClientProvider>

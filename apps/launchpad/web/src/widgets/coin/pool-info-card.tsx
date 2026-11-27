@@ -22,19 +22,19 @@ function circulatingRow(stats: PoolStats): string | null {
  * Pool information: quote asset (header chip), on-pool USDL liquidity, indicative TVL when served, and
  * identity. Compact rows, one footnote at most. Values come from IF_POOL_STATS only.
  */
-export default function PoolInfoCard({ poolAddress }: { poolAddress: string }) {
+export default function PoolInfoCard({ poolAddress, liveStats }: { poolAddress: string; liveStats?: PoolStats | null }) {
   const snapshot = usePoolSnapshot(poolAddress);
   const data = snapshot.data ?? null;
-  const stats = data?.stats ?? null;
+  const stats = liveStats ?? data?.stats ?? null;
   const loading = snapshot.isPending;
   const unavailable = data?.unavailable.stats ?? null;
   return (
     <section aria-labelledby="pool-info-title" className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 id="pool-info-title" className="text-sm font-bold text-text">Pool information</h2>
+        <h2 id="pool-info-title" className="text-sm font-semibold text-text">Pool information</h2>
         <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-xs text-text-muted">Paired with <span className="font-bold text-text">USDL</span></span>
       </div>
-      <dl className="flex flex-col rounded-md bg-surface-2 px-3 py-1">
+      <dl className="flex flex-col rounded-sm bg-surface-2 px-3 py-1">
         <KeyValueRow className={rowClass} label="Total liquidity" loading={loading} value={stats ? formatUsdl(stats.realUsdlBalanceRaw, { compact: true }) : null} />
         {stats ? <KeyValueRow className={rowClass} label="Circulating market cap" value={circulatingRow(stats)} /> : null}
         {stats?.indicativeTvlUsdlRaw ? <KeyValueRow className={rowClass} label="Total value locked" value={formatUsdl(stats.indicativeTvlUsdlRaw, { compact: true })} /> : null}
@@ -44,7 +44,7 @@ export default function PoolInfoCard({ poolAddress }: { poolAddress: string }) {
       </dl>
       {snapshot.isError
         ? <UnavailableState variant="chip" wrap title="Pool information" plural="auto" operation="IF_POOL_STATS" status={null} onRetry={() => { void snapshot.refetch(); }} className="self-start" />
-        : !loading && !stats && unavailable ? <UnavailableState variant="inline" title="Liquidity" operation={unavailable.operation} status={unavailable.status} className="text-xs" /> : null}
+        : !loading && !stats && unavailable ? <UnavailableState variant="inline" title="Liquidity" operation={unavailable.operation} status={unavailable.status} notServed={unavailable.notServed} className="text-xs" /> : null}
     </section>
   );
 }

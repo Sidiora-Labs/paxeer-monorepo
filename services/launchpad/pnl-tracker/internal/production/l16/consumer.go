@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -21,13 +22,15 @@ var ErrCostAllocationUnavailable = errors.New("inventory cost allocation unavail
 
 // The issuer must prove a fresh zero balance, complete actual mint/transfer
 // history and exact settlement-transfer suppression through the fill frontier.
-// Unsupported gifts, multihop or unresolved movements must return an error.
+// Unsupported gifts or unresolved movements must return an error.
+// Receipt-proven routed sells and buys settle for the same wallet.
 type FreshBaselineAuthority interface {
 	VerifyFreshSameOwnerTx(context.Context, pgx.Tx, string, accounting.FillV1, accounting.PartitionPosition) error
 	VerifyBootstrapTx(context.Context, pgx.Tx, delivery.BootstrapInput) error
 }
 
 type AccountingConsumer struct {
+	Progress                                         *consumerhealth.State
 	pool                                             *pgxpool.Pool
 	schema                                           string
 	consumerID, generation, owner, projectionVersion string
@@ -216,6 +219,28 @@ func (c *AccountingConsumer) Consume(ctx context.Context, subject string, wire [
 	if c.authority == nil {
 		return ErrBaselineUnavailable
 	}
+	if message == nil {
+		return c.consumeOrdered(ctx, subject, wire, message)
+	}
+	wire = append([]byte(nil), wire...)
+	policy := delivery.Policy{Subjects: map[string]bool{accounting.InventorySubject: true}, EventTypes: map[string]bool{accounting.InventorySubject: true}}
+	if envelope, err := delivery.Decode(wire, policy, subject); err == nil {
+		if publication, err := accounting.DecodePublicationV1(envelope.Payload); err == nil && publication.Facet == sourceInventory && publication.Enrichment != nil && publication.Positions[0].ProjectionVersion == c.projectionVersion && envelope.EventID == publication.PublicationID {
+			position := publication.Positions[0]
+			if envelope.SourceOrder == (delivery.SourceOrder{Height: position.SourceOrder.Height, TransactionIndex: position.SourceOrder.TransactionIndex, LogIndex: position.SourceOrder.LogIndex}) {
+				if err = c.catchUpBefore(ctx, position); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return c.consumeOrdered(ctx, subject, wire, message)
+}
+
+func (c *AccountingConsumer) consumeOrdered(ctx context.Context, subject string, wire []byte, message delivery.Delivery) error {
+	if c.authority == nil {
+		return ErrBaselineUnavailable
+	}
 	if subject != accounting.InventorySubject {
 		return delivery.ErrIntegrity
 	}
@@ -331,7 +356,8 @@ func (c *AccountingConsumer) PreparePartition(ctx context.Context, partition str
 	return c.Bootstrap(ctx, in)
 }
 
-func (c *AccountingConsumer) PrepareAndConsume(ctx context.Context, subject string, wire []byte, message delivery.Delivery) error {
+func (c *AccountingConsumer) PrepareAndConsume(ctx context.Context, subject string, wire []byte, message delivery.Delivery) (result error) {
+	defer func() { c.recordProgress(ctx, result, wire) }()
 	if c.authority == nil {
 		return ErrBaselineUnavailable
 	}

@@ -69,7 +69,7 @@ func (c *Creator) checkpoint(ctx context.Context) (Checkpoint, error) {
 		return Checkpoint{}, ErrUnavailable
 	}
 	var chain hexutil.Big
-	if e := c.rpc.CallContext(ctx, &chain, "eth_chainId"); e != nil {
+	if e := nodeCall(ctx, c.rpc, &chain, "eth_chainId"); e != nil {
 		return Checkpoint{}, e
 	}
 	if (*big.Int)(&chain).Cmp(big.NewInt(125)) != 0 {
@@ -88,7 +88,7 @@ func (c *Creator) checkpoint(ctx context.Context) (Checkpoint, error) {
 			if err = ctx.Err(); err != nil {
 				return Checkpoint{}, err
 			}
-			if err = c.rpc.CallContext(ctx, &header, "eth_getBlockByNumber", hexutil.EncodeUint64(b.Number), false); err != nil {
+			if err = nodeCall(ctx, c.rpc, &header, "eth_getBlockByNumber", hexutil.EncodeUint64(b.Number), false); err != nil {
 				return Checkpoint{}, err
 			}
 			if header != nil {
@@ -119,7 +119,7 @@ func (c *Creator) checkpoint(ctx context.Context) (Checkpoint, error) {
 		Number hexutil.Uint64 `json:"number"`
 		Hash   string         `json:"hash"`
 	}
-	if e := c.rpc.CallContext(ctx, &h, "eth_getBlockByNumber", "latest", false); e != nil {
+	if e := nodeCall(ctx, c.rpc, &h, "eth_getBlockByNumber", "latest", false); e != nil {
 		return Checkpoint{}, e
 	}
 	if !hash.MatchString(h.Hash) {
@@ -133,7 +133,7 @@ func (c *Creator) read(ctx context.Context, b Checkpoint, target string, a abi.A
 		return nil, e
 	}
 	var result hexutil.Bytes
-	e = c.rpc.CallContext(ctx, &result, "eth_call", map[string]any{"to": target, fieldData: hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true})
+	e = nodeCall(ctx, c.rpc, &result, "eth_call", map[string]any{"to": target, fieldData: hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true})
 	if e != nil {
 		return nil, e
 	}
@@ -166,7 +166,7 @@ func (c *Creator) reads(ctx context.Context, b Checkpoint, target string, a abi.
 		}
 		batch[i] = rpc.BatchElem{Method: "eth_call", Args: []any{map[string]any{"to": target, fieldData: hexutil.Encode(data)}, map[string]any{fieldBlockHash: b.Hash, fieldRequireCanonical: true}}, Result: &results[i]}
 	}
-	if err := batcher.BatchCallContext(ctx, batch); err != nil {
+	if err := nodeBatch(ctx, batcher, batch); err != nil {
 		return nil, err
 	}
 	for i, method := range methods {
@@ -199,16 +199,19 @@ func (c *Creator) Preview(ctx context.Context, id, displayCreator string) (FeePr
 	if e != nil {
 		return FeePreview{}, e
 	}
+	rewardStage(ctx, 1, "checkpoint")
 	b, e := c.checkpoint(ctx)
 	if e != nil {
 		return FeePreview{}, e
 	}
+	rewardStage(ctx, 1, "nft")
 	nftValues, e := c.reads(ctx, b, NFT, nft, []string{"ownerOf", "getPoolAddress", "getFeeStrategy"}, n)
 	if e != nil {
 		return FeePreview{}, e
 	}
 	owner, pool, strategy := nftValues[0], nftValues[1], nftValues[2]
 	p := pool.(common.Address)
+	rewardStage(ctx, 1, "fees")
 	feeValues, e := c.reads(ctx, b, Accumulator, accumulator, []string{"supportsAirdrop", "getAccumulatedFees"}, p)
 	if e != nil {
 		return FeePreview{}, e

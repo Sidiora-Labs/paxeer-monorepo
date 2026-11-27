@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/chainread"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/internal/store"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
@@ -269,6 +270,7 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	consumer.Progress = consumerhealth.New("accounting_consumer", 5*time.Minute, nil, time.Now)
 	lease, err := consumer.config.Lease(ctx, fills[0])
 	if err != nil || lease.Epoch < 1 {
 		t.Fatalf("canonical pool bootstrap: %+v, %v", lease, err)
@@ -289,6 +291,9 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 			}
 			consumed++
 		}
+	}
+	if snapshot := consumer.Progress.Snapshot(); snapshot.LastSuccess.IsZero() || snapshot.ConsecutiveFailures != 0 || snapshot.RetryPartitions != 0 {
+		t.Fatalf("committed delivery progress: %+v", snapshot)
 	}
 	var inbox, watermark int
 	if err = pool.QueryRow(ctx, `SELECT count(*) FROM candles.chart_inbox`).Scan(&inbox); err != nil || inbox != len(fills) {
@@ -409,7 +414,7 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 	if err != nil || next != "" {
 		t.Fatalf("committed pool sweep cursor: %q, %v", next, err)
 	}
-	bootstrap := sourceBootstrapper{config: reprocessConfig, authorize: consumer.config.Authorize}
+	bootstrap := sourceBootstrapper{config: reprocessConfig}
 	for _, tc := range []struct {
 		name, sql string
 		args      []any
@@ -454,7 +459,7 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 		_ = baselineTx.Rollback(ctx)
 		t.Fatal(err)
 	}
-	if err = bootstrap.verify(ctx, baselineTx, baseline); err != nil {
+	if err = bootstrap.advance(ctx, baselineTx, baseline, &bootstrapProgress{LastHeight: baseline.ReplayFromHeight}); err != nil {
 		_ = baselineTx.Rollback(ctx)
 		t.Fatalf("canonical bootstrap evidence: %v", err)
 	}
@@ -513,7 +518,7 @@ func TestSourceVerifiedConsumerFromLocalCanonicalChain(t *testing.T) {
 			if tc.maxReplayFills > 0 {
 				verifier.config.MaxReplayFills = tc.maxReplayFills
 			}
-			err = verifier.verify(ctx, tx, changed)
+			err = verifier.advance(ctx, tx, changed, &bootstrapProgress{LastHeight: changed.ReplayFromHeight})
 			if err == nil || tc.want != nil && !errors.Is(err, tc.want) {
 				t.Fatalf("changed canonical bootstrap evidence admitted: %v", err)
 			}

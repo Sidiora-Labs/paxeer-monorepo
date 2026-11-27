@@ -1,5 +1,6 @@
 'use client';
-import { useQuery, type UseQueryResult } from '@tanstack/react-query';
+import { useMarketQuery } from './use-market-query';
+import { type UseQueryResult } from '@tanstack/react-query';
 import { CapabilityUnavailableError, HttpError, type SdkClient } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
@@ -68,7 +69,7 @@ async function readProfile(wallet: string, client: SdkClient, signal?: AbortSign
 
 export function useProfile(wallet: string | null | undefined): UseQueryResult<ProfileView | null> {
   const address = wallet && /^0x[0-9a-fA-F]{40}$/.test(wallet) ? wallet.toLowerCase() : null;
-  return useQuery({
+  return useMarketQuery({
     queryKey: queryKeys.profile(address ?? ''),
     queryFn: ({ signal }) => fetchProfile(address as string, browserUserClient(), signal),
     enabled: address !== null,

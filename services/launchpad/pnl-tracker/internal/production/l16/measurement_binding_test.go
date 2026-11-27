@@ -12,6 +12,7 @@ import (
 )
 
 func TestInventoryMeasurementBindsCheckpointsAndCanonicalNodes(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	service, pool := recordedRebuildService(t, ctx)
 	inventoryCommittedHead(t, ctx, pool)

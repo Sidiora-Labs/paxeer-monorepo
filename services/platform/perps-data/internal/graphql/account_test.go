@@ -177,8 +177,8 @@ func TestAccountResolvers(t *testing.T) {
 			`{"user":{"address":"`+address+`","vaultAddress":"`+strings.ToLower(vault.Hex())+`","referralCode":"CODE","tier":"silver","feeDiscountBps":5}}`)
 	})
 	t.Run("userBalances", func(t *testing.T) {
-		accountTestQuery(t, schema, `query UserBalances($address:String!){userBalances(address:$address){token balance totalDeposited totalWithdrawn depositCount withdrawCount}}`, vars,
-			`{"userBalances":[{"token":"`+strings.ToLower(store.USDL.Hex())+`","balance":"12000000","totalDeposited":"10000000","totalWithdrawn":"1000000","depositCount":2,"withdrawCount":1}]}`)
+		accountTestQuery(t, schema, `query UserBalances($address:String!){userBalances(address:$address){token balance locked totalDeposited totalWithdrawn depositCount withdrawCount}}`, vars,
+			`{"userBalances":[{"token":"`+strings.ToLower(store.USDL.Hex())+`","balance":"12000000","locked":"1000000","totalDeposited":"10000000","totalWithdrawn":"1000000","depositCount":2,"withdrawCount":1}]}`)
 	})
 	t.Run("userDailyPnl", func(t *testing.T) {
 		accountTestQuery(t, schema, `query UserDailyPnl($address:String!){userDailyPnl(address:$address,limit:1){date pnl volume trades}}`, vars,

@@ -826,6 +826,8 @@ func checkAgentCallSpend(p AuthorityPrincipal, destination *common.Address, data
 func checkAgentSpend(p AuthorityPrincipal, to, selector, token, recipient string, value, tokenAmount *big.Int, approve, native bool) error {
 	allowedContract := false
 	hasAllowedContract := false
+	allowedSpender := false
+	hasAllowedSpender := false
 	allowedWithdrawal := false
 	withdrawal := recipient
 	if value.Sign() > 0 && native {
@@ -838,6 +840,10 @@ func checkAgentSpend(p AuthorityPrincipal, to, selector, token, recipient string
 		if r.Effect == "allow" && r.Subject == "contract" {
 			hasAllowedContract = true
 			allowedContract = allowedContract || r.Value == to
+		}
+		if r.Effect == "allow" && r.Subject == "address" {
+			hasAllowedSpender = true
+			allowedSpender = allowedSpender || r.Value == recipient
 		}
 		if r.Effect == "allow" && r.Subject == "withdrawal" && r.Value == withdrawal {
 			allowedWithdrawal = true
@@ -852,7 +858,10 @@ func checkAgentSpend(p AuthorityPrincipal, to, selector, token, recipient string
 	if p.Policy.Mode == "trade_only" && hasAllowedContract && !allowedContract {
 		return ErrAuthority
 	}
-	if p.Policy.WithdrawalOnly && withdrawal != "" && !allowedWithdrawal {
+	if approve && hasAllowedSpender && !allowedSpender {
+		return ErrAuthority
+	}
+	if p.Policy.WithdrawalOnly && withdrawal != "" && !allowedWithdrawal && !(approve && hasAllowedSpender) {
 		return ErrAuthority
 	}
 	if value.Sign() > 0 && native && !p.Policy.AllowNative {

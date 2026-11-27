@@ -26,6 +26,12 @@ function swap_without_an_account_and_while_loading_has_one_heading() {
   expect(view.container.textContent).toContain('Loading tokens...');
   expect(view.container.textContent).toContain('Connect wallet');
   expectSwapHeading();
+  const amount = view.container.querySelector('input[aria-label="You pay amount"]');
+  expect(amount?.getAttribute('inputmode')).toBe('decimal');
+  expect(amount?.classList.contains('tabular-nums')).toBe(true);
+  const connect = [...view.container.querySelectorAll('button')].find(button => button.textContent === 'Connect wallet');
+  expect(connect?.classList.contains('bg-surface-inverse')).toBe(true);
+  expect(view.container.querySelector('button[aria-label="Switch tokens"]')).not.toBeNull();
 }
 
 async function swap_connected_and_empty_search_keeps_one_heading() {

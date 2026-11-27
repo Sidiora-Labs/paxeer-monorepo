@@ -57,7 +57,7 @@ function LiveAllView() {
             <ChevronLeft aria-hidden="true" className="size-4" />
             Live
           </Link>
-          <h1 className="text-xl font-bold text-text">{liveSortLabels[sort]}</h1>
+          <h1 className="text-lg font-bold text-text">{liveSortLabels[sort]}</h1>
           <p className="text-sm text-text-muted">Live now, sorted by {sort === 'mcap' ? 'market cap' : 'viewers'}</p>
         </div>
         <SegmentedControl label="Sort by" options={sortOptions} value={sort} onChange={changeSort} />

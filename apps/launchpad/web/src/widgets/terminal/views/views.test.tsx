@@ -216,10 +216,10 @@ describe('trenches bucketing', () => {
       expect(items[0].querySelector('[aria-label^="Change not available yet. Not enough trades yet for a 1h change"]')).not.toBeNull();
       // The frozen pre-2.2.0 example row carries no window fields at all.
       expect(items[1].querySelector('[aria-label^="Change not available yet. 1h change not available yet"]')).not.toBeNull();
-      // Market cap is the recorded total-supply valuation (10,098.226981 USDL), top-10 and creator shares are 100%.
+      // Market cap is the recorded total-supply valuation (10,098.226981 USDL), top-10 and creator shares are 0.4803% of total supply.
       expect(items[0].textContent).toContain('10.1K');
-      expect(items[0].textContent).toContain('T10 100%');
-      expect(items[0].textContent).toContain('Creator 100%');
+      expect(items[0].textContent).toContain('T10 0.48%');
+      expect(items[0].textContent).toContain('Creator 0.48%');
       const text = mounted.container.textContent ?? '';
       expect(text).toContain('About to graduate is not available yet');
       expect(text).toContain('Graduated is not available yet');

@@ -41,8 +41,8 @@ func TestMarketPublicationBecomesReadableAfterBothConsumersCommit(t *testing.T) 
 	if err != nil || string(canonical) != string(want) {
 		t.Fatalf("publication content differs: %s, %v", canonical, err)
 	}
-	if _, err := f.Model.Trades(t.Context(), request); !errors.Is(err, store.ErrAccountingNotReady) {
-		t.Fatalf("publication without consumer commits: %v", err)
+	if page, err := f.Model.Trades(t.Context(), request); !errors.Is(err, store.ErrAccountingUntraded) || page.Items == nil || len(page.Items) != 0 || page.Revision != "" || string(page.Watermark) != "null" {
+		t.Fatalf("publication awaiting consumer commits: %+v %v", page, err)
 	}
 	f.Commit(t, fill, position)
 	for _, tc := range []struct {

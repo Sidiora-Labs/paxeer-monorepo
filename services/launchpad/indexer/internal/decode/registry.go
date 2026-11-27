@@ -25,6 +25,11 @@ const LaunchpadPrecompileRole = "LaunchpadPrecompile"
 
 var LaunchpadPrecompileAddress = common.HexToAddress("0x0000000000000000000000000000000000001017")
 
+var LaunchpadModuleAddress = func() common.Address {
+	digest := sha256.Sum256([]byte("launchpad"))
+	return common.BytesToAddress(digest[:20])
+}()
+
 // launchpadOrigin names the role whose contract flow emits each launchpad
 // family event at the precompile.
 var launchpadOrigin = map[string]string{

@@ -146,7 +146,7 @@ function AuditRows({ risk, now }: { risk: RiskBreakdown; now: number }) {
   const dev: Verdict = details.creatorHoldingsPct === null ? 'unknown' : details.creatorHoldingsPct > 20 ? 'fail' : 'pass';
   const age = details.ageSeconds === null ? null : relativeAge(now - details.ageSeconds * 1000, now);
   return (
-    <dl aria-label="Audit checks" className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-1">
+    <dl aria-label="Audit checks" className="flex flex-col gap-2 rounded-sm bg-surface-2 px-3 py-1">
       <CheckRow label="Risk rating" verdict={levelVerdict} value={`${risk.riskRating} · ${risk.riskLevel}`} />
       <CheckRow label="Top 10 holders" verdict={top10} value={percent(details.top10ConcentrationPct)} />
       <CheckRow label="Creator holdings" verdict={dev} value={percent(details.creatorHoldingsPct)} />
@@ -167,7 +167,7 @@ function ShareCheckRow({ label, share, limit }: { label: string; share: StatValu
 function ServedAuditRows({ audit, now }: { audit: ServedAudit; now: number }) {
   const age = audit.ageSeconds === null ? null : relativeAge(now - audit.ageSeconds * 1000, now);
   return (
-    <dl aria-label="Audit checks" className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-1">
+    <dl aria-label="Audit checks" className="flex flex-col gap-2 rounded-sm bg-surface-2 px-3 py-1">
       <ShareCheckRow label="Top 10 holders" share={audit.top10Share} limit={50} />
       <ShareCheckRow label="Creator holdings" share={audit.creatorShare} limit={20} />
       <CheckRow label="Holders" verdict={audit.holderCount === null ? 'unknown' : audit.holderCount >= 10 ? 'pass' : 'fail'} value={audit.holderCount === null ? null : formatCount(audit.holderCount)} />
@@ -196,7 +196,7 @@ function AuditTab({ poolAddress, now }: { poolAddress: string; now: number }) {
   return (
     <div className="flex flex-col gap-2">
       {stats ? <ServedAuditRows audit={auditFromStats(stats, snapshot.data.createdAt, now)} now={now} /> : null}
-      {marker ? <UnavailableState variant="inline" title={stats ? 'Risk checks' : 'Audit'} operation={marker.operation} status={marker.status} /> : null}
+      {marker ? <UnavailableState variant="inline" title={stats ? 'Risk checks' : 'Audit'} operation={marker.operation} status={marker.status} notServed={marker.notServed} error={marker.error} /> : null}
       {risk.error && !marker ? <p role="alert" className="text-sm text-danger">Risk checks can&apos;t load right now. {userFacingMessage(risk.error)}</p> : null}
       {!stats && !marker && !risk.error ? <UnavailableState variant="inline" title="Audit" operation={snapshot.data.unavailable.stats?.operation ?? 'IF_STATS'} status={snapshot.data.unavailable.stats?.status ?? null} /> : null}
     </div>
@@ -206,9 +206,7 @@ function AuditTab({ poolAddress, now }: { poolAddress: string; now: number }) {
 /* ------------------------------------------------------------- stats */
 
 /**
- * Frame of a split bar whose values are not served: the label row with dashes over an empty track, so
- * the card keeps pump.fun's three-bar anatomy instead of turning into prose. The reason stays
- * available to assistive tech through the shared unavailable state.
+ * Split-bar loading and unavailable states, with the reason available to assistive tech.
  */
 function SplitBarFrame({ leftLabel, rightLabel, title, operation, loading = false }: { leftLabel: string; rightLabel: string; title: string; operation: string; loading?: boolean }) {
   return (
@@ -245,6 +243,7 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
 
   return (
     <div className="flex flex-col gap-3">
+      {series?.state === 'ready' && series.stale ? <p role="status" className="text-xs text-text-faint">Prices may be out of date</p> : null}
       <dl className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex min-w-0 items-center gap-1.5">
           <dt className="text-text-faint">Price change</dt>
@@ -263,19 +262,19 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
         {buys !== null && sells !== null ? <PairedBar left={buys} right={sells} leftLabel="Buys" rightLabel="Sells" /> : (
           <div className="flex flex-col gap-1">
             {agg ? <dl><KeyValueRow className="min-h-8 py-0.5" label="Trades" value={formatCount(agg.trades)} /></dl> : null}
-            <SplitBarFrame leftLabel="buys" rightLabel="sells" title={`Buy and sell counts for ${selected}`} operation="IF_CANDLES.trades (not split by side)" loading={snapshot.isPending} />
+            {selected === '24h' && snapshot.isPending ? <SplitBarFrame leftLabel="buys" rightLabel="sells" title="Buy and sell counts for 24h" operation="IF_POOL_STATS" loading /> : null}
           </div>
         )}
         {agg ? <PairedBar left={usdlUnits(agg.buyVolume)} right={usdlUnits(agg.sellVolume)} leftLabel="Buy vol" rightLabel="Sell vol" format={formatUnits} /> : null}
         {!agg && series?.state !== 'error' ? <SplitBarFrame leftLabel="buy vol" rightLabel="sell vol" title="Buy and sell volume" operation={series?.state === 'unsupported' ? series.operation : 'IF_CANDLES'} loading={loading} /> : null}
-        {series?.state === 'error' ? <p role="alert" className="text-xs text-danger">Buy and sell volume can&apos;t load right now. {userFacingMessage(series.error)}</p> : null}
+        {series?.state === 'unsupported' && series.retry ? <UnavailableState variant="inline" title="Buy and sell volume" operation={series.operation} status={series.status} notServed={series.notServed} error={series.error} onRetry={series.retry} /> : null}
+        {series?.state === 'error' ? <p role="alert" className="text-xs text-danger">Buy and sell volume can&apos;t load right now. {userFacingMessage(series.error)} <button type="button" onClick={series.retry} className="font-semibold underline">Try again</button></p> : null}
         {traders !== null || txns !== null ? (
           <dl className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <div className="flex items-baseline gap-1.5"><dt className="text-text-faint">Traders</dt><dd data-numeric className="text-sm font-bold tabular-nums text-text">{traders === null ? '—' : formatCount(traders)}</dd></div>
             <div className="flex items-baseline gap-1.5"><dt className="text-text-faint">Txns</dt><dd data-numeric className="text-sm font-bold tabular-nums text-text">{txns === null ? '—' : formatCount(txns)}</dd></div>
           </dl>
         ) : null}
-        <SplitBarFrame leftLabel="buyers" rightLabel="sellers" title="Buyers versus sellers" operation="PoolStats.uniqueTraders24h (not split by side)" loading={snapshot.isPending} />
       </div>
     </div>
   );

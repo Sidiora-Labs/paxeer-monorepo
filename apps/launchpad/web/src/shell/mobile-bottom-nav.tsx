@@ -14,18 +14,15 @@ import { createItem, isNavItemEligible, navItems, type NavItem } from './nav-con
 
 /**
  * Phone-only bottom navigation (< md, 768). From md up the icon rail is the
- * navigation, matching the reference, which keeps its rail at 768 and shows a
- * bottom bar only on phones. Anatomy follows the reference: five icon-only
- * targets on a surface-1 bar (home, explore, create, bounties, more), the
- * active target tinted with the accent, and a "More" sheet holding every other
- * rail destination. Separation is background contrast only.
+ * navigation. Five labelled targets share a translucent bar, with a neutral
+ * current destination and an accent create disc. More opens the other destinations.
  */
 export const BOTTOM_NAV_BREAKPOINT_PX = 768;
 
 /** Bar height above the safe-area inset (`h-14`); fixed overlays below the breakpoint offset by this. */
 export const BOTTOM_NAV_HEIGHT_PX = 56;
 
-/** Bottom bar targets in order; ids refer to nav-config. Bounties is our equivalent of the reference "GO" slot. */
+/** Bottom bar targets in order; ids refer to nav-config. */
 export const BOTTOM_NAV_IDS = ['home', 'explore', 'create', 'bounties'] as const;
 
 function configured(id: string): NavItem {
@@ -61,13 +58,13 @@ export function moreSheetGroups(walletReady: boolean, sessionReady: boolean): Mo
   return groups.filter((group) => group.items.length > 0);
 }
 
-/** Icon overrides for the bottom bar: the reference draws create as an outlined circled plus, not a filled tile. */
+/** Create uses a circled plus inside its accent disc. */
 const barIcon: Partial<Record<string, LucideIcon>> = { create: CirclePlus };
 
 const targetClass = (active: boolean) =>
   cn(
-    'flex min-h-touch-target-min w-full items-center justify-center rounded-sm transition-colors duration-fast active:bg-surface-active',
-    active ? 'bg-accent-soft text-accent' : 'text-text hover:text-text-muted'
+    'flex min-h-touch-target-min min-w-0 w-full flex-col items-center justify-center gap-0.5 rounded-sm transition-colors duration-fast active:bg-surface-active',
+    active ? 'text-text' : 'text-text-muted hover:text-text'
   );
 
 export default function MobileBottomNav() {
@@ -101,7 +98,7 @@ export default function MobileBottomNav() {
     <>
       <nav
         aria-label="Mobile navigation"
-        className="fixed inset-x-0 bottom-0 z-[var(--sl-z-rail)] bg-surface-1 md:hidden"
+        className="sl-mobile-destinations fixed inset-x-0 bottom-0 z-[var(--sl-z-rail)] border-t border-surface-3 md:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 0rem)' }}
       >
         <ul className="flex min-h-bottom-nav items-stretch px-2">
@@ -117,7 +114,8 @@ export default function MobileBottomNav() {
                   data-route-id={routeForPath(item.href)?.id}
                   className={targetClass(active)}
                 >
-                  <Icon aria-hidden="true" className="size-6" strokeWidth={active ? 2.25 : 2} />
+                  <Icon aria-hidden="true" className={cn('size-6 shrink-0', item.id === 'create' && 'rounded-pill bg-accent text-on-accent')} strokeWidth={active ? 2.25 : 2} />
+                  <span className="max-w-full truncate text-2xs font-medium">{item.label}</span>
                 </Link>
               </li>
             );
@@ -136,6 +134,7 @@ export default function MobileBottomNav() {
                 className="size-6"
                 strokeWidth={moreActive ? 2.25 : 2}
               />
+              <span className="max-w-full truncate text-2xs font-medium">More</span>
             </button>
           </li>
         </ul>
@@ -146,7 +145,7 @@ export default function MobileBottomNav() {
           open={open}
           onClose={close}
           aria-label="More"
-          className="!inset-x-0 !bottom-0 !top-auto !m-0 !w-full !max-w-none flex-col rounded-t-lg bg-surface-2 md:hidden"
+          className="sl-sheet sl-floating !inset-x-0 !bottom-0 !top-auto !m-0 !w-full !max-w-none flex-col rounded-t-[var(--sl-radius-sheet)] md:hidden"
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0rem)' }}
         >
           <div
@@ -154,7 +153,7 @@ export default function MobileBottomNav() {
             className="mx-auto mt-2 h-1 w-8 shrink-0 rounded-pill bg-surface-3"
           />
           <div className="flex shrink-0 items-center justify-between px-4 pt-1">
-            <h2 className="text-md font-bold text-text">More</h2>
+            <h2 className="text-md font-semibold text-text">More</h2>
             <IconButton label="Close menu" icon={<X />} variant="ghost" size="md" onClick={close} />
           </div>
           <div className="flex min-h-0 flex-col gap-3 overflow-y-auto px-2 pb-3 pt-1">
@@ -178,7 +177,7 @@ export default function MobileBottomNav() {
                           onClick={close}
                           className={cn(
                             'flex min-h-12 items-center py-2 gap-3 rounded-sm px-3 text-base font-semibold transition-colors duration-fast active:bg-surface-active',
-                            active ? 'bg-surface-3 text-accent' : 'text-text hover:bg-surface-hover'
+                            active ? 'bg-surface-2 text-text' : 'text-text-muted hover:bg-surface-hover hover:text-text'
                           )}
                         >
                           <Icon aria-hidden="true" className="size-icon-lg shrink-0" />

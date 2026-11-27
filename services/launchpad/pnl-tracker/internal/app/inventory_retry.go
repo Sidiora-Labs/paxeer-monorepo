@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"regexp"
 	"time"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -11,6 +12,16 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
+
+var inventoryServiceAddress = regexp.MustCompile(`[a-zA-Z][a-zA-Z0-9+.-]*://[^\p{Z}\t\n\f\r\v]+`)
+
+func inventoryRunErrorText(err error) string {
+	text := []rune(inventoryServiceAddress.ReplaceAllString(err.Error(), "[redacted]"))
+	if len(text) > 300 {
+		text = text[:300]
+	}
+	return string(text)
+}
 
 func inventoryRunErrorClass(err error) (string, bool) {
 	switch {
@@ -49,6 +60,7 @@ func runInventoryAgain(ctx context.Context, logger *slog.Logger, run func(contex
 	const stable = 30 * time.Second
 	delay := time.Second
 	failing := false
+	lastClass, lastText := "", ""
 	for {
 		started := now()
 		recovered := false
@@ -86,8 +98,10 @@ func runInventoryAgain(ctx context.Context, logger *slog.Logger, run func(contex
 		if err == nil || permanent {
 			return err
 		}
-		if !failing {
-			logger.InfoContext(ctx, "inventory consumer", slog.String("job", "inventory consumer"), slog.String("state", "failing"), slog.String("class", class))
+		text := inventoryRunErrorText(err)
+		if !failing || class != lastClass || text != lastText {
+			logger.InfoContext(ctx, "inventory consumer", slog.String("job", "inventory consumer"), slog.String("state", "failing"), slog.String("class", class), slog.String("error", text))
+			lastClass, lastText = class, text
 			failing = true
 		}
 		wait(ctx, delay)

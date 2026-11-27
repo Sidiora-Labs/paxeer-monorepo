@@ -14,6 +14,7 @@ import { usePrivateAccountQuery } from '@/widgets/profile/use-private-account-qu
 import { Tooltip } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
 import { createItem, isNavItemEligible, navItems, type NavItem } from './nav-config';
+import RailColorMode from './rail-color-mode';
 
 const RAIL_KEY = 'sidiora-rail-expanded';
 const railListeners = new Set<() => void>();
@@ -96,11 +97,11 @@ function RailItem({
         'relative flex h-10 items-center rounded-sm text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text active:bg-surface-active',
         expanded ? 'w-full gap-3 px-3' : 'w-10 justify-center',
         active &&
-          'bg-surface-3 text-text underline decoration-accent underline-offset-[var(--sl-focus-offset)]'
+          'bg-surface-2 text-text'
       )}
     >
       <Icon aria-hidden="true" className="size-icon-rail shrink-0" />
-      {expanded ? <span className="text-sm font-bold">{item.label}</span> : null}
+      {expanded ? <span className="truncate text-sm font-medium">{item.label}</span> : null}
       {dot ? (
         <>
           <span
@@ -143,10 +144,10 @@ const utilityButton =
 
 /**
  * Icon rail, shown from md (768) up; below md the bottom tab bar
- * (mobile-bottom-nav.tsx) is the navigation. Anatomy follows the reference:
+ * (mobile-bottom-nav.tsx) is the navigation. The rail holds a
  * logo with the expand chevron beside it, primary destinations, a spacing gap,
  * secondary destinations, create, then a utility cluster pinned to the bottom
- * (help, legal, sidebar toggle). Groups are separated by spacing only.
+ * (help, legal, colour mode and sidebar toggle). Groups use spacing between them.
  */
 export default function SidebarNav() {
   const pathname = usePathname();
@@ -190,7 +191,7 @@ export default function SidebarNav() {
       )}
     >
       <CreateIcon aria-hidden="true" className="size-icon-rail shrink-0" />
-      {expanded ? <span className="text-sm font-bold">Create coin</span> : null}
+      {expanded ? <span className="text-sm font-semibold">Create coin</span> : null}
     </Link>
   );
 
@@ -203,7 +204,7 @@ export default function SidebarNav() {
       className={cn(utilityButton, expanded ? 'w-full gap-3 px-3' : 'w-10 justify-center')}
     >
       <PanelIcon aria-hidden="true" className="size-icon-rail shrink-0" />
-      {expanded ? <span className="text-sm font-bold">Collapse sidebar</span> : null}
+      {expanded ? <span className="text-sm font-semibold">Collapse sidebar</span> : null}
     </button>
   );
 
@@ -220,7 +221,7 @@ export default function SidebarNav() {
       <aside
         aria-label="Navigation rail"
         className={cn(
-          'fixed inset-y-0 left-0 z-[var(--sl-z-rail)] hidden flex-col bg-surface-1 md:flex',
+          'fixed inset-y-0 left-0 z-[var(--sl-z-rail)] hidden flex-col border-r border-surface-3 bg-canvas md:flex',
           expanded ? 'w-rail-expanded-width' : 'w-rail-width'
         )}
       >
@@ -243,7 +244,7 @@ export default function SidebarNav() {
               height={28}
               className="size-7"
             />
-            {expanded ? <span className="text-base font-extrabold text-text">Sidiora</span> : null}
+            {expanded ? <span className="text-base font-semibold text-text">Sidiora</span> : null}
           </Link>
           {expanded ? null : (
             <button
@@ -299,6 +300,9 @@ export default function SidebarNav() {
             className={listClass(expanded)}
           >
             {bottom.map((entry) => item(entry))}
+            <li className={cn(!expanded && 'flex justify-center')}>
+              <RailColorMode expanded={expanded} className={utilityButton} />
+            </li>
             <li className={cn(!expanded && 'flex justify-center')}>
               {expanded ? (
                 panelToggle

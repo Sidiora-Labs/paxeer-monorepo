@@ -177,7 +177,7 @@ func (p *canonicalMultihopProjection) projectRoute(ctx context.Context, tx pgx.T
 		return integrity
 	}
 	var complete bool
-	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM indexer.indexer_block_completeness_v1 b WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2 AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND b.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=b.chain_id AND r.height=b.height AND r.block_hash=b.block_hash) AND EXISTS(SELECT 1 FROM indexer.indexer_ingest_commits_v1 c WHERE c.chain_id=b.chain_id AND c.stream_id=b.stream_id AND c.previous_height<b.height AND c.last_complete_height>=b.height))`, p.stream, route.Height, route.BlockHash).Scan(&complete)
+	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM indexer.indexer_block_completeness_v1 b WHERE b.chain_id=125 AND b.stream_id=$1 AND b.height=$2 AND b.block_hash=$3 AND b.fetch_complete AND b.required_decode_complete AND b.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=b.chain_id AND r.height=b.height AND r.block_hash=b.block_hash) AND EXISTS(WITH bounds AS MATERIALIZED (SELECT b.height::bigint height) SELECT 1 FROM indexer.indexer_ingest_commits_v1 c WHERE c.chain_id=b.chain_id AND c.stream_id=b.stream_id AND c.previous_height<(SELECT height FROM bounds) AND c.last_complete_height>=(SELECT height FROM bounds) AND numrange(least(c.previous_height,c.last_complete_height)::numeric,greatest(c.previous_height,c.last_complete_height)::numeric,'[]') @> b.height::numeric))`, p.stream, route.Height, route.BlockHash).Scan(&complete)
 	if err != nil {
 		return err
 	}

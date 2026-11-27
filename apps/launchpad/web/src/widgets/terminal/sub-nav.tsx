@@ -50,7 +50,7 @@ export function terminalViewForPath(pathname: string | null): TerminalView | nul
 
 export default function TerminalSubNav({ active }: { active: TerminalView }) {
   return (
-    <nav aria-label="Terminal views" className="min-w-0 overflow-x-auto scrollbar-none">
+    <nav aria-label="Terminal views" className="sl-hairline min-w-0 overflow-x-auto scrollbar-none">
       <ul className="flex min-h-10 items-stretch">
         {terminalViews.map(view => {
           const selected = view.id === active;
@@ -60,12 +60,12 @@ export default function TerminalSubNav({ active }: { active: TerminalView }) {
                 href={terminalViewPath(view.id)}
                 aria-current={selected ? 'page' : undefined}
                 className={cn(
-                  'relative inline-flex items-center whitespace-nowrap rounded-sm px-3 text-sm font-bold transition-colors duration-fast hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
+                  'relative inline-flex items-center whitespace-nowrap px-3 text-sm font-medium transition-colors duration-fast hover:bg-surface-hover focus-visible:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus',
                   selected ? 'text-text' : 'text-text-muted hover:text-text',
                 )}
               >
                 {view.label}
-                {selected ? <span aria-hidden="true" data-indicator className="absolute inset-x-3 bottom-0 h-0.5 rounded-pill bg-accent" /> : null}
+                {selected ? <span aria-hidden="true" data-indicator className="absolute inset-x-3 bottom-0 h-0.5 bg-text" /> : null}
               </Link>
             </li>
           );

@@ -7,6 +7,7 @@
  * viewer should see: the query keeps its loading (or last-good) state and is
  * retried after the server's delay, growing per attempt and capped, and only
  * when the budget is spent does the hook fall to its usual failure state.
+ * A retryable 503 without a delay gets one retry after one second.
  *
  * Every other failure keeps the caller's own retry count (most reads: none),
  * so a 4xx, a contract validation error or an honest "not served" is surfaced
@@ -19,7 +20,7 @@ import { PolicyBlockedError, policyBlockedOrigin } from './policy-block';
 export const transientRetryLimit = 4;
 /** Upper bound for a single wait, whatever the server asks for. */
 export const transientRetryCapMs = 15_000;
-/** Wait used when a transient failure carries no server delay (network drop, bare 429). */
+/** Wait used when a transient failure carries no server delay (network drop, retryable 503, bare 429). */
 export const transientRetryFallbackMs = 1_000;
 /**
  * Wall-time budget of the waits the query layer adds for a server-advised
@@ -38,7 +39,7 @@ export const networkRetryBudgetMs = 2_000;
 /**
  * Who owns the retries of a failure:
  *  - `server`    a retryable 503 / 429: the query layer retries on the server's delay within transientRetryBudgetMs;
- *  - `network`   a fetch that threw (no SDK below it): the query layer retries within networkRetryBudgetMs;
+ *  - `network`   a fetch that threw or a retryable 503 without a delay: the query layer retries within networkRetryBudgetMs;
  *  - `transport` the SDK already retried the idempotent read before reporting NETWORK_INTERRUPTED: the query layer adds none;
  *  - `policy`    the Content-Security-Policy refused the connection: a configuration fault, never retried;
  *  - `none`      anything else: the caller's own retry count.
@@ -54,7 +55,7 @@ function finiteDelay(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-const fetchFailure = /failed to fetch|load failed|networkerror|network request failed/i;
+const fetchFailure = /failed to fetch|fetch failed|load failed|networkerror|network request failed/i;
 
 /** True for a failure that looks like the connection never completed (SDK interruption or a fetch TypeError). */
 export function isNetworkClassError(error: unknown): boolean {
@@ -67,6 +68,7 @@ export function isNetworkClassError(error: unknown): boolean {
  *  - the error envelope says `retryable: true` and names `retryAfterMs`
  *    (SDK HttpError carries it as `envelope`, transports that decode the body
  *    themselves carry `retryable` / `retryAfterMs` on the error);
+ *  - the status is 503 and the envelope says `retryable: true` without a delay;
  *  - the status is 429 and the envelope does not say `retryable: false`;
  *  - the connection dropped (SDK NETWORK_INTERRUPTED or a fetch TypeError),
  *    unless the page's CSP refused it (core/policy-block.ts): a policy block
@@ -87,6 +89,7 @@ export function retryHint(error: unknown): RetryHint {
   if (envelope.retryable === false) return notTransient;
   const delayMs = finiteDelay(envelope.retryAfterMs);
   if (envelope.retryable === true && delayMs !== null) return { transient: true, delayMs, owner: 'server' };
+  if (status === 503 && envelope.retryable === true) return { transient: true, delayMs: null, owner: 'network' };
   if (status === 429) return { transient: true, delayMs, owner: 'server' };
   return notTransient;
 }
@@ -143,7 +146,8 @@ export function shouldRetry(failureCount: number, error: unknown, otherRetries =
 /**
  * React Query `retry` / `retryDelay` pair, the one owner of query-layer
  * retries: server-advised transient failures retry on the server's delay
- * within transientRetryBudgetMs; a plain fetch that threw retries within
+ * within transientRetryBudgetMs; a plain fetch that threw or a retryable 503
+ * without a delay retries within
  * networkRetryBudgetMs; an SDK NETWORK_INTERRUPTED is not retried again (the
  * SDK transport already retried the idempotent read); a CSP block is never
  * retried; anything else retries `otherRetries` times (0 for the typed market
@@ -161,6 +165,12 @@ export const retryTransientOnly: TransientRetryOptions = transientRetry(0);
 
 export interface RetryFields { retryable: boolean | null; retryAfterMs: number | null }
 
+export function retryFields(body: unknown): RetryFields {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return { retryable: null, retryAfterMs: null };
+  const row = body as { retryable?: unknown; retryAfterMs?: unknown };
+  return { retryable: typeof row.retryable === 'boolean' ? row.retryable : null, retryAfterMs: finiteDelay(row.retryAfterMs) };
+}
+
 /**
  * Read `retryable` / `retryAfterMs` from a failed response's JSON error body,
  * for transports that do not go through the SDK. Consumes the body; a body
@@ -168,7 +178,5 @@ export interface RetryFields { retryable: boolean | null; retryAfterMs: number |
  */
 export async function readRetryFields(response: Response): Promise<RetryFields> {
   const body: unknown = await response.json().catch(() => null);
-  if (typeof body !== 'object' || body === null) return { retryable: null, retryAfterMs: null };
-  const row = body as { retryable?: unknown; retryAfterMs?: unknown };
-  return { retryable: typeof row.retryable === 'boolean' ? row.retryable : null, retryAfterMs: finiteDelay(row.retryAfterMs) };
+  return retryFields(body);
 }

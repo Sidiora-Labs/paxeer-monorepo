@@ -1,7 +1,10 @@
 'use client';
-import { useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useId, useState } from 'react';
 import { ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TabStrip } from '@/ui/primitives';
+import { tabIds } from '@/ui/primitives/controls';
+import { TrendingWidget } from './trending-widget';
 import {
   CalloutsFeedBody,
   FeedPauseButton,
@@ -9,97 +12,62 @@ import {
   type CalloutsFeed,
 } from './callouts-widget';
 
-/**
- * Feed tabs on the compact home. pump.fun shows Callouts / Friends / Top; the connected feed
- * serves chronological and relevance orders only (IF_CONNECTED_FEED), so there is no Friends tab
- * until a following feed exists.
- */
-export const homeFeedTabs: { value: CalloutsFeed; label: string }[] = [
+export type HomeFeedTab = 'coins' | CalloutsFeed;
+
+export const homeFeedTabs: { value: HomeFeedTab; label: string }[] = [
+  { value: 'coins', label: 'Coins' },
   { value: 'latest', label: 'Callouts' },
   { value: 'hot', label: 'Top' },
 ];
 
-/**
- * Home below lg (768 and 390): a single centred callouts feed, as on pump.fun, instead of the
- * column board. Large tab titles, a live / paused toggle, a "new callouts" pill while paused,
- * then full-width callout cards. No board customisation on touch.
- */
+/** Compact home discovery, with the board's coin ranking first. */
 export function HomeFeed({ className }: { className?: string }) {
-  const [feed, setFeed] = useState<CalloutsFeed>('latest');
-  const state = useCalloutsFeed(feed, '');
+  const [feed, setFeed] = useState<HomeFeedTab>('coins');
   const id = useId();
-  const refs = useRef<Array<HTMLButtonElement | null>>([]);
-
-  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    const delta = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
-    if (!delta) return;
-    event.preventDefault();
-    const next = (index + delta + homeFeedTabs.length) % homeFeedTabs.length;
-    setFeed(homeFeedTabs[next].value);
-    refs.current[next]?.focus();
-  }
+  const ids = tabIds(id, feed);
 
   return (
     <div
       data-home-feed=""
-      className={cn(
-        'mx-auto flex min-h-0 w-full max-w-120 flex-1 flex-col gap-3 px-4 pb-6 pt-4',
-        className
-      )}
+      className={cn('mx-auto flex w-full max-w-120 shrink-0 flex-col px-4 pb-6 pt-4', className)}
     >
-      <div className="flex shrink-0 flex-wrap items-center gap-4">
-        <div
-          role="tablist"
-          aria-label="Callout feed"
-          className="flex min-w-0 max-w-full flex-1 basis-60 flex-wrap items-baseline gap-5"
-        >
-          {homeFeedTabs.map((tab, index) => {
-            const selected = tab.value === feed;
-            return (
-              <button
-                key={tab.value}
-                ref={(element) => {
-                  refs.current[index] = element;
-                }}
-                type="button"
-                role="tab"
-                id={`${id}-tab-${tab.value}`}
-                aria-selected={selected}
-                aria-controls={`${id}-panel`}
-                tabIndex={selected ? 0 : -1}
-                onClick={() => setFeed(tab.value)}
-                onKeyDown={(event) => onKeyDown(event, index)}
-                className={cn(
-                  'whitespace-nowrap text-lg font-bold transition-colors duration-base',
-                  selected ? 'text-text' : 'text-text-faint hover:text-text-muted'
-                )}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-        <FeedPauseButton state={state} className="ml-auto" />
+      <TabStrip
+        label="Home discovery"
+        tabs={homeFeedTabs.map(tab => ({ id: tab.value, label: tab.label }))}
+        active={feed}
+        onChange={setFeed}
+        idPrefix={id}
+      />
+      <div role="tabpanel" id={ids.panel} aria-labelledby={ids.tab} className="flex flex-col">
+        {feed === 'coins' ? (
+          <TrendingWidget standalone columnId="home-coins" filter="" density="comfortable" view="list" />
+        ) : (
+          <CompactCallouts key={feed} feed={feed} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CompactCallouts({ feed }: { feed: CalloutsFeed }) {
+  const state = useCalloutsFeed(feed, '');
+  return (
+    <>
+      <div className="flex min-h-10 shrink-0 items-center justify-end py-1.5">
+        <FeedPauseButton state={state} />
       </div>
       {state.paused && state.pending > 0 ? (
         <button
           type="button"
           onClick={state.togglePause}
-          className="inline-flex h-control-height-sm w-full items-center justify-center gap-1.5 rounded-sm bg-surface-2 text-xs font-bold text-text hover:bg-surface-hover"
+          className="inline-flex h-control-height-sm w-full items-center justify-center gap-1.5 rounded-sm bg-surface-2 text-xs font-medium text-text hover:bg-surface-hover"
         >
           <ChevronUp aria-hidden="true" className="size-icon-sm" />
           {state.pending} new {state.pending === 1 ? 'callout' : 'callouts'}
         </button>
       ) : null}
-      <div
-        role="tabpanel"
-        id={`${id}-panel`}
-        aria-labelledby={`${id}-tab-${feed}`}
-        className="flex min-h-0 flex-1 flex-col"
-      >
-        <CalloutsFeedBody feed={feed} filter="" state={state} />
-      </div>
-    </div>
+      <CalloutsFeedBody feed={feed} filter="" state={state} className="flex-none overflow-visible" />
+    </>
   );
 }
 

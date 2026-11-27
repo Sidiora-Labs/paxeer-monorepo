@@ -7,7 +7,7 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(scriptDirectory, '../../../..');
 const wholePath = path.join(repositoryRoot, 'tools/ui-check/surfaces/launchpad.json');
 const partsDirectory = path.join(scriptDirectory, 'parts');
-const partNames = ['home', 'community', 'coin', 'explore', 'rewards', 'live', 'terminal'];
+const partNames = ['home', 'community', 'coin', 'create', 'explore', 'rewards', 'live', 'terminal'];
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -32,9 +32,9 @@ function fail(message) {
 
 const whole = readJson(wholePath);
 const parts = partNames.map((name) => ({ name, file: path.join(partsDirectory, `${name}.json`), surface: readJson(path.join(partsDirectory, `${name}.json`)) }));
-function checkCoinRoutes(surface) {
+function checkRoutes(name, roots, surface) {
   const appDirectory = path.join(repositoryRoot, 'apps/launchpad/web/src/app');
-  for (const root of ['coin', 'token', 'tokens', 'create']) {
+  for (const root of roots) {
     const directory = path.join(appDirectory, root);
     const pages = fs.readdirSync(directory, { recursive: true, withFileTypes: true })
       .filter((entry) => entry.isFile() && entry.name === 'page.tsx');
@@ -45,7 +45,7 @@ function checkCoinRoutes(surface) {
         return route.length === segments.length && route.every((segment, index) =>
           /^\[[^\]]+\]$/.test(segment) ? segments[index].length > 0 : segment === segments[index]);
       });
-      if (!covered) fail(`coin part is missing route /${route.join('/')}`);
+      if (!covered) fail(`${name} part is missing route /${route.join('/')}`);
     }
   }
   const modes = ['default', 'reduced-motion', 'double-text', 'keyboard'];
@@ -53,13 +53,15 @@ function checkCoinRoutes(surface) {
     for (const state of [view, ...(view.states ?? [])]) {
       const selected = state.modes ?? view.modes ?? modes;
       if (modes.some((mode) => !selected.includes(mode))) {
-        fail(`coin view ${view.name}, state ${state === view ? 'default' : state.name} is missing a render mode`);
+        fail(`${name} view ${view.name}, state ${state === view ? 'default' : state.name} is missing a render mode`);
       }
     }
   }
 }
 
-checkCoinRoutes(parts.find((part) => part.name === 'coin').surface);
+checkRoutes('coin', ['coin', 'token', 'tokens'], parts.find((part) => part.name === 'coin').surface);
+checkRoutes('create', ['create'], parts.find((part) => part.name === 'create').surface);
+checkRoutes('rewards', ['leaderboard', 'rewards', 'holder-rewards', 'r'], parts.find((part) => part.name === 'rewards').surface);
 
 const seen = new Map();
 const sharedKeys = ['build', 'buildMs', 'start', 'address', 'readyPath', 'typeScale'];
@@ -114,6 +116,9 @@ for (const part of parts) {
     seen.set(view.name, part.name);
     const liveRoute = /^\/(live|pnl|profile)(\/|\?|$)/.test(view.path);
     if ((part.name === 'live') !== liveRoute) fail(`view ${view.name} does not belong to the ${part.name} route group`);
+    const root = new URL(view.path, surface.address).pathname.split('/')[1];
+    if ((part.name === 'coin') !== ['coin', 'token', 'tokens'].includes(root)) fail(`view ${view.name} does not belong to the ${part.name} route group`);
+    if ((part.name === 'create') !== (root === 'create')) fail(`view ${view.name} does not belong to the ${part.name} route group`);
     const wholeView = whole.views.find((candidate) => candidate.name === view.name);
     if (!wholeView) fail(`${part.name} contains unknown view ${view.name}`);
     else if (!equal(view, wholeView)) fail(`view ${view.name} differs from the whole surface`);

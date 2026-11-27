@@ -1,6 +1,8 @@
+import { formatUnits } from "viem";
+import Decimal from "decimal.js";
 import {
-  PERPS_MARKETS,
   COLLATERAL_TOKENS,
+  PERPS_MARKETS,
   getMarketCategory,
 } from "./core/perps/config";
 import { paxeerChain } from "./core/chain";
@@ -14,33 +16,60 @@ export const toNativeSymbol = (symbol: string) =>
 export const toTradingSymbol = (symbol: string) =>
   `PERP_${toNativeSymbol(symbol)}_USDC`;
 export function nativeSymbols() {
-  // Paxeer positions are sized in USD collateral. These ticks define the
-  // native UI's base-quantity and quote-input precision, not a remote order lot.
-  return PERPS_MARKETS.map((market) => ({
-    marketId: market.marketId,
-    symbol: toTradingSymbol(market.symbol),
-    display_symbol_name: market.symbol,
-    base_tick: 0.00000001,
-    base_min: 0.00000001,
-    base_max: Number.MAX_SAFE_INTEGER,
-    quote_tick: 0.000001,
-    quote_min: 0.000001,
-    quote_max: Number.MAX_SAFE_INTEGER,
-    min_notional: 0.000001,
-    base_imr: 1 / (market.maxLeverage ?? 20),
-    base_mmr: undefined,
-    imr_factor: 0,
-    interest_rate: undefined,
-    cap_funding: undefined,
-    floor_funding: undefined,
-    liquidation_fee: undefined,
-    max_leverage: market.maxLeverage ?? 20,
-    funding_period: 8,
-    category: getMarketCategory(market.marketId),
-    is_rwa: ["stocks", "indices", "commodities"].includes(
-      getMarketCategory(market.marketId),
-    ),
-  }));
+  const snapshot = getNativeSnapshot();
+  const catalog = new Map(
+    snapshot.marketCatalog.map((market) => [
+      toNativeSymbol(market.symbol),
+      market,
+    ]),
+  );
+  const builtIn = new Map(
+    PERPS_MARKETS.map((market) => [toNativeSymbol(market.symbol), market]),
+  );
+  const symbols = new Set([...builtIn.keys(), ...catalog.keys()]);
+  const prices = new Map(
+    snapshot.markets.map((row) => [toNativeSymbol(row.symbol), row.price]),
+  );
+  return [...symbols].flatMap((symbol) => {
+    const entry = catalog.get(symbol);
+    const market = entry ?? builtIn.get(symbol)!;
+    if (entry?.enabled === false) return [];
+    const price = prices.get(toNativeSymbol(market.symbol)) ?? 0;
+    const tick =
+      entry?.tickSize != null && BigInt(entry.tickSize) > 0n
+        ? new Decimal(formatUnits(BigInt(entry.tickSize), 18))
+        : new Decimal(
+            price >= 1 ? "0.01" : price >= 0.01 ? "0.0001" : "0.000001",
+          );
+    return [
+      {
+        marketId: market.marketId,
+        symbol: toTradingSymbol(market.symbol),
+        display_symbol_name: market.symbol,
+        base_tick: 0.00000001,
+        base_min: 0.00000001,
+        base_max: Number.MAX_SAFE_INTEGER,
+        quote_tick: tick.toNumber(),
+        quote_dp: tick.decimalPlaces(),
+        quote_min: tick.toNumber(),
+        quote_max: Number.MAX_SAFE_INTEGER,
+        min_notional: 0.000001,
+        base_imr: 1 / (market.maxLeverage ?? 20),
+        base_mmr: undefined,
+        imr_factor: 0,
+        interest_rate: undefined,
+        cap_funding: undefined,
+        floor_funding: undefined,
+        liquidation_fee: undefined,
+        max_leverage: market.maxLeverage ?? 20,
+        funding_period: 8,
+        category: getMarketCategory(market.marketId),
+        is_rwa: ["stocks", "indices", "commodities"].includes(
+          getMarketCategory(market.marketId),
+        ),
+      },
+    ];
+  });
 }
 export function nativeMarketRows() {
   const snapshots = new Map(

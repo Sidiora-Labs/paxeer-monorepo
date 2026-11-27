@@ -14,6 +14,7 @@ import (
 )
 
 func TestIntervalHistoryReadsBoundDailyBuckets(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	service, pool := recordedRebuildService(t, ctx)
 	start := time.Date(2026, 10, 10, 0, 0, 0, 0, time.UTC)

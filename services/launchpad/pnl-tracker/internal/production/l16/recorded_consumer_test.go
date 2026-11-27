@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -376,6 +377,10 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 		t.Fatal(err)
 	}
 	if len(selected) > 0 {
+		var priorSnapshots int
+		if err = service.authority.pool.QueryRow(ctx, `SELECT count(*) FROM pnl.portfolio_snapshots`).Scan(&priorSnapshots); err != nil {
+			t.Fatal(err)
+		}
 		runCtx, stop := context.WithCancel(ctx)
 		defer stop()
 		result := make(chan error, 1)
@@ -385,7 +390,7 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 			if err = service.authority.pool.QueryRow(ctx, `SELECT count(*) FROM pnl.portfolio_snapshots`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
-			if count == len(frames) {
+			if count == priorSnapshots+len(frames) {
 				break
 			}
 			select {
@@ -402,6 +407,7 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 		}
 		return
 	}
+	consumer.Progress = consumerhealth.New("inventory_consumer", 5*time.Minute, nil, time.Now)
 	count := 0
 	for count < len(frames) {
 		messages, e := transport.Fetch(ctx)
@@ -417,6 +423,9 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 			}
 			count++
 		}
+	}
+	if snapshot := consumer.Progress.Snapshot(); snapshot.LastSuccess.IsZero() || snapshot.ConsecutiveFailures != 0 || snapshot.RetryPartitions != 0 {
+		t.Fatalf("committed inventory progress: %+v", snapshot)
 	}
 	if count != len(frames) {
 		t.Fatal(count, len(frames))

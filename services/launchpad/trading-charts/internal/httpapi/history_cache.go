@@ -26,6 +26,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const historyPrivateCachePolicy = "private, no-cache"
+
 type PostgresHistoryRevision struct {
 	Pool   *pgxpool.Pool
 	Schema string
@@ -109,14 +111,7 @@ func validChartCache(value chartCacheValue, key string, r HistoryRequest, mode, 
 	if value.Scope != key || len(value.Body) == 0 || len(value.Body) > 16*1024*1024 || !value.Expiry.After(time.Now()) || value.Expiry.After(time.Now().Add(60*time.Second)) || value.ETag != chartETag(key, value.Watermark, value.Body) {
 		return false
 	}
-	if interfaces.ValidateJSON("Watermark", value.Watermark) != nil {
-		return false
-	}
-	var watermark interfaces.Watermark
-	if json.Unmarshal(value.Watermark, &watermark) != nil || watermark.Integrity != "healthy" {
-		return false
-	}
-	if value.Policy != "private, no-cache" {
+	if value.Policy != historyPrivateCachePolicy {
 		validPolicy := false
 		for i := 1; i <= 60; i++ {
 			validPolicy = validPolicy || value.Policy == "public, max-age="+strconv.Itoa(i)+", must-revalidate"
@@ -175,6 +170,17 @@ func validChartCache(value chartCacheValue, key string, r HistoryRequest, mode, 
 				return false
 			}
 		}
+	}
+	if bytes.Equal(value.Watermark, []byte("null")) {
+		empty, err := valuationHistory(context.Background(), CanonicalCandlePage{Items: []interfaces.Candle{}, SnapshotID: body.Snapshot, Algorithm: algorithm}, nil, mode)
+		return err == nil && bytes.Equal(value.Body, empty) && value.Policy == historyPrivateCachePolicy && !value.Expiry.After(time.Now().Add(500*time.Millisecond))
+	}
+	if interfaces.ValidateJSON("Watermark", value.Watermark) != nil {
+		return false
+	}
+	var watermark interfaces.Watermark
+	if json.Unmarshal(value.Watermark, &watermark) != nil || watermark.Integrity != "healthy" {
+		return false
 	}
 	return true
 }
@@ -351,9 +357,9 @@ func (c *HistoryCache) read(ctx context.Context, r HistoryRequest, mode, algorit
 			return chartCacheValue{}, errors.New("history revision changed during fill")
 		}
 		watermark, _ := json.Marshal(page.Watermark)
-		policy := "private, no-cache"
+		policy := historyPrivateCachePolicy
 		ttl := 500 * time.Millisecond
-		if page.Complete && permit != nil && permit.Complete && permit.RevisionDigest == version && permit.InvalidationEvidenceID != "" && permit.MaxAge >= time.Second && permit.MaxAge <= 60*time.Second {
+		if page.Watermark != nil && page.Complete && permit != nil && permit.Complete && permit.RevisionDigest == version && permit.InvalidationEvidenceID != "" && permit.MaxAge >= time.Second && permit.MaxAge <= 60*time.Second {
 			ttl = permit.MaxAge
 			policy = "public, max-age=" + strconv.FormatInt(int64(ttl/time.Second), 10) + ", must-revalidate"
 		}
@@ -383,6 +389,7 @@ func (c *HistoryCache) read(ctx context.Context, r HistoryRequest, mode, algorit
 }
 
 type ProductionHistoryHandler struct {
+	Logger           *slog.Logger
 	Source           CanonicalCandleClient
 	Supply           *RPCSupplySource
 	Cache            *HistoryCache
@@ -391,6 +398,10 @@ type ProductionHistoryHandler struct {
 }
 
 func (h ProductionHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	logger := h.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
 	if len(req.URL.RawQuery) > 16384 {
 		historyError(w, 422, "FIELD_INVALID", "history query too large", false)
 		return
@@ -418,7 +429,7 @@ func (h ProductionHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 		r.From = r.To - maxHistorySpan
 	}
 	if h.Cache == nil || h.Algorithm == "" {
-		slog.ErrorContext(req.Context(), "chart history unavailable", "err", "history cache or algorithm absent")
+		logger.ErrorContext(req.Context(), "chart history unavailable", "err", "history cache or algorithm absent")
 		historyError(w, 503, "DEPENDENCY_UNAVAILABLE", "history cache authority unavailable", true)
 		return
 	}
@@ -426,7 +437,7 @@ func (h ProductionHistoryHandler) ServeHTTP(w http.ResponseWriter, req *http.Req
 	defer cancel()
 	value, err := h.Cache.read(ctx, r, mode, h.Algorithm, h.HistoricalPermit, h.Source, h.Supply)
 	if err != nil || ctx.Err() != nil {
-		slog.ErrorContext(ctx, "chart history read failed", "err", errors.Join(err, ctx.Err()))
+		logger.ErrorContext(ctx, "chart history read failed", "err", errors.Join(err, ctx.Err()))
 		historyError(w, 503, "DEPENDENCY_UNAVAILABLE", "canonical history unavailable", true)
 		return
 	}

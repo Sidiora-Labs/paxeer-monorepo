@@ -62,6 +62,8 @@ export function appendRankingPage(previous: RankingsResponse | null, next: Ranki
   return { ...next, data: { snapshot: { ...snapshot, items: [...items.values()].sort((a, b) => a.rank - b.rank).slice(0, 100) } } };
 }
 export interface MarketLiveState {
+  firstStateReady: boolean;
+  noTradesYet: boolean;
   rows: readonly Trade[];
   price: Price | null;
   priceSequence: string | null;
@@ -76,7 +78,7 @@ export interface MarketLiveState {
   revision: string | null;
   sequence: string | null;
 }
-const initialState: MarketLiveState = Object.freeze({ rows: [], price: null, priceSequence: null, priceRevision: null, stats: null, statsGeneratedAt: null, watermark: null, generatedAt: null, heartbeatAt: null, stream: 'idle', error: null, revision: null, sequence: null });
+const initialState: MarketLiveState = Object.freeze({ firstStateReady: false, noTradesYet: false, rows: [], price: null, priceSequence: null, priceRevision: null, stats: null, statsGeneratedAt: null, watermark: null, generatedAt: null, heartbeatAt: null, stream: 'idle', error: null, revision: null, sequence: null });
 export class MarketSession {
   private state: MarketLiveState = initialState;
   private listeners = new Set<() => void>();
@@ -92,31 +94,52 @@ export class MarketSession {
   private pendingPrice: StreamEvent | null = null;
   private pendingStats: StreamEvent | null = null;
   private hidden = false;
+  private refreshingFirstTrade = false;
+  private startedTopicHandoff = false;
+  private waitingForTopics = false;
+  private poolDetail: { stats: PoolStats; generatedAt: string } | null = null;
   private authorizationSignal: AbortSignal | undefined;
   private topicHeads = new Map<string, { revision: bigint; content: string; watermark: Watermark | null }>();
   readonly poolAddress: string;
-  constructor(client: SdkClient, poolAddress: string) {
+  constructor(client: SdkClient, poolAddress: string, source?: StreamTransportV2) {
     this.poolAddress = marketAddress(poolAddress);
-    const native = beforeFirstFrameTransport(browserStreamTransportV2(client, { applicationOrigin: applicationOrigin(), snapshotPath: '/v2/snapshots' }, false));
+    const native = beforeFirstFrameTransport(source ?? browserStreamTransportV2(client, { applicationOrigin: applicationOrigin(), snapshotPath: '/v2/snapshots' }, false), () => {
+      this.waitingForTopics = true;
+      if (this.poolDetail) this.setPoolDetail(this.poolDetail.stats, this.poolDetail.generatedAt);
+    });
     const transport: StreamTransportV2 = {
       ...native,
-      connect: input => native.connect({ ...input, receive: value => {
-        if (value !== null && typeof value === 'object' && 'op' in value) {
-          const control = decodeContract('StreamControl', value);
+      connect: async input => {
+        let subscriptionId: string | undefined;
+        const connection = await native.connect({ ...input, receive: value => {
+          if (input.signal.aborted) return;
+          if (value !== null && typeof value === 'object' && 'op' in value) {
+            const control = decodeContract('StreamControl', value);
+            if (control.op === 'resnapshot_required' && (control.subscriptionId === null || control.subscriptionId === subscriptionId) && control.watermark?.integrity !== 'quarantined' && this.state.noTradesYet && !this.hidden && !this.authorizationSignal?.aborted) this.startedTopicHandoff = true;
+            input.receive(value);
+            if ((control.op === 'heartbeat' || control.op === 'checkpoint') && this.stream.state === 'live') this.update({ heartbeatAt: Date.now() });
+            return;
+          }
           input.receive(value);
-          if ((control.op === 'heartbeat' || control.op === 'checkpoint') && this.stream.state === 'live') this.update({ heartbeatAt: Date.now() });
-          return;
-        }
-        input.receive(value);
-      } }),
+        } });
+        return { ...connection, send: frame => { subscriptionId = frame.subscriptionId; connection.send(frame); } };
+      },
     };
     this.stream = new SnapshotStreamV2({ transport, maxBuffer: marketLimits.fills,
       installSnapshot: snapshot => this.installSnapshot(snapshot),
       applyEvent: event => this.applyEvent(event),
       onState: (stream, error) => {
         if (stream !== 'live' && stream !== 'replaying') this.clearFrames();
+        if (stream === 'resync-required' && this.startedTopicHandoff) {
+          this.startedTopicHandoff = false; this.refreshingFirstTrade = true;
+          void this.start(); return;
+        }
+        if (this.refreshingFirstTrade) {
+          if (stream === 'loading' || stream === 'replaying') return;
+          this.refreshingFirstTrade = false;
+        }
         if (stream === 'live') this.retries = 0;
-        this.update({ stream, error: error ?? null });
+        this.update({ stream, error: error ?? null, ...((stream === 'stale' || stream === 'resync-required') ? { firstStateReady: true } : {}) });
         if ((stream === 'resync-required' || stream === 'stale') && !this.hidden && !this.retryTimer && this.retries < 3) this.retryTimer = setTimeout(() => { this.retryTimer = null; this.retries++; void this.start(); }, Math.min(5000, 500 * 2 ** this.retries));
       },
     });
@@ -124,6 +147,13 @@ export class MarketSession {
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   getSnapshot = () => this.state;
   getDiagnostics = () => ({ listeners: this.listeners.size, fills: this.state.rows.length, pendingFills: this.pendingFills.size, retainedRevisions: this.revisions.size, topicHeads: this.topicHeads.size, hidden: this.hidden, timers: Number(this.priceTimer !== null) + Number(this.fillTimer !== null) + Number(this.retryTimer !== null) });
+  setPoolDetail(value: PoolStats | null, generatedAt: string) {
+    if (!value) { this.poolDetail = null; return; }
+    const stats = decodeContract('PoolStats', value);
+    if (marketAddress(stats.poolAddress) !== this.poolAddress || stats.watermark.integrity === 'quarantined' || !Number.isFinite(Date.parse(generatedAt))) throw new Error('Invalid market pool detail');
+    this.poolDetail = { stats, generatedAt };
+    if (this.waitingForTopics) this.update({ noTradesYet: true, rows: [], price: null, priceSequence: null, priceRevision: null, stats, statsGeneratedAt: generatedAt, generatedAt, watermark: stats.watermark, revision: stats.watermark.projectionRevision, sequence: null, error: null });
+  }
   private update(change: Partial<MarketLiveState>) {
     this.state = { ...this.state, ...change };
     if (!this.hidden) for (const listener of this.listeners) { try { listener(); } catch { continue; } }
@@ -150,7 +180,7 @@ export class MarketSession {
   }
   private installSnapshot(snapshot: TopicSnapshot) {
     const events = snapshot.topics.map(entry => decodeContract('StreamEvent', { ...entry, eventId: 'snapshot', occurredAt: snapshot.generatedAt, coalesced: false, sourceSequenceFirst: null, sourceSequenceLast: null }));
-    let trade: Trade | null = null, price: Price | null = null, stats: PoolStats | null = null, boundary: StreamEvent | null = null, priceBoundary: StreamEvent | null = null;
+    let trade: Trade | null = null, price: Price | null = null, stats: PoolStats | null = null, boundary: StreamEvent | null = null, priceBoundary: StreamEvent | null = null, statsBoundary: StreamEvent | null = null;
     const heads = new Map(this.topicHeads);
     for (const event of events) {
       heads.set(event.topic, this.validateHead(event));
@@ -164,15 +194,22 @@ export class MarketSession {
       else if (event.topic === `market.stats.${this.poolAddress}`) {
         stats = decodeContract('PoolStats', event.payload);
         if (marketAddress(stats.poolAddress) !== this.poolAddress) throw new Error('Snapshot statistics belong to another pool');
+        statsBoundary = event;
       } else throw new Error('Unexpected market snapshot topic');
     }
-    if (!trade || !price || !stats || !boundary) throw new Error('Incomplete market snapshot');
+    if (!stats || !statsBoundary) throw new Error('Incomplete market snapshot');
+    this.waitingForTopics = false;
+    if (!trade || !price || !boundary) {
+      this.clearFrames(); this.topicHeads = heads; this.revisions.clear();
+      this.update({ firstStateReady: true, noTradesYet: true, rows: [], price: null, priceSequence: null, priceRevision: null, stats, statsGeneratedAt: snapshot.generatedAt, generatedAt: snapshot.generatedAt, heartbeatAt: null, watermark: statsBoundary.watermark, revision: statsBoundary.revision, sequence: statsBoundary.sequence });
+      return;
+    }
     const rows = mergeTradeHistory(this.state.rows, [trade]);
     this.clearFrames(); this.topicHeads = heads;
     this.revisions.set(tradeKey(trade), BigInt(boundary.revision));
     const retained = new Set(rows.map(tradeKey));
     for (const identity of this.revisions.keys()) if (!retained.has(identity)) this.revisions.delete(identity);
-    this.update({ rows, price, priceSequence: priceBoundary?.sequence ?? null, priceRevision: priceBoundary?.revision ?? null, stats, statsGeneratedAt: snapshot.generatedAt, generatedAt: snapshot.generatedAt, heartbeatAt: null, watermark: boundary.watermark, revision: boundary.revision, sequence: boundary.sequence });
+    this.update({ firstStateReady: true, noTradesYet: false, rows, price, priceSequence: priceBoundary?.sequence ?? null, priceRevision: priceBoundary?.revision ?? null, stats, statsGeneratedAt: snapshot.generatedAt, generatedAt: snapshot.generatedAt, heartbeatAt: null, watermark: boundary.watermark, revision: boundary.revision, sequence: boundary.sequence });
   }
   private applyEvent(event: StreamEvent) {
     const head = this.validateHead(event);
@@ -254,7 +291,7 @@ export class MarketSession {
     else return this.start();
   }
   status(now: number) { return freshness({ now, generatedAt: this.state.generatedAt, heartbeatAt: this.state.heartbeatAt, contiguous: this.state.stream === 'live', watermark: this.state.watermark }); }
-  close() { this.hidden = true; this.stream.close(); this.clearFrames(); if (this.retryTimer) clearTimeout(this.retryTimer); this.retryTimer = null; this.topicHeads.clear(); this.revisions.clear(); this.state = initialState; }
+  close() { this.hidden = true; this.startedTopicHandoff = false; this.refreshingFirstTrade = false; this.waitingForTopics = false; this.stream.close(); this.clearFrames(); if (this.retryTimer) clearTimeout(this.retryTimer); this.retryTimer = null; this.topicHeads.clear(); this.revisions.clear(); this.state = initialState; }
 }
 export function rankingWindow(snapshot: RankingSnapshot): string {
   return `Model ${snapshot.modelVersion}; computed ${snapshot.computedAt}; lookback unavailable in schema v1`;

@@ -134,8 +134,11 @@ The example includes `PNL_JOURNEYS` for the PnL journey delivery policy and
 `ACCOUNT_NATS_STREAM=USERS` for the user service. Both streams use file storage,
 limits retention, one replica, 1,000,000 messages, 1 GiB, 72 hours, 2 MiB per
 message, 128 consumers, a two-minute duplicate window and discard-new, following
-the example's bounded publisher streams. Neither has a durable entry because
-no launchpad consumer reads these outputs under a durable name.
+the example's bounded publisher streams. `USERS` has three stats search
+durables, one each for `profile.updated`, `account.deletion.requested`, and
+`account.backfill.completed`. Each uses the account service's literal subject
+and the `account_profile` search subscription kind. Grant stats search access
+only to its declared durables and invalidation publication.
 
 For `--service gateway`, `gateway.json` (or `gateway.example.json`) supplies
 `runtime`, `identity` and credential references. Routes use `method`, `template`

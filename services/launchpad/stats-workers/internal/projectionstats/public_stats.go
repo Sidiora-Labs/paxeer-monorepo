@@ -36,10 +36,11 @@ import (
 // The document is anchored at the latest committed canonical market event
 // (fill or pool creation) at or below the watermark: sourceUpperPosition is
 // that event's chain position, the watermark carries its height and block hash,
-// and the rolling 24h window is [anchorSecond+1-86400, anchorSecond+1).
+// and the rolling 24h window advances with the minute-rounded observation clock.
 
 const (
 	publicStatsWindowSeconds = 86400
+	publicStatsClockStep     = time.Minute
 	publicStatsTopicPrefix   = "market.stats."
 	publicStatsLockKey       = "stats:public-market-stats:v1"
 	publicStatsMaxSyncEvents = 256
@@ -205,7 +206,7 @@ func (p *PublicStatsProjector) refreshPage(ctx context.Context, after string, no
 		if err != nil {
 			return page, err
 		}
-		appended, priced, poolErr := p.refreshPoolTx(ctx, poolTx, anchor, emitters, c.pool, c.token, c.creator, c.created, observedAt)
+		appended, priced, poolErr := p.refreshPoolTx(ctx, poolTx, anchor, emitters, c.pool, c.token, c.creator, c.created, now, observedAt)
 		if poolErr != nil {
 			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 			rollbackErr := poolTx.Rollback(cleanup)
@@ -235,8 +236,34 @@ func (p *PublicStatsProjector) refreshPage(ctx context.Context, after string, no
 	return page, nil
 }
 
-func (p *PublicStatsProjector) refreshPoolTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool, token, creator string, created int64, observedAt time.Time) (bool, bool, error) {
-	doc, last, err := p.poolStatsTx(ctx, tx, anchor, emitters, pool, token, creator, created)
+func (p *PublicStatsProjector) refreshPoolTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool, token, creator string, created int64, now, observedAt time.Time) (bool, bool, error) {
+	end := anchor.timestamp + 1
+	clock := now
+	if clock.After(observedAt) {
+		clock = observedAt
+	}
+	if minute := clock.Truncate(publicStatsClockStep).Unix(); minute > end {
+		end = minute
+	}
+	writer := delivery.StreamWriter{Schema: p.stream}
+	prior, err := writer.MarketProjectionHeadTx(ctx, tx, publicStatsTopicPrefix+pool)
+	if err != nil {
+		return false, false, err
+	}
+	if len(prior) > 0 {
+		var previous publicStatsFrame
+		if ValidatePublicStatsFrame(prior) != nil || json.Unmarshal(prior, &previous) != nil || previous.Topic != publicStatsTopicPrefix+pool {
+			return false, false, ErrIntegrity
+		}
+		previousEnd, err := time.Parse("2006-01-02T15:04:05.000Z", previous.Payload.WindowEnd)
+		if err != nil {
+			return false, false, ErrIntegrity
+		}
+		if previousEnd.Unix() > end {
+			end = previousEnd.Unix()
+		}
+	}
+	doc, last, err := p.poolStatsTx(ctx, tx, anchor, emitters, pool, token, creator, created, end)
 	if err != nil {
 		return false, false, err
 	}
@@ -505,11 +532,11 @@ func decodeSyncRecords(records []syncRecord, anchor publicAnchor, pool string) (
 // reset, rather than loading the pool's entire lifetime. Raw ABI timestamps are
 // compared as unsigned, fixed-width big-endian words; selected rows are decoded
 // and verified before the checkpoint can be committed with the public frames.
-func (p *PublicStatsProjector) syncEventsTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool string) ([]syncEvent, error) {
+func (p *PublicStatsProjector) syncEventsTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool string, end int64) ([]syncEvent, error) {
 	if len(emitters) == 0 {
 		return []syncEvent{}, nil
 	}
-	identity, err := json.Marshal([]any{anchor.Position, anchor.timestamp, emitters, p.reads.config.SourceSchema, p.reads.config.SourceStream})
+	identity, err := json.Marshal([]any{anchor.Position, anchor.timestamp, end, emitters, p.reads.config.SourceSchema, p.reads.config.SourceStream})
 	if err != nil {
 		return nil, err
 	}
@@ -531,9 +558,9 @@ func (p *PublicStatsProjector) syncEventsTx(ctx context.Context, tx pgx.Tx, anch
 	records := []syncRecord{}
 	// Latest reset for reserves/current price, then the predecessor of every
 	// price window. Each lookup returns at most one event, regardless of age.
-	cutoffs := []int64{anchor.timestamp + 1, anchor.timestamp + 1 - publicStatsWindowSeconds}
+	cutoffs := []int64{end, end - publicStatsWindowSeconds}
 	for _, seconds := range publicChangeWindows {
-		cutoffs = append(cutoffs, anchor.timestamp+1-seconds)
+		cutoffs = append(cutoffs, end-seconds)
 	}
 	for i, cutoff := range cutoffs {
 		if cutoff <= 0 {
@@ -544,7 +571,7 @@ func (p *PublicStatsProjector) syncEventsTx(ctx context.Context, tx pgx.Tx, anch
 			word = new(big.Int).SetInt64(cutoff).FillBytes(make([]byte, 32))
 		}
 		var r syncRecord
-		err = tx.QueryRow(ctx, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM "+p.reads.source("indexer_raw_logs_v1")+" WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY height DESC,transaction_index DESC,log_index DESC LIMIT 1", emitters, poolStateUpdatedTopic, poolTopic(pool), anchor.Height, anchor.TransactionIndex, anchor.LogIndex, word).Scan(&r.Height, &r.TransactionIndex, &r.LogIndex, &r.Topics, &r.Data)
+		err = tx.QueryRow(ctx, "SELECT height::text,transaction_index::text,log_index::text,topics,data FROM "+p.reads.source("indexer_raw_logs_v1")+" r WHERE chain_id=125 AND emitter=ANY($1) AND lower(topics->>0)=$2 AND lower(topics->>1)=$3 AND (height,transaction_index,log_index)<=($4::bigint,$5::bigint,$6::bigint) AND ($7::bytea IS NULL OR substring(data from 129 for 32)<$7::bytea) ORDER BY r.height DESC,r.transaction_index DESC,r.log_index DESC LIMIT 1", emitters, poolStateUpdatedTopic, poolTopic(pool), anchor.Height, anchor.TransactionIndex, anchor.LogIndex, word).Scan(&r.Height, &r.TransactionIndex, &r.LogIndex, &r.Topics, &r.Data)
 		if errors.Is(err, pgx.ErrNoRows) {
 			continue
 		}
@@ -827,7 +854,7 @@ func (p *PublicStatsProjector) holdingsAtAnchorTx(ctx context.Context, tx pgx.Tx
 			candidates = append(candidates, v)
 		}
 	}
-	top, err := tx.Query(ctx, "SELECT address,balance::text FROM "+p.table(p.holders, "balances")+" WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY balance DESC,address ASC LIMIT $3", token, pool, 10+len(historical))
+	top, err := tx.Query(ctx, "SELECT address,balance::text FROM "+p.table(p.holders, "balances")+" b WHERE token=$1 AND balance>0 AND address<>$2 ORDER BY b.balance DESC,address ASC LIMIT $3", token, pool, 10+len(historical))
 	if err != nil {
 		return nil, err
 	}
@@ -964,8 +991,7 @@ func (p *PublicStatsProjector) windowChange(ctx context.Context, tx pgx.Tx, anch
 	}
 }
 
-func (p *PublicStatsProjector) poolStatsTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool, token, creator string, created int64) (PublicPoolStats, *committedFill, error) {
-	end := anchor.timestamp + 1
+func (p *PublicStatsProjector) poolStatsTx(ctx context.Context, tx pgx.Tx, anchor publicAnchor, emitters []string, pool, token, creator string, created, end int64) (PublicPoolStats, *committedFill, error) {
 	start := end - publicStatsWindowSeconds
 	doc := PublicPoolStats{PoolAddress: pool, WindowStart: publicTime(start), WindowEnd: publicTime(end), SourceUpperPosition: anchor.Position, SupplyValuationQuality: valueUnavailable}
 	schema := p.reads.repository.schema
@@ -973,7 +999,7 @@ func (p *PublicStatsProjector) poolStatsTx(ctx context.Context, tx pgx.Tx, ancho
 	if err != nil {
 		return doc, nil, err
 	}
-	syncs, err := p.syncEventsTx(ctx, tx, anchor, emitters, pool)
+	syncs, err := p.syncEventsTx(ctx, tx, anchor, emitters, pool, end)
 	if err != nil {
 		return doc, nil, err
 	}
@@ -1075,9 +1101,11 @@ type publicStatsFrame struct {
 }
 
 // statsContent is the document identity used for change detection: everything
-// except the observation time.
+// except the window, source position and watermark.
 func statsContent(doc PublicPoolStats) ([]byte, error) {
-	doc.Watermark = PublicWatermark{ChainID: doc.Watermark.ChainID, Height: doc.Watermark.Height, BlockHash: doc.Watermark.BlockHash}
+	doc.WindowStart, doc.WindowEnd = "", ""
+	doc.SourceUpperPosition = Position{}
+	doc.Watermark = PublicWatermark{}
 	return json.Marshal(doc)
 }
 
@@ -1139,6 +1167,14 @@ func (p *PublicStatsProjector) appendTx(ctx context.Context, tx pgx.Tx, anchor p
 		}
 		if (priceEvent{height: ph, transactionIndex: pt, logIndex: pl}).after(&priceEvent{height: ah, transactionIndex: at, logIndex: al}) {
 			return false, nil
+		}
+		start, err := time.Parse("2006-01-02T15:04:05.000Z", doc.WindowStart)
+		if err != nil {
+			return false, ErrIntegrity
+		}
+		end, err := time.Parse("2006-01-02T15:04:05.000Z", doc.WindowEnd)
+		if err != nil || end.Sub(start) != publicStatsWindowSeconds*time.Second {
+			return false, ErrIntegrity
 		}
 		was, err := statsContent(previous.Payload)
 		if err != nil {

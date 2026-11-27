@@ -174,6 +174,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
     favorite,
     data,
     quotoDp,
+    quoteTick,
     openInterest,
     containerRef,
     leadingElementRef,
@@ -268,7 +269,8 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
 
   const price = (
     <Text.numeral
-      dp={quotoDp || 2}
+      dp={quotoDp ?? 2}
+      tick={quoteTick}
       currency="$"
       size="sm"
       intensity={98}
@@ -326,6 +328,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
           value={
             <Text.numeral
               dp={quotoDp}
+              tick={quoteTick}
               data-testid="oui-testid-tokenInfo-markPrice-value"
             >
               {data?.["mark_price"]}
@@ -338,7 +341,9 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
         <DataItem
           label={t("markets.symbolInfoBar.Index")}
           value={
-            <Text.numeral dp={quotoDp}>{data?.["index_price"]}</Text.numeral>
+            <Text.numeral dp={quotoDp} tick={quoteTick}>
+              {data?.["index_price"]}
+            </Text.numeral>
           }
           hint={t("markets.symbolInfoBar.Index.tooltip")}
         />

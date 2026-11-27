@@ -190,7 +190,10 @@ function live_directory_loading_content_and_empty_states_keep_working_links() {
   expect(ready).toContain('No viewer count yet');
   const empty = renderDirectory(state([]));
   expect(empty).toContain('No live streams right now');
-  expect(empty).toContain('href="/explore"');
+  const emptyState = document.createElement('div');
+  emptyState.innerHTML = renderToStaticMarkup(React.createElement(page.NobodyLive));
+  expect([...emptyState.querySelectorAll('a')].map(link => link.getAttribute('href'))).toEqual(['/create']);
+  expect(emptyState.querySelector('a')?.className).toContain('bg-surface-2');
   expect(empty).toContain('href="/create"');
   expect(empty).not.toContain('<video');
 }

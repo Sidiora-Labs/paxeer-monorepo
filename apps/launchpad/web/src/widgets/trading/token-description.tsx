@@ -27,13 +27,13 @@ export default function TokenDescription({ poolAddress }: { poolAddress: string 
   if (snapshot.isError) {
     // Compact, so the rail Description card keeps its height when the snapshot fails.
     const status = (snapshot.error as { status?: unknown } | null)?.status;
-    return <UnavailableState variant="chip" wrap title="The description" plural="auto" operation="IF_POOL_DETAIL" status={typeof status === 'number' ? status : null} onRetry={() => { void snapshot.refetch(); }} className="self-start" />;
+    return <UnavailableState variant="chip" wrap title="The description" plural="auto" operation="IF_POOL_DETAIL" status={typeof status === 'number' ? status : null} error={snapshot.error} onRetry={() => { void snapshot.refetch(); }} className="self-start" />;
   }
   const content = snapshot.data.metadata;
   if (!content) {
     if (snapshot.data.metadataError) return <ErrorState variant="chip" wrap title="The description can't load right now" message={snapshot.data.metadataError} onRetry={() => { void snapshot.refetch(); }} />;
     const marker = snapshot.data.unavailable.metadata;
-    return marker ? <UnavailableState variant="inline" title="The description" operation={marker.operation} status={marker.status} /> : <EmptyState variant="inline" icon={FileText} title="No description yet" body="The creator hasn't added one." />;
+    return marker ? <UnavailableState variant="inline" title="The description" operation={marker.operation} status={marker.status} notServed={marker.notServed} error={marker.error} /> : <EmptyState variant="inline" icon={FileText} title="No description yet" body="The creator hasn't added one." />;
   }
   if (content.token.address.toLowerCase() !== snapshot.data.pool.tokenAddress.toLowerCase()) return <p role="alert" className="text-sm text-danger">This description can&apos;t be shown right now.</p>;
   return <section aria-label="Description" className="flex flex-col gap-3">
@@ -50,6 +50,5 @@ export default function TokenDescription({ poolAddress }: { poolAddress: string 
         </li>;
       })}
     </ul> : null}
-    <p className="text-xs text-text-faint">Metadata revision {content.revision}</p>
   </section>;
 }

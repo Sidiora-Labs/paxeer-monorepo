@@ -108,7 +108,7 @@ func (s *Store) LaunchedChains(ctx context.Context, limit, offset int) (Launched
 		}
 		return LaunchedChainsPage{Items: []LaunchedChainRow{}, Total: total, SnapshotID: maxChain + ":" + strconv.Itoa(total)}, nil
 	}
-	rows, err := tx.Query(ctx, `SELECT `+chainColumns+` FROM indexer.launched_chains_v1 ORDER BY block_number DESC,chain DESC LIMIT $1 OFFSET $2`, limit, offset)
+	rows, err := tx.Query(ctx, `SELECT `+chainColumns+` FROM indexer.launched_chains_v1 ORDER BY launched_chains_v1.block_number DESC,launched_chains_v1.chain DESC LIMIT $1 OFFSET $2`, limit, offset)
 	if err != nil {
 		return LaunchedChainsPage{}, err
 	}
@@ -169,7 +169,7 @@ func (s *Store) ChainRevenue(ctx context.Context, chain uint32, holder string, l
 		}
 		return ChainRevenuePage{Epochs: []ChainRevenueEpochRow{}, Claims: []ChainRevenueClaimRow{}, Total: total, SnapshotID: maxEpoch + ":" + strconv.Itoa(total)}, nil
 	}
-	rows, err := tx.Query(ctx, `SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY epoch DESC LIMIT $2 OFFSET $3`, int64(chain), limit, offset)
+	rows, err := tx.Query(ctx, `SELECT epoch::text,amount,snapshot_block::text,eligible_supply FROM indexer.chain_revenue_epochs_v1 WHERE chain=$1 ORDER BY chain_revenue_epochs_v1.epoch DESC LIMIT $2 OFFSET $3`, int64(chain), limit, offset)
 	if err != nil {
 		return ChainRevenuePage{}, err
 	}
@@ -206,7 +206,7 @@ func (s *Store) ChainRevenue(ctx context.Context, chain uint32, holder string, l
 	}
 	if holder != "" && len(page.Epochs) != 0 {
 		first, last := page.Epochs[0].Epoch, page.Epochs[len(page.Epochs)-1].Epoch
-		claims, queryErr := tx.Query(ctx, `SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY epoch DESC`, int64(chain), holder, last, first)
+		claims, queryErr := tx.Query(ctx, `SELECT epoch::text,holder,amount,block_number::text FROM indexer.chain_revenue_claims_v1 WHERE chain=$1 AND holder=$2 AND epoch BETWEEN $3::numeric AND $4::numeric ORDER BY chain_revenue_claims_v1.epoch DESC`, int64(chain), holder, last, first)
 		if queryErr != nil {
 			return ChainRevenuePage{}, queryErr
 		}

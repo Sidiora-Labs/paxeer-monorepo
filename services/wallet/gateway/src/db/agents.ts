@@ -477,24 +477,46 @@ export async function releaseBudget(budgetId: string, valueWei: bigint): Promise
 // Spend + rate aggregates (per-agent, keyed on wallet_signatures.principal_did)
 // -----------------------------------------------------------------------------
 
+export interface PendingAgentSignature {
+  requestHash: string;
+  operationHash: string;
+}
+
+const OTHER_AGENT_SIGNATURES = `not exists (
+  select 1 from wallet_signature_reservations r
+  where r.signature_id = s.id and r.wallet_id = s.wallet_id and r.kind = s.kind
+    and r.request_hash = $3 and r.operation_hash = $4 and r.signed_evidence is null
+)`;
+
 /** Count agent signing requests in the last 60s (rate-limit window). */
-export async function countAgentSignaturesLastMinute(did: string): Promise<number> {
+export async function countAgentSignaturesLastMinute(
+  did: string,
+  pending?: PendingAgentSignature
+): Promise<number> {
   const { rows } = await query<{ count: string }>(
     `select count(*)::text as count
-       from wallet_signatures
-      where principal_did = $1 and created_at >= now() - interval '60 seconds'`,
-    [did]
+       from wallet_signatures s
+      where principal_did = $1 and created_at >= now() - $2::interval
+        and exists (select 1 from wallets w where w.id = s.wallet_id and w.kind = 'agent')
+        and ${OTHER_AGENT_SIGNATURES}`,
+    [did, '60 seconds', pending?.requestHash ?? null, pending?.operationHash ?? null]
   );
   return Number(rows[0]?.count ?? '0');
 }
 
 /** Sum native-value tx spend for this agent since `windowStartIso`. */
-export async function sumAgentDailyValue(did: string, windowStartIso: string): Promise<bigint> {
+export async function sumAgentDailyValue(
+  did: string,
+  windowStartIso: string,
+  pending?: PendingAgentSignature
+): Promise<bigint> {
   const { rows } = await query<{ total: string }>(
     `select coalesce(sum(value_wei), 0)::text as total
-       from wallet_signatures
-      where principal_did = $1 and kind = 'transaction' and created_at >= $2`,
-    [did, windowStartIso]
+       from wallet_signatures s
+      where principal_did = $1 and kind = 'transaction' and created_at >= $2
+        and exists (select 1 from wallets w where w.id = s.wallet_id and w.kind = 'agent')
+        and ${OTHER_AGENT_SIGNATURES}`,
+    [did, windowStartIso, pending?.requestHash ?? null, pending?.operationHash ?? null]
   );
   return BigInt(rows[0]?.total ?? '0');
 }

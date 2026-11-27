@@ -1,11 +1,11 @@
 'use client';
+import { useMarketQuery } from './use-market-query';
 import { useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { OPERATION_READ_TIMEOUT_FLOOR_MS, type OperationInput, type V2ContractTypes } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { useMarketClient } from './client';
-import { loadable, toUnsupported, type Loadable } from './unsupported';
+import { loadable, type Loadable } from './unsupported';
 
 export type LeaderboardsResponse = V2ContractTypes['LeaderboardsResponse'];
 export type LeaderboardCategory = OperationInput<'IF_LEADERBOARDS'>['path']['category'];
@@ -34,7 +34,7 @@ export function useLeaderboard(category: LeaderboardCategory, window: Leaderboar
   const key = JSON.stringify(queryKey);
   const settled = useRef<{ client: typeof client; key: string; value: Loadable<LeaderboardsResponse> } | null>(null);
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > leaderboardLimit) throw new RangeError('Invalid leaderboard page bound');
-  const query = useQuery({
+  const query = useMarketQuery({
     queryKey,
     queryFn: async ({ signal }) => {
       const params = new URLSearchParams({ window, limit: String(limit), ...(cursor ? { cursor } : {}) });
@@ -46,8 +46,7 @@ export function useLeaderboard(category: LeaderboardCategory, window: Leaderboar
     ...marketCachePolicy.leaderboard,
   });
   const previous = settled.current?.client === client && settled.current.key === key ? settled.current.value : null;
-  const unavailable = query.status === 'pending' ? toUnsupported('IF_LEADERBOARDS', query.failureReason) : null;
-  const current = unavailable ?? loadable(query, 'IF_LEADERBOARDS');
+  const current = loadable(query, 'IF_LEADERBOARDS');
   const shown = current.state === 'loading' && previous ? previous : current;
   useEffect(() => {
     settled.current = shown.state === 'loading' ? null : { client, key, value: shown };

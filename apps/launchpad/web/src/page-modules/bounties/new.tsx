@@ -9,16 +9,16 @@ export default function NewBountyPage() {
       <Link
         prefetch={false}
         href="/bounties"
-        className="inline-flex min-h-[18px] w-fit items-center gap-1 rounded-sm text-sm text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-focus"
+        className="inline-flex min-h-[var(--sl-leading-sm)] w-fit items-center gap-1 rounded-sm text-sm text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-focus"
       >
         <ArrowLeft aria-hidden="true" className="size-icon-sm" />
         All bounties
       </Link>
       <header className="flex flex-col gap-1">
-        <p className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
+        <p className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
           Bounties
         </p>
-        <h1 className="text-2xl font-extrabold text-text">Create a bounty</h1>
+        <h1 className="text-lg font-bold text-text">Create a bounty</h1>
         <p className="text-sm text-text-muted">
           Post a task, lock in a reward, then pick the winners yourself
         </p>

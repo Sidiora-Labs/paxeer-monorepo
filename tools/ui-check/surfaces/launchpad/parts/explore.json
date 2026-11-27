@@ -54,7 +54,7 @@
             },
             {
               "action": "click",
-              "selector": "html:has([data-shell-ready]) [role=\"radiogroup\"][aria-label=\"Layout\"]:visible [role=\"radio\"]:has-text(\"Grid\")"
+              "selector": "html:has([data-shell-ready]) [role=\"radiogroup\"][aria-label=\"Layout\"]:visible [role=\"radio\"][aria-label=\"Grid\"]"
             },
             {
               "action": "click",
@@ -125,7 +125,7 @@
         },
         {
           "action": "wait",
-          "text": "No coins yet"
+          "text": "No coins in Trending yet"
         },
         {
           "action": "press",
@@ -469,6 +469,14 @@
         },
         {
           "action": "wait",
+          "text": "Science Orbit"
+        },
+        {
+          "action": "wait",
+          "text": "Not trading yet"
+        },
+        {
+          "action": "wait",
           "text": "2.00 USDL"
         },
         {
@@ -532,5 +540,5 @@
       "max": 28
     }
   ],
-  "buildMs": 600000
+  "buildMs": 1800000
 }

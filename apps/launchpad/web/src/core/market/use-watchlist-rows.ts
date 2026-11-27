@@ -1,8 +1,9 @@
 'use client';
-import { useMemo } from 'react';
-import { useQueries } from '@tanstack/react-query';
+import { useMemo, useRef } from 'react';
+import { useQueries, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
+import { marketRetryPace } from '@/core/retry-pace';
 import { useMarketClient } from './client';
 import { useOperations } from './operations';
 import { useWatchlist } from '@/hooks/ui/use-watchlist';
@@ -46,6 +47,8 @@ export function useWatchlistRows(): WatchlistRows {
   const watchlist = useWatchlist();
   const client = useMarketClient();
   const operations = useOperations();
+  const cache = useQueryClient();
+  const retainedStatsErrors = useRef(new Map<string, Error>());
   const pools = useMemo(() => [...new Set(watchlist.list.map(value => value.toLowerCase()))].filter(value => /^0x[0-9a-f]{40}$/.test(value)), [watchlist.list]);
   const chunks = useMemo(() => {
     const result: string[][] = [];
@@ -56,7 +59,7 @@ export function useWatchlistRows(): WatchlistRows {
     queries: chunks.map(chunk => ({
       queryKey: queryKeys.statsBatch(client.config.apiOrigin, chunk),
       queryFn: ({ signal }: { signal: AbortSignal }) => fetchStatsBatch(operations, chunk, signal),
-      ...marketCachePolicy.statsBatch,
+      ...marketCachePolicy.watchlistRows,
     })),
   });
   const listings = usePoolListings(pools);
@@ -64,7 +67,20 @@ export function useWatchlistRows(): WatchlistRows {
   const metadata = useTokenMetadataBatch(tokens);
   const byPool = new Map<string, PoolStats>();
   for (const query of stats) for (const [pool, row] of statsByPool(query.data)) byPool.set(pool, row);
-  const statsStates = stats.map(query => loadable(query, 'IF_STATS_BATCH'));
+  const retryStats = async (index: number) => {
+    const query = stats[index]!;
+    await cache.cancelQueries({ queryKey: queryKeys.statsBatch(client.config.apiOrigin, chunks[index]!), exact: true });
+    marketRetryPace.retryNow(query.error ?? query.failureReason ?? retainedStatsErrors.current.get(JSON.stringify(chunks[index])));
+    return query.refetch();
+  };
+  const nextStatsErrors = new Map<string, Error>();
+  const statsStates = stats.map((query, index) => {
+    const key = JSON.stringify(chunks[index]);
+    const error = query.error ?? query.failureReason ?? (query.isFetching ? retainedStatsErrors.current.get(key) : undefined);
+    if (error && !query.isSuccess) nextStatsErrors.set(key, error);
+    return loadable({ ...query, ...(error && query.data === undefined ? { status: 'error' as const, error } : {}), refetch: () => retryStats(index) }, 'IF_STATS_BATCH');
+  });
+  retainedStatsErrors.current = nextStatsErrors;
   const statsState = statsStates.find(source => source.state === 'error' || source.state === 'unsupported')
     ?? statsStates.find(source => source.state === 'loading');
   const rows: WatchlistRow[] = pools.map(pool => {
@@ -75,7 +91,7 @@ export function useWatchlistRows(): WatchlistRows {
   return {
     rows, pools, isLocal: watchlist.isLocal, loading: watchlist.loading, account: watchlist,
     retrySources() {
-      for (const query of stats) void query.refetch();
+      stats.forEach((_, index) => { void retryStats(index); });
       if (pools.length) void listings.refetch();
       if (tokens.length) void metadata.refetch();
     },

@@ -41,7 +41,7 @@ export function SignedOutState({ title, body = 'Connect your wallet to continue'
       variant={variant}
       colSpan={colSpan}
       className={className}
-      action={<Button variant="primary" size="sm" onClick={() => openModal(title)}>Sign in</Button>}
+      action={<Button variant="inverse" size="sm" onClick={() => openModal(title)}>Sign in</Button>}
     />
   );
 }
