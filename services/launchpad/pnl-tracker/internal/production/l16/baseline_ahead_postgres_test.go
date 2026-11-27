@@ -518,8 +518,10 @@ func consumeRecordedInventoryFrames(t *testing.T, ctx context.Context, s *realMa
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = js.CreateOrUpdateConsumer(ctx, stream, broker); err != nil {
-		t.Fatal(err)
+	if _, err = retryInventoryStreamRequest(ctx, func(requestCtx context.Context) (jetstream.Consumer, error) {
+		return js.CreateOrUpdateConsumer(requestCtx, stream, broker)
+	}); err != nil {
+		t.Fatalf("create broker consumer: %v", err)
 	}
 	publisher, err := natsdriver.NewPublisher(nc, stream)
 	if err != nil {

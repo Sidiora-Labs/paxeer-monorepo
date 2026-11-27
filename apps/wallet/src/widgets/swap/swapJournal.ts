@@ -350,7 +350,13 @@ export class JournaledSwapExecution {
         tags.push(block);
       for (const tag of tags) {
         this.check();
-        const block = await provider.getBlock(tag, true);
+        let block: ethers.Block | null;
+        try {
+          block = await provider.getBlock(tag, true);
+        } catch (error) {
+          if (tag === 'pending') continue;
+          throw error;
+        }
         if (!block) throw new Error('Swap nonce reconciliation could not read a block.');
         for (const hash of block.transactions) {
           const candidate = await provider.getTransaction(hash);
@@ -426,7 +432,9 @@ export class JournaledSwapExecution {
               const data = ethers.hexlify(request.data ?? '0x');
               const nonce =
                 request.nonce ??
-                (await provider.getTransactionCount(this.journal.account, 'pending'));
+                (await provider
+                  .getTransactionCount(this.journal.account, 'pending')
+                  .catch(() => provider.getTransactionCount(this.journal.account, 'latest')));
               const startBlock = await provider.getBlockNumber();
               const tx: JournalTransaction = {
                 kind: transactionKind(to, data),

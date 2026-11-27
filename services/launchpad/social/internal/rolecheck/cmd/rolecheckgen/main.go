@@ -11,7 +11,7 @@ import (
 
 func main() {
 	root := flag.String("root", ".", "repository root")
-	selection := flag.String("select", "", "comma-separated file:function selections for new SELECT calls")
+	selection := flag.String("select", "", "comma-separated file:function selections for new SELECT or INSERT calls")
 	flag.Parse()
 	var selections []string
 	if *selection != "" {

@@ -81,9 +81,11 @@ func catchUpBrokerDelivery(t *testing.T, ctx context.Context, frame delivery.Env
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := js.CreateOrUpdateConsumer(ctx, name, brokerCfg)
+	broker, err := retryInventoryStreamRequest(ctx, func(requestCtx context.Context) (jetstream.Consumer, error) {
+		return js.CreateOrUpdateConsumer(requestCtx, name, brokerCfg)
+	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("create broker consumer: %v", err)
 	}
 	publisher, err := natsdriver.NewPublisher(nc, name)
 	if err != nil {

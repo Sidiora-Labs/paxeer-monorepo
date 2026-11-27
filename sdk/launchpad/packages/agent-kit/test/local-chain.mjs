@@ -29,11 +29,23 @@ export async function startLaunchpadChain() {
     throw new Error('The local launchpad journey requires anvil. Install anvil or set ANVIL_BIN.');
   }
   await execute(
-    'pnpm',
-    ['install', '--ignore-workspace', '--frozen-lockfile', '--ignore-scripts'],
+    'corepack',
+    [
+      'pnpm',
+      '--dir',
+      contracts,
+      '--ignore-workspace',
+      'install',
+      '--frozen-lockfile',
+      '--ignore-scripts',
+    ],
     { cwd: contracts, maxBuffer: 4 * 1024 * 1024 },
   );
-  await execute('pnpm', ['run', 'compile'], { cwd: contracts, maxBuffer: 4 * 1024 * 1024 });
+  await execute(
+    'corepack',
+    ['pnpm', '--dir', contracts, '--ignore-workspace', 'run', 'compile'],
+    { cwd: contracts, maxBuffer: 4 * 1024 * 1024 },
+  );
   const require = createRequire(resolve(contracts, 'package.json'));
   const ethers = require('ethers');
   const port = await availablePort();
