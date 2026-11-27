@@ -183165,7 +183165,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1317]
 title = "Declare the render switch of the trading workspace as a public build variable with an empty default in the Dockerfile, the deploy files, the image script and two tables, so that the deploy case file of the workspace passes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
