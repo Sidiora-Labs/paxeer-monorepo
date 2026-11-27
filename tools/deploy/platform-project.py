@@ -304,13 +304,16 @@ def current_state(gql, meta, services):
     if len(named) > 1:
         raise RuntimeError(f"workspace has {len(named)} projects named {meta['project']}")
     project = named[0] if named else None
-    state = {"project": project, "env": None, "services": {}}
+    state = {"project": project, "env": None, "services": {}, "other_envs": []}
     if not project:
         return state
     envs = [env for env in edges(project["environments"]) if env["name"] == meta["environment"]]
     if len(envs) > 1:
         raise RuntimeError(f"project has duplicate environments named {meta['environment']}")
     state["env"] = env = envs[0] if envs else None
+    state["other_envs"] = sorted(
+        (env for env in edges(project["environments"]) if env["name"] != meta["environment"]),
+        key=lambda env: env["name"])
     mounts = {}
     for volume in edges(project["volumes"]):
         for instance in edges(volume["volumeInstances"]):
@@ -438,6 +441,9 @@ def apply_service(gql, svc, state, want, connection, diff, steps, upsert):
             create["source"] = want["source"]
         sid = write("mutation ServiceCreate($i: ServiceCreateInput!) { serviceCreate(input: $i) { id } }",
                     {"i": create})["serviceCreate"]["id"]
+        for other in state["other_envs"]:
+            write("mutation OtherEnvironmentRemove($s: String!, $e: String!) { "
+                  "serviceDelete(id: $s, environmentId: $e) }", {"s": sid, "e": other["id"]})
     ids = {"s": sid, "e": env}
     update = dict(want) if cur is None else dict(diff)
     kinds = {kind for kind, _ in steps}
@@ -554,6 +560,8 @@ def main(argv, transport=None):
                 continue
             cur = state["services"].get(svc["railway_service"])
             want, connection, diff, steps, upsert, unset = plan_service(svc, cur, digests, args.branch)
+            if cur is None:
+                steps[1:1] = [("elsewhere", env["name"]) for env in state["other_envs"]]
             missing.update(unset)
             status = "create" if cur is None else "update" if steps else "unchanged"
             say(f"service {svc['order']} {svc['railway_service']} {svc['kind']} {status}")
