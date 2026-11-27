@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -56,8 +57,9 @@ func newVisibilityRevocationFixture(t *testing.T) *visibilityRevocationFixture {
 	key := fmt.Sprintf("approved/%s/512/%x.png", hash, logoHash)
 	state := visibilityRevocationState{
 		AssetID: "11111111-1111-4111-8111-111111111111", Hash: hash, Key: key,
-		Document:           json.RawMessage(`{"name":"Creator override","symbol":"EDIT","description":"Creator secret description","tags":["creator-tag"],"socials":[{"label":"Site","url":"https://creator.example"}]}`),
-		AuthorityAvailable: true,
+		Document:              json.RawMessage(`{"name":"Creator override","symbol":"EDIT","description":"Creator secret description","tags":["creator-tag"],"socials":[{"label":"Site","url":"https://creator.example"}]}`),
+		AuthorityAvailable:    true,
+		HasModerationDocument: true,
 	}
 	raw, e := json.Marshal(state)
 	if e != nil {
@@ -335,13 +337,14 @@ func TestVisibilityRevocationAuthorityUnavailable(t *testing.T) {
 // authority and HTTP handlers run unchanged. Unknown SQL is an explicit failure.
 // Committed rows live on disk so reopening cannot reuse an in-memory blocked bit.
 type visibilityRevocationState struct {
-	AssetID, Hash, Key string
-	Document           json.RawMessage
-	ModerationRevision int64
-	Blocked            bool
-	AuthorityRevision  int64
-	AuthorityStatus    string
-	AuthorityAvailable bool
+	AssetID, Hash, Key    string
+	Document              json.RawMessage
+	ModerationRevision    int64
+	HasModerationDocument bool
+	Blocked               bool
+	AuthorityRevision     int64
+	AuthorityStatus       string
+	AuthorityAvailable    bool
 }
 
 type visibilityRevocationDatabase struct {
@@ -503,6 +506,17 @@ func (d *visibilityRevocationDatabase) query(sql string, state *visibilityRevoca
 			return noRows(text), nil
 		}
 		return visibilityRevocationRow([]uint32{text}, f.Creator), nil
+	case strings.HasPrefix(sql, `SELECT COALESCE(d.moderation_revision >=`):
+		matches := regexp.MustCompile(`>=\s*'([0-9]+)'\s*::numeric,false\).* WHERE p.pool=\s*'([^']+)'`).FindStringSubmatch(sql)
+		if len(matches) != 3 {
+			return visibilityRevocationResult{}, fmt.Errorf("invalid moderation read: %s", sql)
+		}
+		if matches[2] != f.Pool {
+			return noRows(16), nil
+		}
+		revision, _ := new(big.Int).SetString(matches[1], 10)
+		current := state.HasModerationDocument && big.NewInt(state.ModerationRevision).Cmp(revision) >= 0
+		return visibilityRevocationRow([]uint32{16}, boolean(current)), nil
 	case strings.HasPrefix(sql, `INSERT INTO "repair59_metadata"."documents"(pool,moderation_revision,blocked)`):
 		if !strings.Contains(sql, `WHERE "repair59_metadata"."documents".moderation_revision<EXCLUDED.moderation_revision`) {
 			return visibilityRevocationResult{}, fmt.Errorf("restriction lost monotonic revision predicate: %s", sql)
@@ -515,12 +529,14 @@ func (d *visibilityRevocationDatabase) query(sql string, state *visibilityRevoca
 		if e != nil {
 			return visibilityRevocationResult{}, e
 		}
-		if revision > state.ModerationRevision {
+		if !state.HasModerationDocument || revision > state.ModerationRevision {
 			state.ModerationRevision, state.Blocked = revision, matches[3] == "t"
+			state.HasModerationDocument = true
+			return visibilityRevocationResult{tag: "INSERT 0 1"}, nil
 		}
-		return visibilityRevocationResult{tag: "INSERT 0 1"}, nil
+		return visibilityRevocationResult{tag: "INSERT 0 0"}, nil
 	case strings.HasPrefix(sql, `SELECT moderation_revision::text,blocked FROM "repair59_metadata"."documents" WHERE pool=`):
-		if !has(f.Pool) {
+		if !has(f.Pool) || !state.HasModerationDocument {
 			return noRows(text, 16), nil
 		}
 		return visibilityRevocationRow([]uint32{text, 16}, strconv.FormatInt(state.ModerationRevision, 10), boolean(state.Blocked)), nil
