@@ -377,6 +377,10 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 		t.Fatal(err)
 	}
 	if len(selected) > 0 {
+		var priorSnapshots int
+		if err = service.authority.pool.QueryRow(ctx, `SELECT count(*) FROM pnl.portfolio_snapshots`).Scan(&priorSnapshots); err != nil {
+			t.Fatal(err)
+		}
 		runCtx, stop := context.WithCancel(ctx)
 		defer stop()
 		result := make(chan error, 1)
@@ -386,7 +390,7 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 			if err = service.authority.pool.QueryRow(ctx, `SELECT count(*) FROM pnl.portfolio_snapshots`).Scan(&count); err != nil {
 				t.Fatal(err)
 			}
-			if count == len(frames) {
+			if count == priorSnapshots+len(frames) {
 				break
 			}
 			select {

@@ -2,6 +2,9 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { requireAgent } from '../middleware/principal.js';
 import { requireSignedAgentRequest } from '../agent/verify.js';
 import { AllowanceAndCallBody, ActionIdParam } from '../schemas/agent.js';
+import { evaluateAgent } from '../policy/agent.js';
+import { findPrincipal, getPolicy, listRules } from '../db/agents.js';
+import { actionLegIntent, approvalCalldata } from '../agent/actions/plan.js';
 import { ensureAgentWallet } from './agentExec.js';
 import {
   createOrGetAction,
@@ -174,6 +177,39 @@ async function submit(
   // are terminal invalid_request with an action_id to poll.
   try {
     const plan = await args.buildPlan();
+    const principal = await findPrincipal(args.did);
+    if (!principal) throw new Error('agent principal is unavailable');
+    const [policy, rules] = await Promise.all([getPolicy(args.did), listRules(args.did)]);
+    for (const [leg, tx] of [
+      ['approval', { to: plan.token, data: approvalCalldata(plan), value: 0n }],
+      ['call', { to: plan.contract, data: plan.callData, value: BigInt(plan.callValueWei) }],
+    ] as const) {
+      const decision = await evaluateAgent({
+        principal,
+        policy,
+        rules,
+        intent: actionLegIntent(plan, leg, tx),
+      });
+      if (!decision.allow) {
+        const envelope = buildErrorEnvelope({
+          actionId: row.id,
+          phase: 'validation',
+          code: 'POLICY_DENIED',
+          message: decision.message,
+          cause: { policy_code: decision.code },
+        });
+        await updateAction(row.id, {
+          status: 'policy_denied',
+          phase: 'validation',
+          error_code: 'POLICY_DENIED',
+          error: envelope,
+        });
+        return reply
+          .code(403)
+          .send({ error: decision.code, message: decision.message, action_id: row.id });
+      }
+    }
+
     const updated = await updateAction(row.id, {
       plan: plan as unknown as Record<string, unknown>,
       phase: 'validation',

@@ -5,7 +5,7 @@ import {
   generateKeyPairSync,
   randomBytes,
   randomUUID,
-  sign,
+  sign
 } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
@@ -22,7 +22,7 @@ import {
   reservePorts,
   startOnReservedPorts,
   stopPortProcess,
-  type PortReservation,
+  type PortReservation
 } from '../support/ports.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -35,8 +35,8 @@ export const KERNEL_POLICY = {
   version: 1,
   defaults: {
     modules: { asset: [5] },
-    caps: { native: { per_operation: '6000000', daily: '8000000' } },
-  },
+    caps: { native: { per_operation: '6000000', daily: '8000000' } }
+  }
 };
 
 export interface Pki {
@@ -72,6 +72,11 @@ export interface GeneratedKey {
   auditSequences: number[];
 }
 
+export interface AssetCap {
+  per_transaction: string;
+  daily: string;
+}
+
 export interface AttestorNetwork {
   pki: Pki;
   nodes: AttestorProcess[];
@@ -86,6 +91,7 @@ export interface AttestorNetwork {
   generate(keyId: string, owner: string): Promise<GeneratedKey>;
   health(node: AttestorProcess): Promise<{ status: number; body: Record<string, unknown> }>;
   stopNode(node: AttestorProcess): Promise<void>;
+  admitAsset(asset: string, cap: AssetCap): Promise<void>;
   stop(): Promise<void>;
 }
 
@@ -113,11 +119,11 @@ export function makePki(nodeIds: string[]): Pki {
     '-days',
     '1',
     '-subj',
-    '/CN=attestor-e2e-ca',
+    '/CN=attestor-e2e-ca'
   ]);
   writeFileSync(
     p('leaf.ext'),
-    'subjectAltName=IP:127.0.0.1\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth,clientAuth\n',
+    'subjectAltName=IP:127.0.0.1\nkeyUsage=digitalSignature\nextendedKeyUsage=serverAuth,clientAuth\n'
   );
   openssl([
     'req',
@@ -130,7 +136,7 @@ export function makePki(nodeIds: string[]): Pki {
     '-days',
     '1',
     '-subj',
-    '/CN=attestor-e2e-operator-ca',
+    '/CN=attestor-e2e-operator-ca'
   ]);
   const issue = (name: string, ca = 'ca'): void => {
     openssl([
@@ -141,7 +147,7 @@ export function makePki(nodeIds: string[]): Pki {
       '-out',
       p(`${name}.csr`),
       '-subj',
-      `/CN=${name}`,
+      `/CN=${name}`
     ]);
     openssl([
       'x509',
@@ -158,7 +164,7 @@ export function makePki(nodeIds: string[]): Pki {
       '-days',
       '1',
       '-extfile',
-      p('leaf.ext'),
+      p('leaf.ext')
     ]);
   };
   for (const id of nodeIds) issue(id);
@@ -177,7 +183,7 @@ export function makePki(nodeIds: string[]): Pki {
     clientKey: p('wallet-gateway.key'),
     operatorCaFile: p('operator-ca.crt'),
     operatorCert: p('wallet-operator.crt'),
-    operatorKey: p('wallet-operator.key'),
+    operatorKey: p('wallet-operator.key')
   };
 }
 
@@ -213,7 +219,7 @@ export async function startIdentity(): Promise<Identity> {
     issuer,
     mint: (sub) => sign(sub, privateKey),
     mintForeign: (sub) => sign(sub, foreign.privateKey),
-    close: () => new Promise<void>((r) => server.close(() => r())),
+    close: () => new Promise<void>((r) => server.close(() => r()))
   };
 }
 
@@ -223,7 +229,7 @@ function attestorPortPairs(listeners: PortReservation[]) {
     peer: listeners[i * 2 + 1]!.port,
     async release() {
       await Promise.all([listeners[i * 2]!.release(), listeners[i * 2 + 1]!.release()]);
-    },
+    }
   }));
 }
 
@@ -236,7 +242,7 @@ export function buildAttestor(outDir: string): string {
   execFileSync('go', ['build', '-o', bin, './cmd/attestor'], {
     cwd: attestorModuleDir,
     stdio: 'pipe',
-    env: { ...process.env, CGO_ENABLED: process.env.CGO_ENABLED ?? '0' },
+    env: { ...process.env, CGO_ENABLED: process.env.CGO_ENABLED ?? '0' }
   });
   return bin;
 }
@@ -247,7 +253,7 @@ function mtlsAgent(pki: Pki, cert = pki.clientCert, key = pki.clientKey): Agent 
     key: readFileSync(key),
     ca: readFileSync(pki.caFile),
     rejectUnauthorized: true,
-    minVersion: 'TLSv1.3',
+    minVersion: 'TLSv1.3'
   });
 }
 
@@ -256,7 +262,7 @@ function call(
   method: 'GET' | 'POST',
   url: string,
   body: unknown,
-  timeoutMs: number,
+  timeoutMs: number
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const payload = body === null ? null : JSON.stringify(body);
   return new Promise((resolveCall, reject) => {
@@ -268,7 +274,7 @@ function call(
         timeout: timeoutMs,
         headers: payload
           ? { 'content-type': 'application/json', 'content-length': Buffer.byteLength(payload) }
-          : { accept: 'application/json' },
+          : { accept: 'application/json' }
       },
       (res) => {
         const chunks: Buffer[] = [];
@@ -278,14 +284,14 @@ function call(
           try {
             resolveCall({
               status: res.statusCode ?? 0,
-              body: text ? (JSON.parse(text) as Record<string, unknown>) : {},
+              body: text ? (JSON.parse(text) as Record<string, unknown>) : {}
             });
           } catch {
             reject(new Error(`${url} answered non-JSON ${res.statusCode}: ${text}`));
           }
         });
         res.on('error', reject);
-      },
+      }
     );
     req.on('timeout', () => req.destroy(new Error(`${url} timed out after ${timeoutMs} ms`)));
     req.on('error', reject);
@@ -299,6 +305,10 @@ export async function startAttestorNetwork(opts: {
   rpcUrl: string;
   size?: number;
   readyTimeoutMs?: number;
+  assetCaps?: Record<string, AssetCap>;
+  tokenCaps?: readonly { address: `0x${string}`; perTransaction: bigint; daily: bigint }[];
+  selectors?: Readonly<Record<string, readonly string[]>>;
+  trustedSpenders?: readonly `0x${string}`[];
 }): Promise<AttestorNetwork> {
   const size = opts.size ?? 5;
   const ids = Array.from({ length: size }, (_, i) => `node-${i + 1}`);
@@ -311,7 +321,7 @@ export async function startAttestorNetwork(opts: {
   const inventoryPublic = join(work, 'inventory.pub');
   const inventoryFile = join(work, 'inventory.jwt');
   writeFileSync(producerKeyFile, producer.privateKey.export({ format: 'pem', type: 'pkcs8' }), {
-    mode: 0o600,
+    mode: 0o600
   });
   writeFileSync(producerPublic, producer.publicKey.export({ format: 'pem', type: 'spki' }));
   writeFileSync(inventoryPublic, inventorySigner.publicKey.export({ format: 'pem', type: 'spki' }));
@@ -319,7 +329,7 @@ export async function startAttestorNetwork(opts: {
   const approveInventory = (keys: WalletInventoryKey[]): void => {
     const now = Math.floor(Date.now() / 1000);
     const header = Buffer.from(
-      JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' }),
+      JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })
     ).toString('base64url');
     const payload = Buffer.from(
       JSON.stringify({
@@ -333,52 +343,69 @@ export async function startAttestorNetwork(opts: {
         protocol: 'wallet',
         threshold: 3,
         members: ids.map((id) => ({ id, spki_sha256: pki.node(id).pin })),
-        keys,
-      }),
+        keys
+      })
     ).toString('base64url');
     const input = `${header}.${payload}`;
     const signature = sign('sha256', Buffer.from(input), {
       key: inventorySigner.privateKey,
-      dsaEncoding: 'ieee-p1363',
+      dsaEncoding: 'ieee-p1363'
     });
     writeFileSync(inventoryFile, `${input}.${signature.toString('base64url')}`, { mode: 0o600 });
   };
   approveInventory([]);
   const bin = buildAttestor(work);
   const policyFile = join(work, 'policy.json');
-  writeFileSync(
-    policyFile,
-    JSON.stringify({
-      version: 1,
-      defaults: {
-        chain_id: CHAIN_ID,
-        kinds: [
-          'evm_tx',
-          'eip712',
-          'personal_message',
-          'lx_bind',
-          'sponsored_batch',
-          'eip7702_authorization',
-        ],
-        authorization_delegates: [PAYMASTER],
-        caps: {
-          native: {
-            per_transaction: NATIVE_PER_TX_CAP_WEI.toString(),
-            daily: (NATIVE_PER_TX_CAP_WEI * 10n).toString(),
-          },
-          '0x21f7b20a555199fa73A238B1a91FD0f549068fEe': {
-            per_transaction: '1000000',
-            daily: '1000000',
-          },
+  const policyDocument = {
+    version: 1,
+    defaults: {
+      chain_id: CHAIN_ID,
+      kinds: [
+        'evm_tx',
+        'eip712',
+        'personal_message',
+        'lx_bind',
+        'sponsored_batch',
+        'eip7702_authorization'
+      ],
+      authorization_delegates: [PAYMASTER],
+      caps: {
+        ...opts.assetCaps,
+        ...Object.fromEntries(
+          (opts.tokenCaps ?? []).map((cap) => [
+            cap.address.toLowerCase(),
+            { per_transaction: cap.perTransaction.toString(), daily: cap.daily.toString() }
+          ])
+        ),
+        native: {
+          per_transaction: NATIVE_PER_TX_CAP_WEI.toString(),
+          daily: (NATIVE_PER_TX_CAP_WEI * 10n).toString()
         },
-        selectors: { [ADDR]: [BIND_SELECTOR] },
-        rate_per_minute: 600,
+        '0x21f7b20a555199fa73A238B1a91FD0f549068fEe': {
+          per_transaction: '1000000',
+          daily: '1000000'
+        }
       },
-    }),
-  );
+      selectors: { ...opts.selectors, [ADDR]: [BIND_SELECTOR] },
+      trusted_spenders: opts.trustedSpenders ?? [],
+      rate_per_minute: 600
+    }
+  };
+  writeFileSync(policyFile, JSON.stringify(policyDocument));
   const kernelPolicyFile = join(work, 'kernel-policy.json');
   writeFileSync(kernelPolicyFile, JSON.stringify(KERNEL_POLICY));
   const nodes: AttestorProcess[] = [];
+  const nodeEnvironments = new Map<string, NodeJS.ProcessEnv>();
+  const launchNode = (node: AttestorProcess): void => {
+    const child = spawn(bin, [], {
+      env: nodeEnvironments.get(node.nodeId)!,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    node.child = child;
+    child.stdout?.on('data', (chunk: Buffer) => node.log.push(chunk.toString('utf8')));
+    child.stderr?.on('data', (chunk: Buffer) => node.log.push(chunk.toString('utf8')));
+    child.once('error', (error) => node.log.push(error.message));
+  };
   const agent = mtlsAgent(pki);
   const operator = mtlsAgent(pki, pki.operatorCert, pki.operatorKey);
   const health = (node: AttestorProcess) =>
@@ -429,9 +456,10 @@ export async function startAttestorNetwork(opts: {
               ATTESTOR_INVENTORY_FILE: inventoryFile,
               ATTESTOR_KERNEL_POLICY_FILE: kernelPolicyFile,
               ATTESTOR_RPC_URL: opts.rpcUrl,
-              ATTESTOR_ACTIVITY_TYPES: '0x10005',
+              ATTESTOR_ACTIVITY_TYPES: '0x10005'
             };
             await ports[i]!.release();
+            nodeEnvironments.set(id, env);
             const child = spawn(bin, [], { env, stdio: ['ignore', 'pipe', 'pipe'] });
             const log: string[] = [];
             child.stdout?.on('data', (c: Buffer) => log.push(c.toString('utf8')));
@@ -451,7 +479,7 @@ export async function startAttestorNetwork(opts: {
             if (answer?.status === 200 && answer.body.ready === true) break;
             if (Date.now() > deadline) {
               throw new Error(
-                `${node.nodeId} never became ready: ${JSON.stringify(answer?.body)} ${node.log.join('')}`,
+                `${node.nodeId} never became ready: ${JSON.stringify(answer?.body)} ${node.log.join('')}`
               );
             }
             await new Promise((r) => setTimeout(r, 250));
@@ -461,7 +489,7 @@ export async function startAttestorNetwork(opts: {
       async () => {
         await Promise.all(nodes.map(stopNode));
         nodes.length = 0;
-      },
+      }
     );
   } catch (error) {
     agent.destroy();
@@ -479,15 +507,15 @@ export async function startAttestorNetwork(opts: {
       tenant: 'e2e',
       inventoryFile,
       inventoryPublicKeyFile: inventoryPublic,
-      approveInventory,
+      approveInventory
     },
     health,
     async publicKey(keyId) {
       const request = { session_id: randomUUID(), key_id: keyId };
       const answers = await Promise.all(
         nodes.map((node) =>
-          call(operator, 'POST', `${node.apiUrl}/v1/keys/describe`, request, 5_000),
-        ),
+          call(operator, 'POST', `${node.apiUrl}/v1/keys/describe`, request, 5_000)
+        )
       );
       const publicKey = answers[0]!.body.public_key;
       if (typeof publicKey !== 'string' || !/^(?:04[0-9a-f]{128}|[0-9a-f]{64})$/.test(publicKey)) {
@@ -500,7 +528,7 @@ export async function startAttestorNetwork(opts: {
           answer.body.public_key !== publicKey
         ) {
           throw new Error(
-            `${nodes[i]!.nodeId} disagrees on ${keyId}: ${answer.status} ${JSON.stringify(answer.body)}`,
+            `${nodes[i]!.nodeId} disagrees on ${keyId}: ${answer.status} ${JSON.stringify(answer.body)}`
           );
         }
       }
@@ -510,12 +538,12 @@ export async function startAttestorNetwork(opts: {
       const sessionId = randomUUID();
       const request = { session_id: sessionId, key_id: keyId, curve: 'secp256k1', owner };
       const answers = await Promise.all(
-        nodes.map((n) => call(agent, 'POST', `${n.apiUrl}/v1/keys/generate`, request, 600_000)),
+        nodes.map((n) => call(agent, 'POST', `${n.apiUrl}/v1/keys/generate`, request, 600_000))
       );
       for (const [i, a] of answers.entries()) {
         if (a.status !== 200)
           throw new Error(
-            `${nodes[i]!.nodeId} refused keys.generate: ${a.status} ${JSON.stringify(a.body)}`,
+            `${nodes[i]!.nodeId} refused keys.generate: ${a.status} ${JSON.stringify(a.body)}`
           );
       }
       const first = answers[0]!.body;
@@ -527,12 +555,12 @@ export async function startAttestorNetwork(opts: {
       if (answers.some((a) => a.body.refreshed !== true)) {
         const refresh = { session_id: randomUUID(), key_id: keyId };
         const refreshed = await Promise.all(
-          nodes.map((n) => call(operator, 'POST', `${n.apiUrl}/v1/keys/refresh`, refresh, 600_000)),
+          nodes.map((n) => call(operator, 'POST', `${n.apiUrl}/v1/keys/refresh`, refresh, 600_000))
         );
         for (const [i, a] of refreshed.entries()) {
           if (a.status !== 200 || a.body.refreshed !== true) {
             throw new Error(
-              `${nodes[i]!.nodeId} refused keys.refresh: ${a.status} ${JSON.stringify(a.body)}`,
+              `${nodes[i]!.nodeId} refused keys.refresh: ${a.status} ${JSON.stringify(a.body)}`
             );
           }
         }
@@ -541,16 +569,44 @@ export async function startAttestorNetwork(opts: {
         keyId,
         address: first.address as `0x${string}`,
         publicKey: first.public_key as string,
-        auditSequences: answers.map((a) => a.body.audit_sequence as number),
+        auditSequences: answers.map((a) => a.body.audit_sequence as number)
       };
     },
     stopNode,
+    async admitAsset(asset, cap) {
+      if (
+        !/^0x[0-9a-fA-F]{40}$/.test(asset) ||
+        !/^[1-9][0-9]*$/.test(cap.per_transaction) ||
+        !/^[1-9][0-9]*$/.test(cap.daily) ||
+        BigInt(cap.per_transaction) > BigInt(cap.daily)
+      )
+        throw new Error('Asset caps require an address and positive bounded amounts.');
+      const caps = policyDocument.defaults.caps as Record<string, AssetCap>;
+      const normalized = asset.toLowerCase();
+      if (Object.keys(caps).some((known) => known.toLowerCase() === normalized))
+        throw new Error('The asset already has configured caps.');
+      caps[normalized] = { ...cap };
+      writeFileSync(policyFile, JSON.stringify(policyDocument));
+      await Promise.all(nodes.map(stopNode));
+      for (const node of nodes) launchNode(node);
+      const until = Date.now() + (opts.readyTimeoutMs ?? 60_000);
+      for (const node of nodes) {
+        for (;;) {
+          for (const member of nodes) assertProcessRunning(member.child, member.log);
+          const answer = await health(node).catch(() => null);
+          if (answer?.status === 200 && answer.body.ready === true) break;
+          if (Date.now() > until)
+            throw new Error(`${node.nodeId} did not become ready after loading asset caps.`);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+    },
     async stop() {
       await Promise.all(nodes.map(stopNode));
       agent.destroy();
       operator.destroy();
       rmSync(work, { recursive: true, force: true });
       rmSync(pki.dir, { recursive: true, force: true });
-    },
+    }
   };
 }

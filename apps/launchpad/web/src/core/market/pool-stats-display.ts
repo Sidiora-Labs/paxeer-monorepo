@@ -28,7 +28,8 @@ import { formatPriceFromDecimalString } from '@/utils/units';
 import { bpsToPercent, scaleRawInteger, WAD_DECIMALS } from './market-units';
 import type { PoolStats } from './use-stats-batch';
 
-export type ChangeWindow = '5m' | '1h' | '6h' | '24h';
+export const changeWindows = ['5m', '1h', '6h', '24h'] as const;
+export type ChangeWindow = (typeof changeWindows)[number];
 export type BaselineQuality = 'complete' | 'insufficient_history' | 'unavailable';
 
 /** A display value, or the reason the cell shows a dash instead (exactly one of the two is non-null). */
@@ -36,9 +37,6 @@ export interface StatValue<T> {
   value: T | null;
   reason: string | null;
 }
-
-export const changeWindows: readonly ChangeWindow[] = ['5m', '1h', '6h', '24h'];
-
 
 type ChangeField = 'priceChangeBps5m' | 'priceChangeBps1h' | 'priceChangeBps6h' | 'priceChangeBps24h';
 type QualityField = 'changeBaselineQuality5m' | 'changeBaselineQuality1h' | 'changeBaselineQuality6h' | 'changeBaselineQuality';

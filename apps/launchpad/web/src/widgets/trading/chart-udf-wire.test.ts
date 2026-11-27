@@ -53,13 +53,17 @@ const core = JSON.parse(readFileSync(new URL('core-api-wire.json', fixtures), 'u
 >;
 const pool = '0xce20da50f92d21d8bee497910c782e9aa25b6263';
 const unknownPool = `0x${'0'.repeat(40)}`;
+const valuationWindow = new URL(charts.valuationHistory.path, 'http://recorded.invalid');
+const valuationTimes: number[] = JSON.parse(charts.valuationHistory.bodyBytes).t;
+valuationWindow.searchParams.set('from', String(valuationTimes[0]));
+valuationWindow.searchParams.set('to', String(valuationTimes[valuationTimes.length - 1] + 60));
 const recordedCharts = [
   charts.config,
   charts.time,
   charts.symbols,
   charts.unknownSymbol,
   charts.history,
-  charts.valuationHistory,
+  { ...charts.valuationHistory, path: valuationWindow.pathname + valuationWindow.search },
   charts.statsDaily,
   charts.statsHourly,
   charts.statsFiveMinute,

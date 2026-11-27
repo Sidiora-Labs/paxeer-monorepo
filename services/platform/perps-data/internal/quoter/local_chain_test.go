@@ -49,14 +49,21 @@ func TestLocalChainMarketOrderFillsAgainstTheQuotes(t *testing.T) {
 	if endpoint == "" || key == "" {
 		t.Skip("PERPS_DATA_TEST_RPC and LOCAL_NODE_KEY select a funded local chain")
 	}
+	runLocalChainQuotes(t, endpoint, key)
+}
+
+func runLocalChainQuotes(t *testing.T, endpoint, ownerKey string) {
+	t.Helper()
 	u, err := url.Parse(endpoint)
 	require.NoError(t, err)
 	require.Contains(t, []string{"127.0.0.1", "::1", "localhost"}, u.Hostname(), "live quoting case requires a local node")
 	require.Equal(t, "http", u.Scheme)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
 	keyFile := filepath.Join(t.TempDir(), "quoter.hex")
-	require.NoError(t, os.WriteFile(keyFile, []byte(key), 0600))
+	require.NoError(t, os.WriteFile(keyFile, []byte(common.Bytes2Hex(crypto.FromECDSA(key))), 0600))
 	q := config.DefaultQuoterConfig()
 	q.KeyFile = keyFile
 	q.Markets = []uint64{0}
@@ -64,6 +71,39 @@ func TestLocalChainMarketOrderFillsAgainstTheQuotes(t *testing.T) {
 	dryRPC, err := NewRPC(ctx, cfg)
 	require.NoError(t, err)
 	defer dryRPC.Close()
+	liveQ := q
+	liveQ.Mode = "live"
+	liveCfg := *cfg
+	liveCfg.Quoting = &liveQ
+	maker, err := NewRPC(ctx, &liveCfg)
+	require.NoError(t, err)
+	defer maker.Close()
+	ownerFile := filepath.Join(t.TempDir(), "owner.hex")
+	require.NoError(t, os.WriteFile(ownerFile, []byte(ownerKey), 0600))
+	ownerQ := liveQ
+	ownerQ.KeyFile = ownerFile
+	ownerCfg := liveCfg
+	ownerCfg.Quoting = &ownerQ
+	owner, err := NewRPC(ctx, &ownerCfg)
+	require.NoError(t, err)
+	defer owner.Close()
+	// Each quoting account starts with its own collateral and no position.
+	nonce, err := owner.client.NonceAt(ctx, owner.account, nil)
+	require.NoError(t, err)
+	gasPrice, err := owner.client.SuggestGasPrice(ctx)
+	require.NoError(t, err)
+	fundLocalAccount(t, ctx, owner, maker.account, nonce, gasPrice)
+	tokenABI, err := abi.JSON(strings.NewReader(`[{"type":"function","name":"approve","inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"type":"bool"}]},{"type":"function","name":"transfer","inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"type":"bool"}]}]`))
+	require.NoError(t, err)
+	transfer, err := tokenABI.Pack("transfer", maker.account, big.NewInt(1_500_000_000))
+	require.NoError(t, err)
+	require.NoError(t, owner.send(ctx, collateralAddress, transfer, "owner:fund-maker"))
+	approval, err := tokenABI.Pack("approve", venueAddress, big.NewInt(1_000_000_000))
+	require.NoError(t, err)
+	require.NoError(t, maker.send(ctx, collateralAddress, approval, "maker:approve"))
+	deposit, err := venueABI.Pack("deposit", collateralAddress, big.NewInt(1_000_000_000))
+	require.NoError(t, err)
+	require.NoError(t, maker.send(ctx, venueAddress, deposit, "maker:deposit"))
 	var dryLogs bytes.Buffer
 	dry, err := New(dryRPC, q, slog.New(slog.NewJSONHandler(&dryLogs, nil)))
 	require.NoError(t, err)
@@ -94,18 +134,6 @@ func TestLocalChainMarketOrderFillsAgainstTheQuotes(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, dryResult.OrdersLeft)
 	q.Mode = "live"
-	maker, err := NewRPC(ctx, cfg)
-	require.NoError(t, err)
-	defer maker.Close()
-	// The owner supplies collateral; these setup transfers belong to the case.
-	deposit, err := venueABI.Pack("deposit", collateralAddress, big.NewInt(1_000_000_000))
-	require.NoError(t, err)
-	tokenABI, err := abi.JSON(strings.NewReader(`[{"type":"function","name":"approve","inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"type":"bool"}]},{"type":"function","name":"transfer","inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],"outputs":[{"type":"bool"}]}]`))
-	require.NoError(t, err)
-	approval, err := tokenABI.Pack("approve", venueAddress, big.NewInt(1_000_000_000))
-	require.NoError(t, err)
-	require.NoError(t, maker.send(ctx, collateralAddress, approval, "owner:approve"))
-	require.NoError(t, maker.send(ctx, venueAddress, deposit, "owner:deposit"))
 	takerKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	takerFile := filepath.Join(t.TempDir(), "taker.hex")
@@ -118,12 +146,12 @@ func TestLocalChainMarketOrderFillsAgainstTheQuotes(t *testing.T) {
 	require.NoError(t, err)
 	defer taker.Close()
 	// Native gas funding uses an ordinary value transfer, signed by the owner.
-	nonce, err := maker.client.PendingNonceAt(ctx, maker.account)
+	nonce, err = owner.client.NonceAt(ctx, owner.account, nil)
 	require.NoError(t, err)
-	gasPrice, err := maker.client.SuggestGasPrice(ctx)
+	gasPrice, err = owner.client.SuggestGasPrice(ctx)
 	require.NoError(t, err)
-	fundLocalAccount(t, ctx, maker, taker.account, nonce, gasPrice)
-	transfer, err := tokenABI.Pack("transfer", taker.account, big.NewInt(500_000_000))
+	fundLocalAccount(t, ctx, owner, taker.account, nonce, gasPrice)
+	transfer, err = tokenABI.Pack("transfer", taker.account, big.NewInt(500_000_000))
 	require.NoError(t, err)
 	require.NoError(t, maker.send(ctx, collateralAddress, transfer, "owner:fund-taker"))
 	approval, err = tokenABI.Pack("approve", venueAddress, big.NewInt(500_000_000))

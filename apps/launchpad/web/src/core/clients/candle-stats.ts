@@ -85,7 +85,8 @@ export async function fetchCandleHistoryOutcome(poolAddress: string, resolution:
         requestId: typeof body?.requestId === 'string' ? body.requestId : null,
       };
     }
-    if (response.headers.get('X-Schema-Version') !== '2' || !body) return failure('Invalid candle history envelope', response.status);
+    const schemaVersion = response.headers.get('X-Schema-Version');
+    if ((schemaVersion !== null && schemaVersion !== '2') || !body) return failure('Invalid candle history envelope', response.status);
     if (body.s === 'no_data') return { status: 'no_data', nextTime: typeof body.nextTime === 'number' && Number.isFinite(body.nextTime) ? body.nextTime : null };
     if (body.s !== 'ok' || body.mode !== 'price' || !Array.isArray(body.t) || body.t.length === 0) return failure('Invalid candle history envelope', response.status);
     const length = body.t.length;

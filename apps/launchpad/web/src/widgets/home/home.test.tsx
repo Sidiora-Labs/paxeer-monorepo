@@ -2,7 +2,7 @@ import { assertControlEdges } from '@/core/app-foundation/control-edges.test-sup
 // @vitest-environment jsdom
 import { applySurfaceTestStyle } from '@/core/app-foundation/surface-test-style';
 import React, { act } from 'react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, test } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -12,8 +12,11 @@ import { addColumn, changeColumnType, defaultColumnTypes, defaultLayout, hydrate
 import { widgetOrder, widgetRegistry } from './widget-registry';
 import { bundleLevel, devLevel, formatHolders, formatRiskPercent, holdersLevel, RiskRow, riskMetrics, sniperLevel, top10Level } from './risk-row';
 import { changeWash, safeSocials, TrendingRow, type TrendingRowData } from './trending-row';
-import { formatSpotPrice, statsChanges } from '@/core/market/pool-stats-display';
-import { changeFor, matchesFilter, servedTimeframes, timeframes } from './trending-widget';
+import { changeWindows, formatSpotPrice, statsChanges } from '@/core/market/pool-stats-display';
+import { changeFor, matchesFilter, timeframeOptions, timeframeSegments, timeframes, toTrendingRow } from './trending-widget';
+import { buildExploreRow } from '@/widgets/explore/use-explore-rows';
+import { decodeV2Contract } from '@kindle/sdk';
+import recordedMarket from '@/core/test-fixtures/market-production/core-api-wire.json';
 import { feesUnavailableReason, screenerStats } from './screener-widget';
 import { leaderboardMetric } from './leaderboard-widget';
 import { feedOrderFor } from './callouts-widget';
@@ -220,15 +223,52 @@ describe('trending row', () => {
 });
 
 describe('widget helpers', () => {
-  it('serves only 1h and 24h change and filters by name, symbol or address', () => {
-    expect(timeframes).toEqual(['1h', '4h', '12h', '24h']);
-    expect([...servedTimeframes]).toEqual(['1h', '24h']);
+  it('serves all four statistics windows and filters by name, symbol or address', () => {
+    expect(timeframes).toEqual(['5m', '1h', '6h', '24h']);
     const changes = { ...statsChanges(null), '1h': { value: 1, reason: null }, '24h': { value: 2, reason: null } };
     const row = { changes, name: 'Doge Pax', symbol: 'DPX', poolAddress: '0xabc', tokenAddress: '0xdef' };
     expect(changeFor(row, '1h').value).toBe(1); expect(changeFor(row, '24h').value).toBe(2);
-    expect(changeFor(row, '4h')).toEqual({ value: null, reason: '4h change coming soon, pick 1h or 24h' }); expect(changeFor(row, '12h').value).toBeNull();
+    expect(changeFor(row, '5m')).toEqual({ value: null, reason: 'No stats for this coin yet' }); expect(changeFor(row, '6h').value).toBeNull();
     expect(matchesFilter(row, ' dpx ')).toBe(true); expect(matchesFilter(row, '0xDEF')).toBe(true); expect(matchesFilter(row, 'cat')).toBe(false); expect(matchesFilter(row, '')).toBe(true);
   });
+
+  function trendingOffersTheServedChangeWindows() {
+    expect(timeframes).toBe(changeWindows);
+    expect(timeframeOptions.map(option => option.value)).toEqual(['5m', '1h', '6h', '24h']);
+    expect(timeframeOptions.map(option => option.label)).toEqual(timeframes);
+    expect(timeframeSegments.map(option => option.value)).toEqual(timeframes);
+    expect(timeframeSegments.map(option => option.label)).toEqual(timeframes);
+    for (const option of timeframeSegments) {
+      expect(option.ariaLabel).toBeUndefined();
+      expect(option.title).toBeUndefined();
+    }
+    const stats = decodeV2Contract('PoolStats', recordedMarket.liveFrames.find(frame => frame.topic?.startsWith('market.stats.'))?.payload);
+    const row = buildExploreRow({ poolAddress: stats.poolAddress, rank: 1, stats, metadata: null, now: 0 });
+    const members = [stats.priceChangeBps5m, stats.priceChangeBps1h, stats.priceChangeBps6h, stats.priceChangeBps24h];
+    timeframes.forEach((window, index) => {
+      expect(members[index]).not.toBeNull();
+      expect(members[index]).not.toBeUndefined();
+      expect(changeFor(row, window)).toBe(row.changes[window]);
+      expect(changeFor(row, window)).toEqual({ value: Number(members[index]) / 100, reason: null });
+      const trending = toTrendingRow(row, window, null);
+      expect(trending.change).toBe(Number(members[index]) / 100);
+      expect(trending.changeReason).toBeNull();
+      expect(render(<TrendingRow row={trending} />)).toContain('+1.2%');
+    });
+    const missing = decodeV2Contract('StatsBatchResponse', recordedMarket.v2Reads.responses.statsBatch.body).data.items.find(item => item.poolAddress === recordedMarket.v2Reads.pools.example)!;
+    const missingRow = buildExploreRow({ poolAddress: missing.poolAddress, rank: 1, stats: missing, metadata: null, now: 0 });
+    expect(changeFor(missingRow, '6h')).toEqual({ value: null, reason: '6h change not available yet' });
+    expect(render(<TrendingRow row={toTrendingRow(missingRow, '6h', null)} />)).toContain('Change: 6h change not available yet');
+    expect(changeFor(missingRow, '24h')).toEqual({ value: 0.01, reason: null });
+    const young = decodeV2Contract('StatsBatchResponse', recordedMarket.v2Reads.responses.statsBatchReal.body).data.items[0];
+    const youngRow = buildExploreRow({ poolAddress: young.poolAddress, rank: 1, stats: young, metadata: null, now: 0 });
+    for (const window of timeframes) {
+      expect(changeFor(youngRow, window)).toEqual({ value: null, reason: `Not enough trades yet for a ${window} change` });
+      expect(toTrendingRow(youngRow, window, null).changeReason).toBe(`Not enough trades yet for a ${window} change`);
+    }
+  }
+
+  test(trendingOffersTheServedChangeWindows.name, trendingOffersTheServedChangeWindows);
 
   it('marks fees unavailable on screener cards and signs leaderboard metrics', () => {
     const stats = screenerStats({ poolAddress: '0x1', tokenAddress: null, rank: 1, name: 'A', symbol: 'A', image: null, href: '/token/0x1', mcapRaw: null, mcap: null, mcapReason: null, circulatingMcapRaw: null, volume24hRaw: '5000000', volume24h: 5, createdAtMs: null, ageMs: null, txns: 1234, traders: null, holders: null, price: null, priceReason: null, change5m: null, change1h: null, change6h: null, change24h: null, changes: statsChanges(null), top10Share: null, devShare: null, sharesReason: null, stage: null, creator: null, description: null });

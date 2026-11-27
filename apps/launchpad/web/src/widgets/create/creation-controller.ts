@@ -64,6 +64,7 @@ export interface LaunchState {
     | 'purchase_submitted'
     | 'purchase_failed'
     | 'purchase_confirmed';
+  approvalStage?: 'wallet_requested' | 'submitted' | 'confirmed';
   busy: boolean;
   message: string;
   fieldErrors?: Record<string, string>;
@@ -127,6 +128,8 @@ export class CreationController {
   invalidate(message = 'Launch parameters changed. Review them again.') {
     this.epoch++;
     this.set({
+      approvalStage:
+        this.state.approvalStage === 'confirmed' ? 'confirmed' : undefined,
       reviewed: undefined,
       quote: undefined,
       fieldErrors: undefined,
@@ -161,7 +164,7 @@ export class CreationController {
   async reviewDraft(draft: CreationDraftV2) {
     return this.single(async () => {
       this.invalidate();
-      this.set({ fieldErrors: undefined });
+      this.set({ fieldErrors: undefined, approvalStage: undefined });
       const errors = validateCreationDraft(draft);
       if (Object.keys(errors).length) this.set({ fieldErrors: errors });
       if (Object.keys(errors).length)
@@ -271,6 +274,7 @@ export class CreationController {
         this.assertReviewed(reviewed, epoch);
         this.set({
           phase: 'approving',
+          approvalStage: 'wallet_requested',
           message:
             'Approve the exact USDL amount. Creation is a separate transaction.',
         });
@@ -280,13 +284,17 @@ export class CreationController {
           reviewed.draft,
           reviewed.reviewedAt + 30000,
         );
-        this.set({ message: `Approval submitted: ${tx}` });
+        this.set({
+          approvalStage: 'submitted',
+          message: `Approval submitted: ${tx}`,
+        });
         const proof = await this.chain.approvalProof(
           tx,
           plan.approvalTargetRaw!,
           reviewed.scope,
         );
         this.set({
+          approvalStage: 'confirmed',
           message: 'Approval confirmed. Waiting for the committed head.',
         });
         try {
@@ -576,10 +584,11 @@ export class CreationController {
           await this.storage.put(attempt);
         }
         const id = attempt.metadataUploadId!;
-        const endpoint = metadataApiUrl(
+        let endpoint = metadataApiUrl(
           `/v2/tokens/${attempt.tokenAddress}/assets/${id}`,
         );
         const { decodeV2Contract } = await import('@kindle/sdk');
+        let storedAssetId: string | undefined;
         const decode = async (response: Response) => {
           if (!response.ok)
             throw new Error(
@@ -590,7 +599,7 @@ export class CreationController {
             await this.responseJSON(response),
           ).data.asset;
           if (
-            asset.assetId !== id ||
+            (storedAssetId !== undefined && asset.assetId !== storedAssetId) ||
             address(asset.ownerWallet) !== scope.creator ||
             asset.sha256.toLowerCase() !== contentHash ||
             asset.bytes !== file.size ||
@@ -615,6 +624,13 @@ export class CreationController {
             headers: { ...headers, 'Content-Type': file.type },
           }),
         );
+        storedAssetId = asset.assetId;
+        attempt.metadataUploadId = storedAssetId;
+        await this.storage.put(attempt);
+        endpoint = metadataApiUrl(
+          `/v2/tokens/${attempt.tokenAddress}/assets/${storedAssetId}`,
+        );
+        headers['Idempotency-Key'] = storedAssetId;
         const until = Date.now() + 60000;
         while (asset.state === 'uploading' || asset.state === 'quarantined') {
           if (Date.now() >= until) {
@@ -652,7 +668,7 @@ export class CreationController {
           throw new Error(
             'Image was rejected. Token remains created and metadata pending.',
           );
-        attempt.metadataAssetId = id;
+        attempt.metadataAssetId = asset.assetId;
         await this.storage.put(attempt);
         this.set({
           attempt,

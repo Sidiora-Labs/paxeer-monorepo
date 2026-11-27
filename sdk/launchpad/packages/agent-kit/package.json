@@ -37,7 +37,8 @@
     "@noble/curves": "1.9.7",
     "@noble/hashes": "1.8.0",
     "@types/node": "22.20.5",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "tsx": "4.21.0"
   },
   "engines": {
     "node": ">=22"

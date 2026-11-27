@@ -1,6 +1,10 @@
 import { formatUnits } from "viem";
 import Decimal from "decimal.js";
-import { COLLATERAL_TOKENS, getMarketCategory } from "./core/perps/config";
+import {
+  COLLATERAL_TOKENS,
+  PERPS_MARKETS,
+  getMarketCategory,
+} from "./core/perps/config";
 import { paxeerChain } from "./core/chain";
 import { PERPS_SPENDER } from "./core/network/approvals";
 import { getNativeSnapshot } from "./runtime";
@@ -12,10 +16,31 @@ export const toNativeSymbol = (symbol: string) =>
 export const toTradingSymbol = (symbol: string) =>
   `PERP_${toNativeSymbol(symbol)}_USDC`;
 export function nativeSymbols() {
-  // Native prices use the market tick expressed in 18-decimal USD units.
-  return getNativeSnapshot().marketCatalog.flatMap((market) => {
-    if (market.tickSize === null || BigInt(market.tickSize) <= 0n) return [];
-    const tick = new Decimal(formatUnits(BigInt(market.tickSize), 18));
+  const snapshot = getNativeSnapshot();
+  const catalog = new Map(
+    snapshot.marketCatalog.map((market) => [
+      toNativeSymbol(market.symbol),
+      market,
+    ]),
+  );
+  const builtIn = new Map(
+    PERPS_MARKETS.map((market) => [toNativeSymbol(market.symbol), market]),
+  );
+  const symbols = new Set([...builtIn.keys(), ...catalog.keys()]);
+  const prices = new Map(
+    snapshot.markets.map((row) => [toNativeSymbol(row.symbol), row.price]),
+  );
+  return [...symbols].flatMap((symbol) => {
+    const entry = catalog.get(symbol);
+    const market = entry ?? builtIn.get(symbol)!;
+    if (entry?.enabled === false) return [];
+    const price = prices.get(toNativeSymbol(market.symbol)) ?? 0;
+    const tick =
+      entry?.tickSize != null && BigInt(entry.tickSize) > 0n
+        ? new Decimal(formatUnits(BigInt(entry.tickSize), 18))
+        : new Decimal(
+            price >= 1 ? "0.01" : price >= 0.01 ? "0.0001" : "0.000001",
+          );
     return [
       {
         marketId: market.marketId,

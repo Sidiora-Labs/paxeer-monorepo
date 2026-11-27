@@ -107,7 +107,7 @@ export function AmountInput({ amount, onChange, inputDecimals, inputSymbol = 'US
   const describedBy = [invalid ? errorId : null, hint ? hintId : null].filter(Boolean).join(' ') || undefined;
   return (
     <div className="space-y-1.5">
-      <div className={cn('flex h-control-height-lg items-center gap-2 rounded-sm px-3 transition-colors duration-fast', invalid ? 'bg-danger-soft' : 'bg-surface-2', disabled && 'text-text-disabled')}>
+      <div className="relative flex h-control-height-lg items-center">
         <label htmlFor={inputId} className="sr-only">Trade amount in {unit}</label>
         <input
           id={inputId}
@@ -121,7 +121,7 @@ export function AmountInput({ amount, onChange, inputDecimals, inputSymbol = 'US
           disabled={disabled}
           onChange={(event) => onChange(event.target.value)}
           placeholder="0"
-          className="min-w-0 flex-1 bg-transparent text-lg font-bold text-text tabular-nums placeholder:text-text-faint outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus disabled:text-text-disabled"
+          className={cn('h-full min-w-0 flex-1 rounded-sm border bg-surface-2 pl-3 pr-28 text-lg font-bold text-text tabular-nums placeholder:text-text-faint outline-none transition-colors duration-fast focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus disabled:text-text-disabled', invalid ? 'border-danger' : 'border-control-edge')}
         />
         {onCycleUnit ? (
           <button
@@ -130,13 +130,13 @@ export function AmountInput({ amount, onChange, inputDecimals, inputSymbol = 'US
             disabled={!!unitToggleDisabledReason}
             aria-label={`Switch unit, currently ${unit}`}
             title={unitToggleDisabledReason ?? `Switch unit, currently ${unit}`}
-            className="inline-flex h-7 shrink-0 items-center gap-1 rounded-pill bg-surface-3 px-2 text-xs font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text disabled:cursor-not-allowed disabled:text-text-disabled disabled:hover:bg-surface-3"
+            className="absolute right-3 inline-flex h-7 shrink-0 items-center gap-1 rounded-pill bg-surface-3 px-2 text-xs font-medium text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text disabled:cursor-not-allowed disabled:text-text-disabled disabled:hover:bg-surface-3"
           >
             <span className="min-w-0 max-w-24 truncate" title={unit}>{unit}</span>
             <ArrowDownUp aria-hidden="true" className="size-icon-sm" />
           </button>
         ) : (
-          <span className="min-w-0 max-w-24 truncate text-xs font-bold text-text-muted" title={unit}>{unit}</span>
+          <span className="absolute right-3 min-w-0 max-w-24 truncate text-xs font-medium text-text-muted" title={unit}>{unit}</span>
         )}
       </div>
       {hint ? <p id={hintId} className="px-1 text-xs text-text-faint tabular-nums">{hint}</p> : null}
@@ -191,7 +191,7 @@ export function PresetChip({ active = false, disabled = false, onClick, children
       aria-label={label}
       title={label}
       className={cn(
-        'inline-flex border border-control-edge h-control-height-sm min-w-0 items-center justify-center whitespace-nowrap rounded-sm font-bold tabular-nums transition-colors duration-fast',
+        'inline-flex border border-control-edge h-control-height-sm min-w-0 items-center justify-center whitespace-nowrap rounded-sm font-semibold tabular-nums transition-colors duration-fast',
         size === 'sm' ? 'px-2 text-sm' : 'px-1 text-xs',
         active ? 'bg-surface-active text-text' : 'bg-surface-2 text-text-muted hover:bg-surface-hover hover:text-text',
         disabled && 'cursor-not-allowed text-text-disabled hover:bg-surface-2 hover:text-text-disabled',
@@ -213,7 +213,7 @@ interface BuyPresetsProps {
 export function BuyPresets({ amount, onSelect, onMax, maxDisabled = false }: BuyPresetsProps) {
   return (
     <div role="group" aria-label="Quick USDL amounts" className="flex items-center gap-2">
-      <span aria-hidden="true" className="shrink-0 text-xs font-bold text-text-muted">USDL</span>
+      <span aria-hidden="true" className="shrink-0 text-xs font-medium text-text-muted">USDL</span>
       <div className="grid min-w-0 flex-1 grid-cols-4 gap-2">
         {BUY_PRESETS.map((preset) => (
           <PresetChip key={preset} active={amount === preset} onClick={() => onSelect(preset)} label={`${preset} USDL`}>
@@ -380,7 +380,7 @@ export function ApprovalCheckbox({ unlimited, onChange, assetSymbol }: ApprovalC
   return (
     <div className="flex items-start justify-between gap-3 rounded-sm bg-surface-2 p-2.5">
       <div className="min-w-0 space-y-0.5">
-        <p id={labelId} className="text-xs font-bold text-text">Approve unlimited {assetSymbol}</p>
+        <p id={labelId} className="text-xs font-semibold text-text">Approve unlimited {assetSymbol}</p>
         <p id={helpId} className="text-2xs text-text-faint">Skip the approval step on future trades. Approving only this amount is safer.</p>
       </div>
       <Toggle size="sm" checked={unlimited} onChange={onChange} labelledBy={labelId} describedBy={helpId} />
@@ -418,14 +418,14 @@ export function quoteActionState({ quoteUnavailable, quoteRequesting, balancesFr
   return { kind: 'ready', side, tokenSymbol };
 }
 
-export function TradeQuoteNotices({ priceMoved, error, onRefresh }: {
-  priceMoved: boolean; error: string | null | undefined; onRefresh: () => void;
+export function TradeQuoteNotices({ priceMoved, staleQuoteCause, error, onRefresh }: {
+  priceMoved: boolean; staleQuoteCause?: 'aged' | 'moved'; error: string | null | undefined; onRefresh: () => void;
 }) {
   return (
     <>
       {priceMoved ? (
         <NoticeBar tone="warning" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={onRefresh}>Refresh</Button>}>
-          The price moved. Refresh to see the new price.
+          {staleQuoteCause === 'aged' ? 'The price is out of date. Refresh to see the current price.' : 'The price moved. Refresh to see the new price.'}
         </NoticeBar>
       ) : null}
       {error ? (
@@ -465,7 +465,7 @@ export function ActionButton({ state, side, onClick }: ActionButtonProps) {
       </button>
     );
   }
-  const variant = state.kind === 'ready' && side === 'sell' ? 'danger' : 'primary';
+  const variant = state.kind === 'connect' || state.kind === 'sign-in' ? 'inverse' : side === 'sell' ? 'danger' : 'primary';
   return (
     <Button variant={variant} size="lg" fullWidth loading={loading} disabled={disabled} onClick={onClick}>
       {label}

@@ -54,6 +54,14 @@ func TestRepositoryRegistryRequiresApproval(t *testing.T) {
 	if err := json.Unmarshal(raw, &registry); err != nil {
 		t.Fatal(err)
 	}
+	catalog, err := registry.ValidateOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, ok := catalog[150012]
+	if !ok || replacement.Schema != "api_stream" || replacement.Path != "migrations/150012.sql" || !reflect.DeepEqual(replacement.PredecessorIDs, []int64{150002}) {
+		t.Fatal("portfolio append replacement requires its original function", replacement)
+	}
 	if validDigest(registry.ApprovalDigest) {
 		if registry.ServerMajorVersion != 18 {
 			t.Fatalf("registry server major version = %d, want 18", registry.ServerMajorVersion)

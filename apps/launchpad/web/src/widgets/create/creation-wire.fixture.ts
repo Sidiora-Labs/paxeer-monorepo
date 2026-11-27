@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import type { ConnectedCapabilitiesPreflight } from '@kindle/sdk-v2';
 import {
   createServer,
@@ -46,7 +47,8 @@ import {
 
 const a = (n: number): Address => `0x${n.toString(16).padStart(40, '0')}`;
 const h = (n: number): Hex => `0x${n.toString(16).padStart(64, '0')}`;
-const owner = a(90),
+const signer = privateKeyToAccount(generatePrivateKey());
+const owner = signer.address.toLowerCase() as Address,
   native = a(0x1017),
   pool = a(91),
   token = a(92),
@@ -473,6 +475,13 @@ class CreationWirePeer {
         return '0x7d';
       case 'eth_accounts':
         return [owner];
+      case 'personal_sign':
+        if (
+          address(String(params[1])) !== owner ||
+          !/^0x(?:[0-9a-fA-F]{2})*$/.test(String(params[0]))
+        )
+          throw new Error('Invalid signing account or message');
+        return signer.signMessage({ message: { raw: params[0] as Hex } });
       case 'eth_blockNumber':
         return toHex(this.height);
       case 'eth_getBlockByNumber':
@@ -516,7 +525,7 @@ class CreationWirePeer {
         params: unknown[];
       };
       try {
-        const result = this.rpc(request.method, request.params);
+        const result = await this.rpc(request.method, request.params);
         if (
           this.interruptBuyReply &&
           request.method === 'eth_sendTransaction' &&

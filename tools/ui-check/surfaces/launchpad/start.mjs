@@ -229,6 +229,10 @@ const server = createServer({ cert: await readFile(certificate), key: await read
       const snapshot = JSON.parse(body);
       const requested = new Set((url.searchParams.get('topics') ?? '').split(','));
       snapshot.data.snapshot.topics = snapshot.data.snapshot.topics.filter(entry => requested.has(entry.topic));
+      if (state === 'empty' && /^\/(coin|token)\/0x[0-9a-f]{40}$/i.test(pagePath)) {
+        snapshot.data.snapshot.topics = snapshot.data.snapshot.topics.filter(entry =>
+          !/^market\.(candles|price|trades)\./.test(entry.topic));
+      }
       if (state !== 'error' && state !== 'loading') {
         for (const topic of requested) {
           if (!topic.startsWith('market.rankings.')) continue;

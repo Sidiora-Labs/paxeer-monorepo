@@ -244,6 +244,7 @@ export const EnvSchema = z
     ATTESTOR_TIMEOUT_MS: z.coerce.number().int().positive().default(15_000),
 
     RPC_URLS,
+    CHAIN_RECEIPT_SOURCE: z.enum(['sequencer', 'evm']).default('sequencer'),
     SEQUENCER_RPC_URL: z
       .string()
       .url('SEQUENCER_RPC_URL must be an http(s) URL')

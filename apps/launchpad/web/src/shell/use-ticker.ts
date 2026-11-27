@@ -154,7 +154,10 @@ export function useRecentTicker(): TickerFeed {
 /** IF_LEADERBOARDS trader / 24h; unavailable rankings leave the feed empty. */
 export function useEarnersTicker(): TickerFeed {
   const board = useLeaderboard('trader', '24h', 20);
-  const entries = board.state === 'ready' ? board.data.data.snapshot.entries : [];
+  const entries = board.state === 'ready' ? board.data.data.snapshot.entries.filter(entry => {
+    const signed = entry.metricSigned;
+    return entry.quality === 'unavailable' || typeof signed !== 'string' || !RAW_INT.test(signed) || BigInt(signed) > 0n;
+  }) : [];
   const identities = useWalletIdentities(entries.map(entry => entry.wallet));
   if (board.state === 'unsupported') return { state: 'ready', chips: [], emptyText: null };
   if (board.state !== 'ready') return board;
