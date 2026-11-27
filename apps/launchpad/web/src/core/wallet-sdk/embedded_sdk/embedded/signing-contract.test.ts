@@ -122,7 +122,16 @@ async function startGatewayPeer(): Promise<string> {
           result = await broadcast(request.params[0]);
         else if (request.method === "eth_getTransactionByHash")
           result = transactions.get(request.params[0]) ?? null;
-        else throw new Error(`unexpected RPC method ${request.method}`);
+        else if (request.method === "eth_getTransactionCount") {
+          if (request.params[1] !== "latest")
+            throw new Error("expected latest count");
+          const signer = fixtureSigners.find(
+            (account) =>
+              account.address.toLowerCase() === request.params[0].toLowerCase(),
+          );
+          if (!signer) throw new Error("unknown count address");
+          result = `0x${(nonces.get(signer.address) ?? 0).toString(16)}`;
+        } else throw new Error(`unexpected RPC method ${request.method}`);
         send(200, { jsonrpc: "2.0", id: request.id, result });
         return;
       }
@@ -326,12 +335,14 @@ async function openProvider(): Promise<{
   providers.push(provider);
   // Wait for the actual Supabase INITIAL_SESSION notification and its wallet lookup.
   await new Promise<void>((resolve) => {
-    const unsubscribe: (() => void) | undefined = wallet.onAuthStateChange((event) => {
-      if (event === "INITIAL_SESSION") {
-        queueMicrotask(() => unsubscribe?.());
-        resolve();
-      }
-    });
+    const unsubscribe: (() => void) | undefined = wallet.onAuthStateChange(
+      (event) => {
+        if (event === "INITIAL_SESSION") {
+          queueMicrotask(() => unsubscribe?.());
+          resolve();
+        }
+      },
+    );
   });
   expect(await provider.request({ method: "eth_requestAccounts" })).toEqual([
     accountA.address,
@@ -669,7 +680,7 @@ async function embedded_gateway_identity_and_signature() {
       await expect(
         provider.request({
           method,
-          params: [{ ...tx, from: accountA.address }],
+          params: [{ ...tx, from: accountA.address, nonce: "0x0" }],
         }),
       ).rejects.toMatchObject({ code: 4100 });
     }
