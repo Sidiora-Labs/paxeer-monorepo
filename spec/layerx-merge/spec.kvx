@@ -215034,7 +215034,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1310]
 title = "Let the cases about the content of an answer of the deterministic reader of the launchpad interface service repeat a read that ended at the statement limit, through a helper of the case files, and leave the limits of the service as they are"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
