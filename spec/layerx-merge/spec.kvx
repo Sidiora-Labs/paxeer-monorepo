@@ -17740,6 +17740,12 @@ value = "One. The rule. The read that decides the fate of a submission and the r
 basis = "Gotcha 5048."
 affects = []
 
+[decision.4105]
+title = "The render switch of the trading workspace is declared as a public build variable with an empty default in every build list, and no list gives it a value"
+value = "One. The Dockerfile. apps/perps/Dockerfile gets one ARG line of the name NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER with an empty default and one entry of the ENV list, each right after the line of the neighbour of gotcha 5049 point four and in the form of the lines around it. Nothing else of the file changes; the build step of gotcha 5049 point five stays. Two. The deploy files. apps/perps/deploy/build-args.production.env gets a line of the name with an empty value right after the line of the neighbour. apps/perps/deploy/.env.production.example gets the name with an empty value after the entry of the neighbour, with one comment line above it in the way of its other entries. The comment says that the value 1 belongs only to a build of the render check, that it turns the live streams off, and that a deployment leaves the name empty. apps/perps/deploy/docker-compose.yml hands the name to the build with an empty default, right after the entry of the neighbour and in its form. Three. The image script. The list of the function perps_may_be_empty of tools/deploy/offchain-images.sh gets the name, with the file venueStream.ts named beside it in the way of the other entries. Nothing else of the script changes. Four. The documents. The tables of docs/release/variables/app-perps.md and of apps/perps/deploy/README.md each get one row for the name, after the row of the neighbour and in its form. The row says what the name does and that an empty value keeps the live streams on; in docs/release/variables/app-perps.md it also names the file that reads it. Five. Not done. No source file of the workspace changes and the name keeps its spelling. No case file changes, and tools/deploy/tests/offchain-images.test.sh and tools/ui-check/surfaces/trading/environment.mjs do not change. No list gives the name a value, so an image built after this task behaves as one built before it. Other documents that name public variables in groups do not change. Six. After the task. The case of gotcha 5049 point one passes together with the six others of its file. A public job for the case files of the directory tests of the workspace, gotcha 5049 point nine, is a task of its own. "
+basis = "Gotcha 5049."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47400,6 +47406,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1317]
+title = "Declare the render switch of the trading workspace as a public build variable with an empty default in the Dockerfile, the deploy files, the image script and two tables, so that the deploy case file of the workspace passes"
+reqs = ["22998.1"]
+touches = ["apps/perps/Dockerfile", "apps/perps/deploy", "tools/deploy/offchain-images.sh", "docs/release/variables/app-perps.md"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && bash tools/deploy/tests/offchain-images.test.sh && bash tools/deploy/offchain-images.sh --plan > /tmp/image-plan.out && grep -e ^images= /tmp/image-plan.out | grep -q perps-web && grep -e ^unbuilt= /tmp/image-plan.out | grep -vq perps-web && python3 -m pytest -q tools/qualification/audit_repairs/test_perps_compose_lifecycle.py && pnpm --dir apps/perps exec node --test --import tsx tests/deploy-config.test.ts && grep -x -e ARG.NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER= apps/perps/Dockerfile > /dev/null && grep -x -e NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER= apps/perps/deploy/build-args.production.env > /dev/null"
+do_1 = "do_1 Gotcha 5049, decision 4105. Read whole: apps/perps/tests/deploy-config.test.ts, apps/perps/Dockerfile, apps/perps/deploy/build-args.production.env, apps/perps/deploy/.env.production.example and apps/perps/deploy/docker-compose.yml. Read the functions next_public_args and perps_may_be_empty of tools/deploy/offchain-images.sh. Read the function test_compose_app_build_context_and_public_inputs of tools/qualification/audit_repairs/test_perps_compose_lifecycle.py and the three reads of gotcha 5049 point two. The case file, the file of that function and the three reading files lie outside the paths and do not change. This task changes apps/perps/Dockerfile, apps/perps/deploy/build-args.production.env, apps/perps/deploy/.env.production.example, apps/perps/deploy/docker-compose.yml, apps/perps/deploy/README.md, tools/deploy/offchain-images.sh and docs/release/variables/app-perps.md and adds no file."
+symbols = []
 
 [capability.22.39.1316]
 title = "Take the observation sequences of the committed read of the price sidecar from the consensus endpoint at the height of the account answer, so that a round no longer waits for the safe height of the EVM side"
@@ -183144,6 +183159,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1317]
+title = "Declare the render switch of the trading workspace as a public build variable with an empty default in the Dockerfile, the deploy files, the image script and two tables, so that the deploy case file of the workspace passes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1317"]
+interfaces = []
+do_1 = "do_1 Gotcha 5049, decision 4105. Read whole: apps/perps/tests/deploy-config.test.ts, apps/perps/Dockerfile, apps/perps/deploy/build-args.production.env, apps/perps/deploy/.env.production.example and apps/perps/deploy/docker-compose.yml. Read the functions next_public_args and perps_may_be_empty of tools/deploy/offchain-images.sh. Read the function test_compose_app_build_context_and_public_inputs of tools/qualification/audit_repairs/test_perps_compose_lifecycle.py and the three reads of gotcha 5049 point two. The case file, the file of that function and the three reading files lie outside the paths and do not change. This task changes apps/perps/Dockerfile, apps/perps/deploy/build-args.production.env, apps/perps/deploy/.env.production.example, apps/perps/deploy/docker-compose.yml, apps/perps/deploy/README.md, tools/deploy/offchain-images.sh and docs/release/variables/app-perps.md and adds no file."
+do_2 = "do_2 The Dockerfile, point one. The ARG line stands right after the ARG line of the neighbour (line 32), the entry of the ENV list right after the entry of the neighbour (line 56). Both stand before the lines of the name that follows the neighbour today, and the last entry of the ENV list stays the last."
+do_3 = "do_3 The deploy files, point two. apps/perps/deploy/build-args.production.env: the new line after line 3. apps/perps/deploy/.env.production.example: the new entry after the entry of the neighbour (line 26), set apart as the other entries are. apps/perps/deploy/docker-compose.yml: the new entry after line 28."
+do_4 = "do_4 The image script, point three: one entry in the list of the function perps_may_be_empty, after the entry of the neighbour (line 91)."
+do_5 = "do_5 The documents, point four: one row after the row of the neighbour in docs/release/variables/app-perps.md (line 45) and in apps/perps/deploy/README.md (line 119)."
+do_6 = "do_6 After the last change, at the end of the work. These runs come after the change, they are neither the build nor the verification, and they are part of the work of this task. Run by hand apps/perps/tests/dockerfile-args.test.ts with the command pnpm --dir apps/perps exec node --test --import tsx tests/dockerfile-args.test.ts, and in the same form every other case file of the directory apps/perps/tests whose text names the Dockerfile or the directory deploy, each alone. A case that does not pass is run once more at the commit before this task, to see whether it passed there; a case that passed there is repaired inside the paths. Give in the final message: the seven changed files with the line of each change, the count of the cases of apps/perps/tests/deploy-config.test.ts that pass, the result of each run by hand, and whether the plan of the image script lists the row perps-web among the images."
+do_7 = "do_7 Point five holds throughout. First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are part of the work of this task and are not left out; they are made with the commands themselves, they are not the counted runs and they use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/Dockerfile", "apps/perps/deploy", "tools/deploy/offchain-images.sh", "docs/release/variables/app-perps.md"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && bash tools/deploy/tests/offchain-images.test.sh && bash tools/deploy/offchain-images.sh --plan > /tmp/image-plan.out && grep -e ^images= /tmp/image-plan.out | grep -q perps-web && grep -e ^unbuilt= /tmp/image-plan.out | grep -vq perps-web && python3 -m pytest -q tools/qualification/audit_repairs/test_perps_compose_lifecycle.py && pnpm --dir apps/perps exec node --test --import tsx tests/deploy-config.test.ts && grep -x -e ARG.NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER= apps/perps/Dockerfile > /dev/null && grep -x -e NEXT_PUBLIC_DISABLE_REALTIME_FOR_RENDER= apps/perps/deploy/build-args.production.env > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
