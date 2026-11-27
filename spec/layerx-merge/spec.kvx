@@ -17674,6 +17674,12 @@ value = "One. The guard. One function in a test file of the package internal/app
 basis = "Gotcha 5037. Decision 4090."
 affects = []
 
+[decision.4094]
+title = "A retry that waited the delay its policy named reaches the server: the gate of the retry pace holds a read that arrives a short rest before it opens instead of refusing it; earlier reads are refused as today, no request leaves earlier than today, and no case is loosened"
+value = "One. The rule. A read that the query layer sends after it waited the delay its policy named is not answered with the retained error. It sends a request, and no earlier than the next time of the pace. Two. The form is the choice of task 22.39.1306 between two candidates. First candidate, the gate: a read that reaches the gate within a short rest before the next time is held until the clock of the pace has reached the next time, and then goes the way every read goes: it joins the request in flight for the resource or starts one. Second candidate, the policies: the delay that the two policies of gotcha 5038 points three and six return ends a short margin after the next time of the pace. The first candidate covers every caller of the pace in one place. It is taken unless it cannot keep point three or a case outside the paths of the task then fails; in that event the second is taken and the final message says why. The short rest or margin is one named constant of at most 100 milliseconds, a tenth of the delay the pace uses when the server names none. Its value follows the measure of point five. Three. What stays. A read that arrives earlier than the short rest before the next time gets the retained error and sends no request, as today. No request for a resource leaves before the next time of its pace, so no gap between two requests is shorter than today. Reads held for the same resource share one request. A read whose caller gives it up while it is held sends no request. The count of failures of the pace, its delays, the limit of four retries and the budget of 15 seconds do not change. Four. Cases, in src/core/retry-pace.test.ts, with a clock given to the pace and without a service. The case retryAfterThePolicyDelayReachesTheServer: a read that arrives a few milliseconds before the next time, as a retry of the query layer does in gotcha 5038 point four, calls the load function once more, and not before the clock has reached the next time. The case readWellBeforeTheNextTimeGetsTheRetainedError: a read that arrives at half the delay gets the retained error, and the load function is not called. With the first candidate one more case: two reads held for one resource lead to one call of the load function. With the second candidate the first case shows instead that the delay each of the two policies returns ends the margin after the next time. Five. The measure and the proof. Before the change the task measures, in a loop that is not part of the final revision, over at least 2000 waits of the timer of the runtime, how many waits end before the clock of the pace has advanced by the length of the wait and by how many milliseconds at most. It runs the file of the case of the record at least ten times before the change, with a line added by hand to the gate that notes the rest at each read the gate refuses, and ten times after the change. It gives the number of runs that fail with the record of gotcha 5038 point one and the figures noted. If the runs before the change do not show the failure, the task says so plainly, gives what it saw, and makes the change all the same. Six. Not done. The case of the record and its file stay as they are: it still expects five reads, and no check of it is loosened. No case is skipped, marked or run again after a failure. src/core/transient-retry.ts, the service of the fixture, the workflow and every file outside src/core do not change. The places of the chart sources in gotcha 5038 point six lie outside the paths of the task: with the first candidate the gate covers them, with the second the final message names them as open. Seven. After the task. The next records of the public job decide whether the row passes. A further cause that such a record shows gets a task of its own. "
+basis = "Gotcha 5038."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47334,6 +47340,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1306]
+title = "Let a retry that waited the delay its policy named pass the gate of the retry pace of the launchpad web, and keep the refusal of earlier reads"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/core"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/core/retry-pace.test.ts src/core/transient-retry.test.ts src/core/market src/widgets/trading && grep -e retryAfterThePolicyDelayReachesTheServer apps/launchpad/web/src/core/retry-pace.test.ts > /dev/null && grep -e readWellBeforeTheNextTimeGetsTheRetainedError apps/launchpad/web/src/core/retry-pace.test.ts > /dev/null"
+do_1 = "do_1 Gotcha 5038, decision 4094. Read whole: apps/launchpad/web/src/core/retry-pace.ts, apps/launchpad/web/src/core/cache-policy.ts, apps/launchpad/web/src/core/transient-retry.ts, apps/launchpad/web/src/core/market/feed-retry.test.ts and, in apps/launchpad/web/src/core/retry-pace.test.ts, the two cases that give the pace a clock of their own. This task changes files below apps/launchpad/web/src/core. It does not change apps/launchpad/web/src/core/market/feed-retry.test.ts, apps/launchpad/web/src/core/transient-retry.ts, any file below apps/launchpad/web/src/core/test-fixtures or any file outside apps/launchpad/web/src/core."
+symbols = []
 
 [capability.22.39.1305]
 title = "Give the cases of internal/app of the holdings service the guard at the creation of a consumer that the cases of the package l16 have"
@@ -214920,6 +214935,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1306]
+title = "Let a retry that waited the delay its policy named pass the gate of the retry pace of the launchpad web, and keep the refusal of earlier reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1306"]
+interfaces = []
+do_1 = "do_1 Gotcha 5038, decision 4094. Read whole: apps/launchpad/web/src/core/retry-pace.ts, apps/launchpad/web/src/core/cache-policy.ts, apps/launchpad/web/src/core/transient-retry.ts, apps/launchpad/web/src/core/market/feed-retry.test.ts and, in apps/launchpad/web/src/core/retry-pace.test.ts, the two cases that give the pace a clock of their own. This task changes files below apps/launchpad/web/src/core. It does not change apps/launchpad/web/src/core/market/feed-retry.test.ts, apps/launchpad/web/src/core/transient-retry.ts, any file below apps/launchpad/web/src/core/test-fixtures or any file outside apps/launchpad/web/src/core."
+do_2 = "do_2 Before the change, decision 4094 point five. Run the build. The measure: a loop of at least 2000 waits of the timer of the runtime, each between 1 and 50 milliseconds long, that notes for each wait by how much the clock of line 22 of the pace advanced. Give the number of waits that ended before the clock had advanced by their length and the largest shortfall in milliseconds. Then add by hand a line to the gate (line 48) that notes, for each read it answers with the retained error, the next time minus the clock, and run the file of the case ten times, each time as a command of its own: pnpm --dir apps/launchpad/web run test src/core/market/feed-retry.test.ts. Keep the number of runs that fail, the first message of each and the figures the line noted. The loop and the line are tools of the search and are not part of the final revision."
+do_3 = "do_3 The change, points one to three. First candidate: in the method read (line 42) a read that reaches the gate within the short rest before the next time is held until the clock of the pace has reached the next time and then goes on as every read does. The short rest is one named constant of the file. The answer of the gate to every earlier read, the count of failures, the delays and the next time (lines 72 and 74) stay as they are. If the first candidate cannot keep point three, or a case outside the paths then fails, take the second candidate in apps/launchpad/web/src/core/cache-policy.ts (line 11) and apps/launchpad/web/src/core/market/use-wallet-identities.ts (line 111) and say why in the final message."
+do_4 = "do_4 The cases, point four, in apps/launchpad/web/src/core/retry-pace.test.ts: retryAfterThePolicyDelayReachesTheServer and readWellBeforeTheNextTimeGetsTheRetainedError, and with the first candidate the case of two held reads. They give the pace a clock of their own, need no service and end within a second each."
+do_5 = "do_5 After the change run the command of do_2 ten times again and give the figures beside the figures of do_2. Then run the script test of the web once without a path, by hand, and give for each case that fails its name, its file and its first message. Point six holds throughout: the case of the record keeps its five reads, nothing is skipped, marked or run again after a failure, and no file outside apps/launchpad/web/src/core changes."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/core"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/core/retry-pace.test.ts src/core/transient-retry.test.ts src/core/market src/widgets/trading && grep -e retryAfterThePolicyDelayReachesTheServer apps/launchpad/web/src/core/retry-pace.test.ts > /dev/null && grep -e readWellBeforeTheNextTimeGetsTheRetainedError apps/launchpad/web/src/core/retry-pace.test.ts > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
