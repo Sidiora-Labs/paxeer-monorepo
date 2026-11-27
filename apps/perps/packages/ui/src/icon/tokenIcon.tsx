@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useEffect, useMemo, useState } from "react";
 import { Avatar } from "../avatar";
 import { AvatarSizeType } from "../avatar/avatar";
@@ -51,7 +52,7 @@ export const TokenIcon: FC<TokenIconProps> = (props) => {
     <Avatar
       size={props.size}
       src={currentSrc}
-      alt={props.name}
+      alt={tokenDisplayName(props.name)}
       className={props.className}
       onLoadingStatusChange={(status) => {
         if (status === "error" && primaryUrl !== fallbackUrl) {

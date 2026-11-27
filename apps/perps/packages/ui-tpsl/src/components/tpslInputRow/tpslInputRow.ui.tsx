@@ -181,7 +181,7 @@ const RenderROI: React.FC<{
             <Text.numeral
               className="oui-px-1 oui-text-base-contrast"
               dp={dp}
-              suffix={<Text className="oui-ps-0.5">USDC</Text>}
+              suffix={<Text className="oui-ps-0.5">USDL</Text>}
             >
               {price}
             </Text.numeral>
@@ -198,7 +198,7 @@ const RenderROI: React.FC<{
               coloring
               className="oui-whitespace-nowrap oui-px-1"
               dp={2}
-              suffix={<Text className="oui-ps-0.5">USDC</Text>}
+              suffix={<Text className="oui-ps-0.5">USDL</Text>}
             >
               {pnl}
             </Text.numeral>

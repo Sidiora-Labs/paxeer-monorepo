@@ -1,5 +1,11 @@
 import { numberToHumanStyle } from "./decimal";
 
+export function tokenDisplayName<T extends string | null | undefined>(
+  key: T,
+): T | "USDL" {
+  return key === "USDC" ? "USDL" : key;
+}
+
 /**
  * Format trading pair symbol *
  * Format symbols like "PERP_BTC_USDT" according to the specified format
@@ -39,7 +45,7 @@ export function formatSymbol(
   return formatString
     .replace("type", type)
     .replace("base", base)
-    .replace("quote", quote);
+    .replace("quote", tokenDisplayName(quote));
 }
 
 /**

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -196,7 +197,7 @@ const Tip: React.FC<{
           contentDp={baseDp}
         />
         <Row
-          title={`${t("trading.orderBook.sum")} (${quote})`}
+          title={`${t("trading.orderBook.sum")} (${tokenDisplayName(quote)})`}
           content={hintInfo.sumQtyAmount}
           contentDp={quoteDp}
         />

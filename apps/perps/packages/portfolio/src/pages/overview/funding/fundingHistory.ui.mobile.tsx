@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useMemo } from "react";
 import { useSymbolsInfo } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -55,7 +56,7 @@ export const FundingHistoryMobile: FC<FundingHistoryProps> = (props) => {
               </Flex>
             }
           >
-            {item.symbol}
+            {tokenDisplayName(item.symbol)}
           </Text.formatted>
 
           <Text.formatted
@@ -94,7 +95,7 @@ export const FundingHistoryMobile: FC<FundingHistoryProps> = (props) => {
           <Flex direction="column">
             <Text className="oui-text-base-contrast-36 oui-text-2xs">
               {t("funding.fundingFee")}{" "}
-              <Text className="oui-text-base-contrast-20">(USDC)</Text>
+              <Text className="oui-text-base-contrast-20">(USDL)</Text>
             </Text>
             <Text.numeral
               dp={6}

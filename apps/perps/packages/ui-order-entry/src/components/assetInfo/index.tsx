@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { useGetEstLiqPrice } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
 import { OrderSide, OrderType } from "@paxeer-network/types";
@@ -70,7 +71,7 @@ export function AssetInfo(props: {
           }
         />
         <Text.numeral
-          unit={props.quote}
+          unit={tokenDisplayName(props.quote)}
           size={"2xs"}
           dp={props.dp}
           className={"oui-estLiqPrice-value oui-text-base-contrast-80"}

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useMemo } from "react";
 import { useIndexPricesStream, useWithdraw } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -182,7 +183,7 @@ export const AvailableQuantity: FC<AvailableQuantityProps> = (props) => {
           )}
 
           <Text size="2xs" intensity={36}>
-            {` ${name}`}
+            {` ${tokenDisplayName(name)}`}
           </Text>
         </Flex>
 

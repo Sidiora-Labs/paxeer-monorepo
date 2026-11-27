@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Flex, cn, modal, Text } from "@paxeer-network/ui";
 import { OrderEntryScriptReturn } from "../../../orderEntry.script";
@@ -22,7 +23,7 @@ export const LimitPriceSuffix = (props: LimitPriceSuffixProps) => {
       itemAlign="end"
       className={cn("oui-orderEntry-limitPrice-suffix", "oui-text-2xs")}
     >
-      {quote}
+      {tokenDisplayName(quote)}
       <Flex justify={"end"} itemAlign="center" gap={2}>
         <Flex
           px={3}

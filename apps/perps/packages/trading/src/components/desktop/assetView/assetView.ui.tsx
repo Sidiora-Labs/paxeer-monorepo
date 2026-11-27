@@ -176,7 +176,7 @@ const TotalValue: FC<TotalValueProps> = (props) => {
       </Text.numeral>
       <Flex gap={1} itemAlign="center">
         <Text size="2xs" color="neutral" weight="semibold">
-          {`${t("trading.asset.myAssets")} (USDC)`}
+          {`${t("trading.asset.myAssets")} (USDL)`}
         </Text>
         <button
           className="oui-assetView-toggle-visibility-btn"
@@ -337,7 +337,7 @@ const AssetValueList: FC<AssetValueListProps> = (props) => {
           visible={visible}
           // TODO: change AssetDetail value
           value={freeCollateral! === 0 ? ("0" as any) : freeCollateral}
-          unit="USDC"
+          unit="USDL"
         />
         <AssetDetail
           label={t("trading.asset.marginRatio")}
@@ -366,7 +366,7 @@ const AssetValueList: FC<AssetValueListProps> = (props) => {
           formula={t("trading.asset.maintenanceMargin.formula")}
           visible={visible}
           value={maintenanceMargin}
-          unit="USDC"
+          unit="USDL"
         />
         <AssetDetail
           label={t("trading.asset.currentLeverage")}

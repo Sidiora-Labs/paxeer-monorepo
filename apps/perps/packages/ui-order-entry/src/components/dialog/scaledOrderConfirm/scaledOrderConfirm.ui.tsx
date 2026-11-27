@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { forwardRef, SVGProps, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { OrderSide } from "@paxeer-network/types";
@@ -178,7 +179,7 @@ export const ScaledOrderConfirm = (props: ScaledOrderConfirmProps) => {
           <Text>{t("common.notional")}</Text>
           <Text.numeral
             rule="price"
-            unit={quote}
+            unit={tokenDisplayName(quote)}
             dp={quote_dp}
             padding={false}
             intensity={80}

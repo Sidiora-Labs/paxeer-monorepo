@@ -101,7 +101,7 @@ export const TriggerPriceItem: FC<{
         prefix={<Text>{pnl === 0 ? "" : pnl > 0 ? "+" : "-"}</Text>}
         suffix={
           <Text intensity={36} className="oui-ms-1">
-            USDC
+            USDL
           </Text>
         }
       >{`${Math.abs(pnl)}`}</Text.formatted>

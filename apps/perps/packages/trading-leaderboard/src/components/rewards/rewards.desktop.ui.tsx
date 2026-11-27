@@ -51,7 +51,7 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
 
   const rewardText = estimatedRewards
     ? formatRewardAmount(estimatedRewards.amount, estimatedRewards.currency)
-    : "0 USDC";
+    : "0 USDL";
 
   const ticketText = formatTicketCount(estimatedTickets);
 

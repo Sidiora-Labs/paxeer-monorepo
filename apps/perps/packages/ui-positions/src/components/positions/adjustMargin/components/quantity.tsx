@@ -51,7 +51,7 @@ export const Quantity: FC<QuantityProps> = ({
         size="lg"
         align="right"
         prefix={t("positions.adjustMargin.quantity")}
-        suffix="USDC"
+        suffix="USDL"
         formatters={[
           inputFormatter.numberFormatter,
           inputFormatter.dpFormatter(2),

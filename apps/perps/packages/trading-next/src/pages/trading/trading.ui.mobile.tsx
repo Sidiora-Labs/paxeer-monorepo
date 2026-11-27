@@ -143,7 +143,7 @@ export const MobileLayout: React.FC<TradingState> = (props) => {
             <MaybeEqual />
           </Flex>
           <Text.numeral
-            suffix={<Text intensity={20}>&nbsp;USDC</Text>}
+            suffix={<Text intensity={20}>&nbsp;USDL</Text>}
             dp={2}
             visible={!props.hideAssets}
           >

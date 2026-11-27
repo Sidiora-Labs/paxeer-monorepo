@@ -187,7 +187,7 @@ export const AccountItem = (props: AccountItemProps) => {
         <Text.numeral rule="price" dp={2}>
           {accountValue ?? 0}
         </Text.numeral>
-        <Text>USDC</Text>
+        <Text>USDL</Text>
       </Flex>
     </Flex>
   );

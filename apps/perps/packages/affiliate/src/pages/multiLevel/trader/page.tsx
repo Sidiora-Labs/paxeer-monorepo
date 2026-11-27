@@ -95,12 +95,12 @@ export const MultiLevelTraderPage = () => {
   const columns: Column<RebateTableRow>[] = [
     { title: t("common.date"), dataIndex: "date" },
     {
-      title: `${t("affiliate.trader.rebate")} (USDC)`,
+      title: `${t("affiliate.trader.rebate")} (USDL)`,
       dataIndex: "referee_rebate",
       render: (value: number) => money(value, 6),
     },
     {
-      title: `${t("affiliate.trader.tradingVol")} (USDC)`,
+      title: `${t("affiliate.trader.tradingVol")} (USDL)`,
       dataIndex: "volume",
       render: (value?: number) => money(tableVolume.error ? undefined : value),
     },
@@ -168,7 +168,7 @@ export const MultiLevelTraderPage = () => {
             className="oui-min-h-[160px] oui-rounded-2xl oui-bg-base-contrast-4 oui-p-5 md:oui-min-h-[180px]"
           >
             <Text size="sm" intensity={54}>
-              {t("affiliate.trader.refereeRebate")} (USDC)
+              {t("affiliate.trader.refereeRebate")} (USDL)
             </Text>
             {rebateTotal === undefined || summaryRebates.error ? (
               <Text size="3xl">--</Text>
@@ -218,7 +218,7 @@ export const MultiLevelTraderPage = () => {
         className="oui-rounded-2xl oui-border oui-border-line-6 oui-bg-base-9 oui-p-5 md:oui-p-6"
       >
         <Flex width="100%" justify="between" itemAlign="center">
-          <Text size="lg">{t("affiliate.trader.refereeRebate")} (USDC)</Text>
+          <Text size="lg">{t("affiliate.trader.refereeRebate")} (USDL)</Text>
           <div className="oui-min-w-14 oui-shrink-0">
             <Select.options
               size="xs"
@@ -294,13 +294,13 @@ export const MultiLevelTraderPage = () => {
                 </Flex>
                 <Flex justify="between" width="100%">
                   <Text intensity={54}>
-                    {t("affiliate.trader.rebate")} (USDC)
+                    {t("affiliate.trader.rebate")} (USDL)
                   </Text>
                   <Text>{money(item.referee_rebate, 6)}</Text>
                 </Flex>
                 <Flex justify="between" width="100%">
                   <Text intensity={54}>
-                    {t("affiliate.trader.tradingVol")} (USDC)
+                    {t("affiliate.trader.tradingVol")} (USDL)
                   </Text>
                   <Text>
                     {money(tableVolume.error ? undefined : item.volume)}

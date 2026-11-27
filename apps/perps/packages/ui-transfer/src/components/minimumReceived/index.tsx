@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Flex, Text } from "@paxeer-network/ui";
@@ -29,7 +30,7 @@ export const MinimumReceived: React.FC<MinimumReceivedProps> = (props) => {
           {value}
         </Text.numeral>
         <Text size="2xs" className="oui-select-none" intensity={36}>
-          {symbol}
+          {tokenDisplayName(symbol)}
         </Text>
       </Flex>
     </Flex>

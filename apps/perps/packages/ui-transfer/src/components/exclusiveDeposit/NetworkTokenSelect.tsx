@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -62,7 +63,7 @@ export const NetworkTokenSelect: FC<NetworkTokenSelectProps> = ({
               <SelectItem key={opt.value} value={opt.value}>
                 <Flex gap={1} itemAlign="center">
                   <ChainIcon chainId={opt.chainId} size="2xs" />
-                  {opt.label}
+                  {tokenDisplayName(opt.label)}
                 </Flex>
               </SelectItem>
             ))}
@@ -90,7 +91,7 @@ export const NetworkTokenSelect: FC<NetworkTokenSelectProps> = ({
               <SelectItem key={opt.value} value={opt.value}>
                 <Flex gap={1} itemAlign="center">
                   <TokenIcon name={opt.value} size="2xs" />
-                  {opt.label}
+                  {tokenDisplayName(opt.label)}
                 </Flex>
               </SelectItem>
             ))}

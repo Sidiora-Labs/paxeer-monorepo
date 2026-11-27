@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { memo } from "react";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -77,7 +78,10 @@ export const ScaledQuantityInput = memo((props: ScaledQuantityInputProps) => {
       name="order_total_input"
       className={stackedOrderInputRoundedCn(props.stackPosition)}
       value={props.total}
-      error={getErrorMsg("order_quantity", `${errors?.total?.value} ${quote}`)}
+      error={getErrorMsg(
+        "order_quantity",
+        `${errors?.total?.value} ${tokenDisplayName(quote)}`,
+      )}
       onChange={(val) => {
         setOrderValue("total", val);
       }}

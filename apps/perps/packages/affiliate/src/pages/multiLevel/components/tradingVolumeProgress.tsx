@@ -90,7 +90,7 @@ export const TradingVolumeProgress: FC<TradingVolumeProgressProps> = (
               rule="price"
               dp={0}
               prefix={"/ "}
-              suffix=" USDC"
+              suffix=" USDL"
             >
               {required_volume}
             </Text.numeral>

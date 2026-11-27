@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, ReactNode } from "react";
 import { cn, Flex, Text } from "@paxeer-network/ui";
 
@@ -26,14 +27,14 @@ export const SwapCoin: FC<SwapCoinProps> = (props) => {
       className={cn(props.className, "oui-text-2xs oui-text-base-contrast-36")}
     >
       <Text intensity={80}>1</Text>
-      <span>{sourceSymbol}</span>
+      <span>{tokenDisplayName(sourceSymbol)}</span>
       <span>=</span>
 
       <Text.numeral intensity={80} dp={precision} padding={false}>
         {indexPrice}
       </Text.numeral>
 
-      <span>{targetSymbol}</span>
+      <span>{tokenDisplayName(targetSymbol)}</span>
       {suffix}
     </Flex>
   );

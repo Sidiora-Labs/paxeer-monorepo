@@ -64,7 +64,7 @@ export const TraderCardMobile: FC<TraderCardMobileProps> = (props) => {
       >
         <img
           src="/assets/static/symbol_logo/USDC.png"
-          alt="USDC"
+          alt="USDL"
           className="oui-size-5"
         />
         <Text

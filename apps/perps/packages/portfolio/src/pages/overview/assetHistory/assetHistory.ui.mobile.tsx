@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { AssetHistoryStatusEnum } from "@paxeer-network/types";
@@ -102,7 +103,7 @@ export const AssetHistoryMobile: FC<AssetHistoryMobileProps> = (props) => {
       <Flex className="oui-text-xs">
         <Text color={itemColor}>{formattedAmount}</Text>
         <Text className="oui-ms-1" intensity={80}>
-          {item.token}
+          {tokenDisplayName(item.token)}
         </Text>
         {isWeb3Wallet && (
           <Badge color={itemColor} className="oui-ms-2">

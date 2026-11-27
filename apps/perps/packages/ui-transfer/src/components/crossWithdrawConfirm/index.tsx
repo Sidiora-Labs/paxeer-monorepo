@@ -60,7 +60,7 @@ export const CrossWithdrawConfirm = ({
         </Flex>
         <Flex direction="column" justify="start" itemAlign="start">
           <Text size="2xs" intensity={36}>
-            {`${t("transfer.withdraw.crossChain.withdrawAmount")} (USDC)`}
+            {`${t("transfer.withdraw.crossChain.withdrawAmount")} (USDL)`}
           </Text>
           <Text.numeral size="sm" intensity={98} dp={2}>
             {amount}

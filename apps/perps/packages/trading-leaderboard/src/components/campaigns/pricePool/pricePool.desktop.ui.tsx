@@ -128,7 +128,7 @@ export const PricePoolDesktopUI: FC<PricePoolDesktopUIProps> = ({
                     totalPrizePool.amount,
                     totalPrizePool.currency,
                   )
-                : "USDC"}
+                : "USDL"}
             </Text.gradient>
           </div>
         </div>

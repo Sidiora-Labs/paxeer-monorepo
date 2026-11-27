@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { FC, useMemo } from "react";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -40,7 +41,7 @@ export const Header: FC<Props> = (props) => {
       },
       {
         value: "quote",
-        label: `${t("common.total")}(${quote})`,
+        label: `${t("common.total")}(${tokenDisplayName(quote)})`,
         data: [t("common.total"), quote],
       },
     ];
@@ -59,7 +60,7 @@ export const Header: FC<Props> = (props) => {
         className="oui-orderBook-header-price"
       >
         <Text>{t("common.price")}</Text>
-        <Text>{`(${quote})`}</Text>
+        <Text>{`(${tokenDisplayName(quote)})`}</Text>
       </Flex>
       <Picker
         size="sm"
@@ -72,7 +73,7 @@ export const Header: FC<Props> = (props) => {
               {Array.isArray(data) && (
                 <Flex direction={"column"} itemAlign={"end"}>
                   {data[0] && <Text>{data[0]}</Text>}
-                  {data[1] && <Text>({data[1]})</Text>}
+                  {data[1] && <Text>({tokenDisplayName(data[1])})</Text>}
                 </Flex>
               )}
               {open ? (
