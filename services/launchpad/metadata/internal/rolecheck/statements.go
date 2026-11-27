@@ -612,11 +612,20 @@ var RuntimeStatements = []Statement{
 		},
 	},
 	{ID: "production.Restrict.0", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/production.go", Function: "Restrict", Call: 0, Kind: "SELECT", Role: runtimeRole,
+		SQL: `SELECT COALESCE(d.moderation_revision >= $2::numeric,false) FROM "metadata"."pools" p LEFT JOIN "metadata"."documents" d ON d.pool=p.pool WHERE p.pool=$1`,
+		Objects: []Object{
+			object("relation", "metadata.pools", "pool", "SELECT"),
+			object("relation", "metadata.documents", "moderation_revision pool", "SELECT"),
+		},
+	},
+	{ID: "production.Restrict.1", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/production.go", Function: "Restrict", Call: 1, Kind: "SELECT", Role: runtimeRole,
+		SQL: `SELECT creator FROM "metadata"."pools" WHERE pool=$1 FOR UPDATE`,
 		Objects: []Object{
 			object("relation", "metadata.pools", "creator pool", "SELECT UPDATE"),
 		},
 	},
-	{ID: "production.Restrict.1", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/production.go", Function: "Restrict", Call: 1, Kind: "INSERT", Role: runtimeRole,
+	{ID: "production.Restrict.2", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/production.go", Function: "Restrict", Call: 2, Kind: "INSERT", Role: runtimeRole,
+		SQL: `INSERT INTO "metadata"."documents"(pool,moderation_revision,blocked) VALUES($1,$2::numeric,$3) ON CONFLICT(pool) DO UPDATE SET moderation_revision=EXCLUDED.moderation_revision,blocked=EXCLUDED.blocked WHERE "metadata"."documents".moderation_revision<EXCLUDED.moderation_revision`,
 		Objects: []Object{
 			object("relation", "metadata.documents", "blocked moderation_revision pool", "INSERT SELECT UPDATE"),
 		},
