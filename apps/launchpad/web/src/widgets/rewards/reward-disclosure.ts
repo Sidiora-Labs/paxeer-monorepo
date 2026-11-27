@@ -1,5 +1,7 @@
 import { exactAmount } from '../profile/account-disclosure';
 import { showsTechnicalDetail, userFacingMessage } from '@/core/user-facing-error';
+import { USDL_ADDRESS } from '@/core/network/contracts';
+import { formatUsdl } from '@/utils/format';
 /**
  * Frozen capabilities.json and contracts/periphery/FeesRouter.sol source inventory.
  * `authority`, `settlement`, `conditions` and `blocker` are developer detail; people see
@@ -13,6 +15,24 @@ export const rewardPrograms = [
   { type: 'cup', title: 'Cup prizes', summary: "Prizes for placing in a trading cup", authority: 'Cup results ledger (IF_CUP_RESULTS prize ladder) written into the reward authority', settlement: null, denomination: 'USDL6', conditions: 'Frozen final standing inside the cup window; eligibility rules of that cup', blocker: 'No service serves /v2/cups/*; no cup program is produced by the reward ledger yet' },
   { type: 'other', title: 'Other programs', summary: "More programs show up here when they launch", authority: 'Program-specific authority required', settlement: null, denomination: null, conditions: 'No inference from activity counts', blocker: 'Unregistered reward program unavailable' },
 ] as const;
+
+export function rewardProgramTitle(programId: string): string {
+  const program = rewardPrograms.find(program => program.type === programId.replace(/_/g, '-'));
+  if (program) return program.title;
+  if (!/[a-z0-9]/i.test(programId)) return rewardPrograms.find(program => program.type === 'other')!.title;
+  const words = programId.replace(/[_-]/g, ' ').trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+export function rewardAmountWords(assetAddress: string, claimableRaw: string, claimedRaw: string) {
+  const usdl = assetAddress.toLowerCase() === USDL_ADDRESS.toLowerCase();
+  return {
+    usdl,
+    claimable: usdl ? formatUsdl(claimableRaw, { fractionDigits: 6, trimFraction: true }) : claimableRaw,
+    claimed: usdl ? formatUsdl(claimedRaw, { fractionDigits: 6, trimFraction: true }) : claimedRaw,
+  };
+}
+
 export type EntitlementState = 'unavailable' | 'claimable' | 'pending' | 'claimed' | 'expired' | 'ineligible';
 function entitlementAmount(amount: bigint): bigint {
   if (amount < 0n || amount >= (1n << 256n)) throw new Error('Invalid uint256 entitlement');
