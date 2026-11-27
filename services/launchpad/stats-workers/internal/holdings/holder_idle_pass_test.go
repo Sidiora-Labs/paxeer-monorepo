@@ -212,8 +212,8 @@ func TestHolderIdlePassPreservesRows(t *testing.T) {
 		if err != nil || batch != want {
 			t.Fatalf("idle pass %d: %+v, want %+v: %v", i, batch, want, err)
 		}
-		if queries.statements != 9 || queries.writes != 0 {
-			t.Fatalf("idle statements=%d writes=%d; want 9 and 0", queries.statements, queries.writes)
+		if queries.statements != 7 || queries.writes != 0 {
+			t.Fatalf("idle statements=%d writes=%d; want 7 and 0", queries.statements, queries.writes)
 		}
 		after, current := holderIdleVersion(t, ctx, repo, mint.Token)
 		if after != before || current != row {
@@ -445,11 +445,13 @@ func TestHolderIdlePassCoverageTransitions(t *testing.T) {
 		t.Fatalf("complete: %+v %v", batch, err)
 	}
 	before, _ := holderIdleVersion(t, ctx, repo, mint.Token)
+	move := event(mint.Token, mint.To, addr(86), "40", 2)
+	holderIdleTransfer(t, ctx, pool, move)
 	if _, err := pool.Exec(ctx, `UPDATE indexer.indexer_ingest_watermarks SET raw_complete_height=11,typed_complete_height=11`); err != nil {
 		t.Fatal(err)
 	}
 	batch, err := repo.CatchUpCanonical(ctx, mint.Token, "canonical", 10)
-	want := CanonicalBatch{Revision: 3, Coverage: "incomplete"}
+	want := CanonicalBatch{Applied: 1, Revision: 4, Coverage: "incomplete"}
 	if err != nil || batch != want {
 		t.Fatalf("unproven range: %+v, want %+v: %v", batch, want, err)
 	}
@@ -457,6 +459,7 @@ func TestHolderIdlePassCoverageTransitions(t *testing.T) {
 	if before == after {
 		t.Fatal("coverage change retained the token row version")
 	}
+	want.Applied = 0
 	batch, err = repo.CatchUpCanonical(ctx, mint.Token, "canonical", 10)
 	if err != nil || batch != want {
 		t.Fatalf("unproven idle range: %+v, want %+v: %v", batch, want, err)
@@ -469,11 +472,11 @@ func TestHolderIdlePassCoverageTransitions(t *testing.T) {
 		t.Fatal(err)
 	}
 	batch, err = repo.CatchUpCanonical(ctx, mint.Token, "canonical", 10)
-	want = CanonicalBatch{Revision: 4, Coverage: "complete"}
+	want = CanonicalBatch{Revision: 5, Coverage: "complete"}
 	if err != nil || batch != want {
 		t.Fatalf("proven range: %+v, want %+v: %v", batch, want, err)
 	}
-	holderIdleReference(t, ctx, repo, mint, mint, want, []Balance{{Address: mint.To, Raw: "100", Category: "unknown"}})
+	holderIdleReference(t, ctx, repo, mint, move, want, []Balance{{Address: mint.To, Raw: "60", Category: "unknown"}, {Address: move.To, Raw: "40", Category: "unknown"}})
 }
 
 func TestHolderIdlePassRetryCancellation(t *testing.T) {

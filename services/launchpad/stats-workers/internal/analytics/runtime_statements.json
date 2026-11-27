@@ -2119,7 +2119,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ApplyCanonicalTransferTx_1",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2139,7 +2139,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_1",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2159,7 +2159,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_2",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2178,7 +2178,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_3",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2198,7 +2198,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.enrichActorTx_4",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2219,7 +2219,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ImportLegacyRowsTx_1",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2241,7 +2241,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.ImportLegacyRowsTx_2",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2287,7 +2287,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.EnrichCanonicalActorTx_1",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2324,7 +2324,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_1",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2347,7 +2347,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_2",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2368,7 +2368,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_3",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2389,7 +2389,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.DiscoverCanonical_4",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2412,7 +2412,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_1",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2433,14 +2433,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_2",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.catchUpCanonicalAtOnce",
       "call": 3,
       "expression": "`SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 t WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY t.height,t.transaction_index,t.log_index LIMIT $7`",
-      "line": 385,
+      "line": 384,
       "sql": "SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 t WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY t.height,t.transaction_index,t.log_index LIMIT $7",
       "kind": "SELECT",
       "tables": [
@@ -2461,14 +2461,14 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_3",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.catchUpCanonicalAtOnce",
       "call": 4,
       "expression": "\"UPDATE \"+r.schema+\".tokens SET coverage='incomplete' WHERE token=$1\"",
-      "line": 407,
+      "line": 406,
       "sql": "UPDATE stats_transfer_holdings.tokens SET coverage='incomplete' WHERE token=$1",
       "kind": "UPDATE",
       "tables": [
@@ -2480,15 +2480,15 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_4",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.catchUpCanonicalAtOnce",
       "call": 5,
-      "expression": "\"SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2::numeric AND $3 AND fetch_complete AND required_decode_complete\"",
+      "expression": "\"SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2 AND $3 AND fetch_complete AND required_decode_complete\"",
       "line": 431,
-      "sql": "SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2::numeric AND $3 AND fetch_complete AND required_decode_complete",
+      "sql": "SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2 AND $3 AND fetch_complete AND required_decode_complete",
       "kind": "SELECT",
       "tables": [
         "indexer.indexer_block_completeness_v1"
@@ -2505,14 +2505,14 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_5",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
       "function": "Repository.catchUpCanonicalAtOnce",
       "call": 6,
       "expression": "\"SELECT t.expected_initial_supply IS NOT NULL AND t.expected_initial_supply=COALESCE((SELECT sum(CASE WHEN x.from_address=$2 THEN x.amount_raw WHEN x.to_address=$2 THEN -x.amount_raw ELSE 0 END) FROM indexer.indexer_token_transfers_v1 x WHERE x.chain_id=125 AND x.token=t.token AND x.transaction_hash=t.creation_transaction_hash),0) FROM \"+r.schema+\".tokens t WHERE t.token=$1\"",
-      "line": 439,
+      "line": 438,
       "sql": "SELECT t.expected_initial_supply IS NOT NULL AND t.expected_initial_supply=COALESCE((SELECT sum(CASE WHEN x.from_address=$2 THEN x.amount_raw WHEN x.to_address=$2 THEN -x.amount_raw ELSE 0 END) FROM indexer.indexer_token_transfers_v1 x WHERE x.chain_id=125 AND x.token=t.token AND x.transaction_hash=t.creation_transaction_hash),0) FROM stats_transfer_holdings.tokens t WHERE t.token=$1",
       "kind": "SELECT",
       "tables": [
@@ -2535,7 +2535,7 @@
       ],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_6",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2554,7 +2554,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_7",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/ingestion.go",
@@ -2574,7 +2574,7 @@
       "functions": [],
       "sequences": [],
       "id": "holdings_ingestion_Repository.catchUpCanonicalAtOnce_8",
-      "source_sha256": "3b7208663df36cc85d7b293e52c1d619c21fd837e8e6ce410e858f2ee0a64f81"
+      "source_sha256": "84881913beb7c999fdb5e276bdd789fc0725f75a166690df6a957c855c7a7a47"
     },
     {
       "file": "services/launchpad/stats-workers/internal/holdings/postgres.go",
