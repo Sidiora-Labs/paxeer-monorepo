@@ -650,9 +650,9 @@ func cursorRecoveryNotification(t *testing.T, sub *goredis.PubSub, st *store.Sto
 		request := httptest.NewRequest(http.MethodGet, "/users/"+signal["userAddress"]+"/"+route, nil)
 		router.ServeHTTP(response, request)
 		var body struct {
-			User      string              `json:"user"`
-			Positions []store.PositionRow `json:"positions"`
-			Total     string              `json:"totalValueUsdl"`
+			User      string                    `json:"user"`
+			Positions []store.PortfolioPosition `json:"positions"`
+			Total     string                    `json:"totalValueUsdl"`
 		}
 		if e = json.Unmarshal(response.Body.Bytes(), &body); e != nil || response.Code != http.StatusOK || body.User != "0xuser" || len(body.Positions) != 1 || body.Positions[0].TradeCount != 1 || body.Positions[0].TotalUsdlSpent != "1000000" || body.Positions[0].CurrentHoldings != oneToken {
 			t.Fatalf("subscriber %s refresh status=%d body=%s err=%v", route, response.Code, response.Body.String(), e)
@@ -662,6 +662,9 @@ func cursorRecoveryNotification(t *testing.T, sub *goredis.PubSub, st *store.Sto
 			key = pnlcache.KeyPortfolio(body.User)
 			if body.Total != "0" {
 				t.Fatalf("unpriced portfolio total=%q", body.Total)
+			}
+			if body.Positions[0].PriceWad != nil || body.Positions[0].MarketCapUsdl != nil {
+				t.Fatalf("portfolio without market context=%+v", body.Positions[0])
 			}
 		}
 		cached, e := c.Get(ctx, key).Result()
