@@ -49,6 +49,73 @@ func (a *BaselineAuthority) liveMarkPriceTx(ctx context.Context, tx pgx.Tx, toke
 	return a.priceTx(ctx, tx, token, head, headHash, true)
 }
 
+func indexedMarkPriceTx(ctx context.Context, tx pgx.Tx, token string, head int64) (*l17.Price, error) {
+	var raw []byte
+	var digest string
+	err := tx.QueryRow(ctx, `SELECT payload,source_fact_digest FROM indexer.indexer_accounting_fills_v1 WHERE payload->'token'->>'address'=$1 AND (payload->'position'->>'height')::bigint<=$2 ORDER BY (payload->'position'->>'height')::bigint DESC,(payload->'position'->>'transactionIndex')::bigint DESC,(payload->'position'->>'logIndex')::bigint DESC LIMIT 1`, token, head).Scan(&raw, &digest)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	fill, err := accounting.DecodeFillV1(raw)
+	if err != nil {
+		return nil, err
+	}
+	actual, err := accounting.FillDigest(fill)
+	if err != nil || string(actual) != digest {
+		return nil, delivery.ErrIntegrity
+	}
+	position := fill.Position
+	height, err := strconv.ParseInt(position.Height, 10, 64)
+	if err != nil || height <= 0 || height > head || position.ChainID != "125" || fill.Token.Address != token || !hash.MatchString(position.BlockHash) || !hash.MatchString(position.TransactionHash) || !address.MatchString(fill.PoolAddress) {
+		return nil, delivery.ErrIntegrity
+	}
+	if fill.Settlement.Address != usdlAddress || fill.Settlement.Decimals != 6 {
+		return nil, nil
+	}
+	if _, err = strconv.ParseUint(position.TransactionIndex, 10, 32); err != nil {
+		return nil, delivery.ErrIntegrity
+	}
+	logIndex, err := strconv.ParseUint(position.LogIndex, 10, 32)
+	if err != nil {
+		return nil, delivery.ErrIntegrity
+	}
+	var virtualRaw, realRaw, tokenRaw string
+	err = tx.QueryRow(ctx, `SELECT virtual_reserve,real_reserve,token_reserve FROM indexer.pool_state_snapshots_v1 s WHERE pool_id=$1 AND block_number=$2 AND log_index=$3 AND NOT EXISTS(SELECT 1 FROM indexer.pool_state_snapshots_v1 later WHERE later.pool_id=s.pool_id AND later.block_number=s.block_number AND later.log_index>s.log_index)`, "0x"+strings.Repeat("0", 24)+strings.TrimPrefix(fill.PoolAddress, "0x"), height, logIndex).Scan(&virtualRaw, &realRaw, &tokenRaw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	virtual, err := Uint256(virtualRaw)
+	if err != nil {
+		return nil, err
+	}
+	real, err := Uint256(realRaw)
+	if err != nil {
+		return nil, err
+	}
+	tokenReserve, err := Uint256(tokenRaw)
+	if err != nil {
+		return nil, err
+	}
+	effectiveUSDL := new(big.Int).Add(virtual, real)
+	if effectiveUSDL.BitLen() > 256 {
+		return nil, delivery.ErrIntegrity
+	}
+	if effectiveUSDL.Sign() == 0 || tokenReserve.Sign() == 0 {
+		return nil, nil
+	}
+	seconds, err := strconv.ParseInt(fill.BlockTimestampSeconds, 10, 64)
+	if err != nil || seconds <= 0 {
+		return nil, delivery.ErrIntegrity
+	}
+	return SpotMark(token, int(fill.Token.Decimals), effectiveUSDL, tokenReserve, fill.SourceFillID, l17.ChainPosition{ChainID: "125", Height: position.Height, TransactionIndex: position.TransactionIndex, LogIndex: position.LogIndex, TransactionHash: position.TransactionHash, BlockHash: position.BlockHash}, time.Unix(seconds, 0).UTC(), fill.PoolAddress)
+}
+
 func (a *BaselineAuthority) priceTx(ctx context.Context, tx pgx.Tx, token string, head int64, headHash string, indexed bool) (*l17.Price, error) {
 	var raw []byte
 	var digest string
