@@ -129,6 +129,69 @@ async function coinFirstTradeAndPhoneComposition() {
           await page.goto(`${origin}/coin/0x1111111111111111111111111111111111111111?render=empty`);
           await page.locator('[data-coin-header="ready"] button[aria-label="Share coin link"]').waitFor();
         }
+        for (const width of [390, 1440]) {
+          const holdersContext = await browser.newContext({ viewport: { width, height: 900 }, colorScheme, serviceWorkers: 'block' });
+          try {
+            const holdersPage = await holdersContext.newPage();
+            await holdersPage.goto(`${origin}/coin/0x1111111111111111111111111111111111111111?render=holders`);
+            await holdersPage.locator('.coin-holders-table tbody tr:has-text("Science community")').waitFor();
+            await holdersPage.evaluate(() => document.fonts.ready);
+            const table = await holdersPage.locator('[aria-label="Token holders table"]').evaluate(region => {
+              const table = region.querySelector('table')!;
+              const heads = [...table.querySelectorAll<HTMLElement>('th')];
+              const rows = [...table.querySelectorAll<HTMLElement>('tbody tr')];
+              const sortDescriptions = [...table.querySelectorAll<HTMLElement>('th .sr-only')];
+              const addresses = [...table.querySelectorAll<HTMLElement>('tbody [data-holder-address]')];
+              const oneLine = (element: HTMLElement) => {
+                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+                const rects: DOMRect[] = [];
+                while (walker.nextNode()) {
+                  if (!walker.currentNode.textContent?.trim()) continue;
+                  const range = document.createRange();
+                  range.selectNodeContents(walker.currentNode);
+                  rects.push(...range.getClientRects());
+                }
+                return rects.length > 0 && rects.every(rect => Math.abs(rect.top - rects[0].top) < 1);
+              };
+              const headingsFit = heads.every(head => {
+                const range = document.createRange();
+                range.selectNodeContents(head.querySelector(':scope > button > span:first-child') ?? head);
+                const box = head.getBoundingClientRect();
+                return [...range.getClientRects()].every(rect => rect.left >= box.left && rect.right <= box.right);
+              });
+              return {
+                rows: rows.length,
+                named: rows.some(row => row.textContent?.includes('Science community')),
+                anonymous: rows.some(row => row.textContent?.includes('0x5555...5555')),
+                headingsFit,
+                sortDescriptions: sortDescriptions.map(description => description.textContent),
+                sortDescriptionsClipped: sortDescriptions.every(description => {
+                  const style = getComputedStyle(description);
+                  const box = description.getBoundingClientRect();
+                  return style.position === 'absolute' && style.overflow === 'hidden' && box.width <= 1 && box.height <= 1;
+                }),
+                headingsNoWrap: heads.every(head => getComputedStyle(head).whiteSpace === 'nowrap'),
+                addressesShortened: addresses.length === 2 && addresses.every(address => /^0x[0-9a-f]{4}\.\.\.[0-9a-f]{4}$/.test(address.textContent ?? '') && oneLine(address)),
+                numbersOneLine: [...table.querySelectorAll<HTMLElement>('td[data-numeric]')].every(oneLine),
+                internalScroll: region.scrollWidth > region.clientWidth && getComputedStyle(region).overflowX === 'auto',
+                pageFits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+              };
+            });
+            expect(table.rows).toBe(2);
+            expect(table.named).toBe(true);
+            expect(table.anonymous).toBe(true);
+            expect(table.headingsFit).toBe(true);
+            expect(table.sortDescriptions).toEqual([', sorted descending', ', sortable']);
+            expect(table.sortDescriptionsClipped).toBe(true);
+            expect(table.headingsNoWrap).toBe(true);
+            expect(table.addressesShortened).toBe(true);
+            expect(table.numbersOneLine).toBe(true);
+            if (width === 390) expect(table.internalScroll).toBe(true);
+            expect(table.pageFits).toBe(true);
+          } finally {
+            await holdersContext.close();
+          }
+        }
         await page.setViewportSize({ width: 390, height: 844 });
         await page.goto(`${origin}/coin/0x1111111111111111111111111111111111111111?render=error`);
         await page.locator('[data-coin-header="degraded"]').waitFor();

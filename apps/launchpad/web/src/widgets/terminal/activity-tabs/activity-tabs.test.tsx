@@ -222,8 +222,8 @@ describe('positions for this pair (real pnl-tracker read)', () => {
     expect(text).toContain('LNTN');
     expect(text).toContain('Cost incomplete');
     expect(text).toContain('No price yet');
-    expect(text).toContain('4.00 USDL');
-    expect(text).toContain('+1.50 USDL');
+    expect(text).toContain('$4.00');
+    expect(text).toContain('+$1.50');
     expect(view.container.querySelectorAll('tbody tr')).toHaveLength(1);
     unmount(view);
     clearAccountSession(false);

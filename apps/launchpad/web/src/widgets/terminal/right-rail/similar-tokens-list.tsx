@@ -3,7 +3,7 @@ import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { ArrowDownUp } from 'lucide-react';
 import { AgeChip, Avatar, Button, DropdownMenu, EmptyState, ErrorState, Tooltip, UnavailableState } from '@/ui/primitives';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { sortSimilar, useSimilarTokens, type SimilarRow, type SimilarSort } from './similar-tokens';
 import { userFacingMessage } from '@/core/user-facing-error';
 
@@ -14,7 +14,7 @@ function Figure({ raw, unit, reason }: { raw: string | null; unit: string; reaso
     <span className="flex items-baseline justify-end gap-1 text-xs tabular-nums">
       {raw === null ? (
         <Tooltip content={reason}><span tabIndex={0} className="font-bold text-text-faint" aria-label={`${unit} not available yet: ${reason}`}>-</span></Tooltip>
-      ) : <span className="font-bold text-text">{formatUsdl(raw, { compact: true, unit: false })}</span>}
+      ) : <span className="font-bold text-text">{formatCompactUsd(raw, { raw: true, compact: true })}</span>}
       <span className="w-6 text-2xs text-text-faint">{unit}</span>
     </span>
   );

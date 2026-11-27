@@ -1,5 +1,5 @@
 'use client';
-import { CapabilityState } from './capability-state';
+import { CapabilityState } from '@/ui/primitives';
 import styles from './presentation.module.css';
 import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useRef, useState } from 'react';

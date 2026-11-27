@@ -131,6 +131,7 @@ export function CompactNumber({
 
 export interface MoneyValueProps extends FormatUsdlOptions {
   raw: string | bigint | null | undefined;
+  kind?: 'market' | 'amount';
   /** auto colours positive success / negative danger; neutral keeps text. */
   tone?: 'auto' | 'neutral' | 'accent';
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -142,13 +143,14 @@ const moneySize = { sm: 'text-num-sm', md: 'text-num-md', lg: 'text-lg', xl: 'te
 
 export function MoneyValue({
   raw,
+  kind = 'amount',
   tone = 'neutral',
   size = 'md',
   masked = false,
   className,
   ...opts
 }: MoneyValueProps) {
-  const text = formatUsdl(raw, opts);
+  const text = kind === 'market' ? formatCompactUsd(raw, { ...opts, raw: true }) : formatUsdl(raw, opts);
   const negative =
     typeof raw === 'bigint' ? raw < 0n : typeof raw === 'string' && raw.trim().startsWith('-');
   const zero =

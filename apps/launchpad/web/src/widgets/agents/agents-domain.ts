@@ -1,3 +1,4 @@
+import { formatUsdl } from '@/utils/format';
 import { erc20Abi, formatUnits, parseUnits, toFunctionSelector, toFunctionSignature, type Abi, type Address, type PublicClient } from 'viem';
 import { CHAIN_LAUNCH_ABI, LAUNCHPAD_ADDRESS, ROUTER_ADDRESS, USDL_ADDRESS } from '@/core/network/contracts';
 import RouterAbi from '@/core/network/abis/Router.json';
@@ -35,7 +36,7 @@ export function agentAsset(asset: AgentAsset, balances: AgentBalances) {
     : { symbol: 'USDL', decimals: balances.quoteDecimals, token: USDL_ADDRESS, balance: balances.quote };
 }
 export function agentBalanceText(balances: AgentBalances): string {
-  return `${formatUnits(balances.native, 18)} PAX · ${formatUnits(balances.quote, balances.quoteDecimals)} USDL`;
+  return `${formatUnits(balances.native, 18)} PAX · ${formatUsdl(balances.quote, { decimals: balances.quoteDecimals, fractionDigits: balances.quoteDecimals, group: false, trimFraction: true })}`;
 }
 export function agentError(error: unknown): string {
   if (error instanceof PaxeerWalletError) {

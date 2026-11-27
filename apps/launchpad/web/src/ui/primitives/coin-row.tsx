@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { displayCoinText } from '@/utils/coin-text';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { Avatar } from './avatar';
 import { AgeChip, DirectionChip } from './badges';
 
@@ -62,7 +62,7 @@ export function CoinRow({
       </span>
       <span className="flex shrink-0 flex-col items-end gap-0.5 text-right">
         <span data-numeric className="text-num-md font-bold tabular-nums text-text">
-          {mcapRaw === null ? '—' : formatUsdl(mcapRaw, { decimals: mcapDecimals, compact: true })}
+          {mcapRaw === null ? '—' : formatCompactUsd(mcapRaw, { raw: true, decimals: mcapDecimals, compact: true })}
         </span>
         <DirectionChip value={percentChange} />
       </span>

@@ -60,7 +60,7 @@ export function ActivityRow({ event, identity, now }: { event: ActivityEvent; id
 
   return (
     <tr className="group h-table-row-comfortable transition-colors duration-fast hover:bg-surface-hover">
-      <td className="max-w-0 py-2 pl-3 pr-2 sm:w-[38%]">
+      <td className="max-w-0 py-2 pl-3 pr-2 sm:w-[var(--sl-activity-identity-width)]">
         {identity.poolAddress ? (
           <Link prefetch={false} href={poolPath(125, identity.poolAddress)} className="flex min-w-0 items-center gap-3 rounded-sm">{coin}</Link>
         ) : (

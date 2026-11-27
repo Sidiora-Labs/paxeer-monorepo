@@ -85,6 +85,21 @@ export const launchpadCanvasColors = {
 
 /** Pixel values for resizable workspaces and chart APIs. */
 export const launchpadGeometry = {
+  images: {
+    brand: 28,
+    wallet: 48,
+    preview: 120,
+    banner: { width: 1440, height: 240 },
+    card: { width: 1200, height: 630 },
+    stream: { width: 640, height: 360 },
+    streamCoin: 320,
+    submission: { width: 640, height: 480 },
+    attachment: 56,
+  },
+  smallBadge: 14,
+  hairline: 1,
+  chartStroke: 2,
+  iconStroke: 1.5,
   columns: {
     leftMin: 240,
     leftDefault: 296,

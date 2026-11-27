@@ -226,7 +226,7 @@ export function CoinRow({
         </span>
       </span>
       {mcapRaw !== undefined ? (
-        <MoneyValue
+        <MoneyValue kind="market"
           raw={mcapRaw}
           compact
           size="sm"

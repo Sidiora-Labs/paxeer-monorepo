@@ -2,9 +2,10 @@
   "name": "Sidiora Launchpad \u2014 coin",
   "directory": "../../../../../",
   "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
-  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs --surface tools/ui-check/surfaces/launchpad/parts/coin.json",
   "address": "https://sidiora.test:4173",
   "readyPath": "/",
+  "readyMs": 120000,
   "embeddedMessages": [
     {
       "script": "/charting_library/bundles/",
@@ -122,7 +123,66 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
+        }
+      ]
+    },
+    {
+      "name": "coin-holders",
+      "path": "/coin/0x1111111111111111111111111111111111111111?render=holders",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-coin-header=\"ready\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-mobile-trade-cta])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Hot callouts\"]):not(:has(aside[aria-label=\"Hot callouts\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] iframe):has(section[aria-label=\"Price chart\"] [role=\"group\"]:not([inert])), html:has(section[aria-label=\"Price chart\"] :text(\"No trades yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": ".coin-holders-table tbody tr:has-text(\"Science community\")",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Stats and audit\"]):not(:has(section[aria-label=\"Stats and audit\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"creator-card-title\"] a):not(:has(section[aria-labelledby=\"creator-card-title\"] .sl-skeleton)):not(:has(section[aria-labelledby=\"creator-card-title\"] [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Onchain name: Science Inu"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"Science community\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "$2.00"
         }
       ]
     },
@@ -180,7 +240,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -299,7 +359,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -323,7 +383,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -381,7 +441,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -405,7 +465,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     }

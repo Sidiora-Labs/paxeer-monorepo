@@ -61,15 +61,15 @@ function row(card: DocumentFragment, label: string) {
 
 function cardShowsTheLiveLiquidity() {
   const card = renderCard(liveStats);
-  expect(row(card, 'Total liquidity').textContent).toBe('250.00 USDL');
-  expect(row(card, 'Circulating market cap').textContent).toBe('300.00 USDL');
-  expect(row(card, 'Total value locked').textContent).toBe('500.00 USDL');
+  expect(row(card, 'Total liquidity').textContent).toBe('$250.00');
+  expect(row(card, 'Circulating market cap').textContent).toBe('$300.00');
+  expect(row(card, 'Total value locked').textContent).toBe('$500.00');
 }
 test(cardShowsTheLiveLiquidity.name, cardShowsTheLiveLiquidity);
 
 function cardKeepsTheSnapshotWithoutLiveStats() {
   for (const stats of [undefined, null]) {
-    expect(row(renderCard(stats), 'Total liquidity').textContent).toBe('100.00 USDL');
+    expect(row(renderCard(stats), 'Total liquidity').textContent).toBe('$100.00');
   }
 }
 test(cardKeepsTheSnapshotWithoutLiveStats.name, cardKeepsTheSnapshotWithoutLiveStats);

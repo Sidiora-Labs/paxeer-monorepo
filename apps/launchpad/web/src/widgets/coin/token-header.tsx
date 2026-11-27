@@ -15,7 +15,7 @@ import { safeExternalDestination } from '@/core/app-foundation/navigation';
 import { useWatchlist } from '@/hooks/ui/use-watchlist';
 import { ReportMenu } from '@/widgets/social/report-menu';
 import { safeSocialUrl } from '@/widgets/trading/token-description';
-import { formatCount, formatPrice, formatUsdl, shortAddress } from '@/utils/format';
+import { formatCount, formatPrice, shortAddress, formatCompactUsd } from '@/utils/format';
 
 type Headline = 'mcap' | 'price';
 
@@ -101,7 +101,7 @@ function ValuationCluster({ headline, onToggle, value, reason, secondary, change
       </div>
       {notice}
       <dl className="flex shrink-0 items-end gap-5">
-        <HeaderStat label="24h vol" value={volume24h} unit="USDL" />
+        <HeaderStat label="24h vol" value={volume24h} />
         <HeaderStat label="Holders" value={holders} />
       </dl>
     </div>
@@ -156,10 +156,10 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
   // The headline uses total supply; the circulating valuation is available on hover.
   const mcapStat = statsMarketCap(stats);
   const circulating = statsCirculatingMarketCap(stats).value;
-  const mcap = mcapStat.value === null ? null : formatUsdl(mcapStat.value, { compact: true });
+  const mcap = mcapStat.value === null ? null : formatCompactUsd(mcapStat.value, { raw: true, compact: true });
   const price = tokenHeaderPrice(stats, livePrice);
   const change24h = stats ? statsChange(stats, '24h') : null;
-  const volume24h = stats ? formatUsdl(stats.volume24hRaw, { compact: true, unit: false }) : null;
+  const volume24h = stats ? formatCompactUsd(stats.volume24hRaw, { raw: true, compact: true }) : null;
   const holders = stats?.holderCount !== null && stats?.holderCount !== undefined ? formatCount(stats.holderCount) : null;
   const devShare = stats ? statsShare(stats, 'creator') : null;
   const socials = (data.metadata?.socialLinks ?? []).map(link => ({ ...link, href: socialHref(link.url) })).filter(link => link.href !== null);
@@ -189,7 +189,7 @@ export default function TokenHeader({ poolAddress, liveStats, livePrice, now, no
           ]} />
         </div>
       </div>
-      <ValuationCluster headline={headline} onToggle={() => setHeadline(current => (current === 'mcap' ? 'price' : 'mcap'))} value={headlineValue} reason={headlineReason} secondary={headline === 'mcap' && circulating ? `Circulating market cap ${formatUsdl(circulating, { compact: true })}` : null} change={noTradesYet ? null : change24h} volume24h={volume24h} holders={holders} notice={notice} />
+      <ValuationCluster headline={headline} onToggle={() => setHeadline(current => (current === 'mcap' ? 'price' : 'mcap'))} value={headlineValue} reason={headlineReason} secondary={headline === 'mcap' && circulating ? `Circulating market cap ${formatCompactUsd(circulating, { raw: true, compact: true })}` : null} change={noTradesYet ? null : change24h} volume24h={volume24h} holders={holders} notice={notice} />
     </header>
   );
 }

@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { displayCoinText } from '@/utils/coin-text';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -10,7 +11,7 @@ import { safeSocialUrl } from '@/widgets/trading/token-description';
 import { AgeChip, Avatar, Button, EmptyState, ErrorState, LoadMore, PercentPill, SegmentedControl, StageBadge, Tooltip, UnavailableState } from '@/ui/primitives';
 import { TableRowsSkeleton } from '@/ui/shared/skeletons';
 import { terminalPoolPath } from '../sub-nav';
-import { formatCount, formatUsdl } from '@/utils/format';
+import { formatCount, formatCompactUsd } from '@/utils/format';
 import { userFacingMessage } from '@/core/user-facing-error';
 import { StatDash } from '@/ui/shared/stat-value';
 import { formatShare } from '@/core/market/pool-stats-display';
@@ -98,12 +99,12 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
   const socials = pairSocials(metadata);
   const marketCap = row.mcapRaw === null
     ? <StatDash reason={row.mcapReason ?? 'Market cap is not available.'} subject="Market cap" className="text-sm" />
-    : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-sm font-bold tabular-nums text-text">{formatUsdl(row.mcapRaw, { compact: true, unit: false })}</span>;
+    : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatCompactUsd(row.circulatingMcapRaw, { raw: true, compact: true })}` : undefined} className="text-sm font-bold tabular-nums text-text">{formatCompactUsd(row.mcapRaw, { raw: true, compact: true })}</span>;
   const statisticsClass = 'flex h-full shrink-0 flex-col items-end justify-center gap-0.5';
   return (
     <li className="sl-hairline relative flex h-11 items-center gap-2 bg-surface-1 px-2 transition-colors duration-fast hover:bg-surface-hover">
       <Link prefetch={false} href={terminalPoolPath(row.poolAddress)} aria-label={`${row.symbol} ${row.name}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
-      <Avatar src={row.image} name={row.name} size="md" shape="square" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} /> : undefined} />
+      <Avatar src={row.image} name={row.name} size="md" shape="square" decorative badge={row.stage ? <StageBadge stage={row.stage} size={launchpadGeometry.smallBadge} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="flex min-w-0 items-baseline gap-1.5 text-sm">
           <span className="min-w-0 truncate font-semibold text-text" title={row.name}>{row.name}</span>

@@ -8,7 +8,7 @@ import { Avatar, EmptyState, ErrorState, RankBadge, SegmentedControl, SelectPill
 import { useLeaderboard, type LeaderboardCategory, type LeaderboardWindow } from '@/core/market/use-leaderboard';
 import { queryKeys } from '@/core/query-keys';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
-import { formatUsdl, shortAddress } from '@/utils/format';
+import { shortAddress, formatCompactUsd } from '@/utils/format';
 import { RankRowSkeleton } from '@/ui/shared/skeletons';
 import type { WidgetProps } from './widget-registry';
 import { columnNoticeClass, columnToolbarClass } from './panel-state';
@@ -46,9 +46,9 @@ export function leaderboardMetric(entry: { metricRaw: string; metricSigned?: str
   const signed = entry.metricSigned ?? null;
   if (signed !== null) {
     const negative = signed.startsWith('-');
-    return { text: formatUsdl(signed, { compact: true, unit: false, signed: true }), tone: negative ? 'danger' : 'success' };
+    return { text: formatCompactUsd(signed, { raw: true, compact: true, signed: true }), tone: negative ? 'danger' : 'success' };
   }
-  return { text: formatUsdl(entry.metricRaw, { compact: true, unit: false }), tone: 'neutral' };
+  return { text: formatCompactUsd(entry.metricRaw, { raw: true, compact: true }), tone: 'neutral' };
 }
 
 const toneClass: Record<LeaderboardMetric['tone'], string> = { success: 'text-success', danger: 'text-danger', neutral: 'text-text' };

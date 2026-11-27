@@ -24,7 +24,7 @@ import { formatSpotPrice } from '@/core/market/pool-stats-display';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { useMarketTrades } from '@/page-modules/token/market-session-context';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
-import { shortAddress } from '@/utils/format';
+import { shortAddress, formatCompactUsd } from '@/utils/format';
 import { ChartToolbar, type ChartMarkerActor } from '@/widgets/coin/chart-toolbar';
 import { ChartSplit } from '@/widgets/coin/chart-split';
 import {
@@ -929,7 +929,7 @@ export default function TvChart({
             >
               <table className="w-full text-left">
                 <caption className="pb-2 text-left text-text-faint">
-                  Prices in USDL, every {timeframe}, times in UTC
+                  Prices in dollars, every {timeframe}, times in UTC
                 </caption>
                 <thead>
                   <tr>
@@ -939,7 +939,7 @@ export default function TvChart({
                       'High',
                       'Low',
                       'Close',
-                      'Volume (USDL)',
+                      'Volume ($)',
                       'Volume (coin, raw)',
                       'Version',
                     ].map((label) => (
@@ -971,7 +971,7 @@ export default function TvChart({
                             data-numeric
                             className="p-2 text-right font-mono tabular-nums"
                           >
-                            {value}
+                            {index < 5 ? formatCompactUsd(value, { numeral: true }) : value}
                           </td>
                         ))}
                       </tr>
@@ -1028,7 +1028,7 @@ export default function TvChart({
                             data-numeric
                             className="p-2 text-right font-mono tabular-nums"
                           >
-                            {value}
+                            {index === 3 ? formatCompactUsd(value, { numeral: true }) : value}
                           </td>
                         ))}
                       </tr>

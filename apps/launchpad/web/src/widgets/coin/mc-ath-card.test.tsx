@@ -95,10 +95,10 @@ async function theBarNamesBothValuationsAndTheirShare() {
   const { host } = mount();
   await advance();
   expect(read).toHaveBeenCalledExactlyOnceWith(pool, '1D', from, now / 1000, { signal: expect.any(AbortSignal) });
-  expect(host.textContent).toContain('MC100K USDL');
-  expect(athValue(host)?.textContent).toBe('200K USDL');
+  expect(host.textContent).toContain('MC$100K');
+  expect(athValue(host)?.textContent).toBe('$200K');
   const bar = host.querySelector('[role="progressbar"]');
-  expect(bar?.getAttribute('aria-label')).toBe('Market cap 100K USDL, all-time high 200K USDL; 50 percent of all-time high');
+  expect(bar?.getAttribute('aria-label')).toBe('Market cap $100K, all-time high $200K; 50 percent of all-time high');
   expect(bar?.getAttribute('aria-valuenow')).toBe('50');
   expect(bar?.getAttribute('aria-valuemin')).toBe('0');
   expect(bar?.getAttribute('aria-valuemax')).toBe('100');
@@ -111,11 +111,11 @@ async function aLiveHighAppearsImmediatelyWithoutACandleRead() {
   const view = mount();
   await advance();
   view.render({ ...stats, totalSupplyValuationUsdlRaw: '300000000000' });
-  expect(athValue(view.host)?.textContent).toBe('300K USDL');
+  expect(athValue(view.host)?.textContent).toBe('$300K');
   expect(view.host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100');
   expect((view.host.querySelector('[role="progressbar"]')?.firstElementChild as HTMLElement).style.width).toBe('100%');
   view.render(stats);
-  expect(athValue(view.host)?.textContent).toBe('300K USDL');
+  expect(athValue(view.host)?.textContent).toBe('$300K');
   await advance();
   expect(read).toHaveBeenCalledTimes(1);
 }
@@ -125,7 +125,7 @@ async function uncoveredPoolsShowMarketCapAlone() {
   for (const creation of [null, new Date(now - 365 * day * 1000).toISOString(), new Date(now - 400 * day * 1000).toISOString()]) {
     const { host } = mount(creation);
     await advance();
-    expect(host.textContent).toBe('Market capMC100K USDL');
+    expect(host.textContent).toBe('Market capMC$100K');
     expect(host.querySelector('[role="progressbar"], .bg-track, [aria-busy], [role="status"]')).toBeNull();
     expect(athValue(host)).toBeUndefined();
   }
@@ -137,7 +137,7 @@ async function failedReadsShowMarketCapAlone() {
   read.mockResolvedValue({ status: 'unavailable', httpStatus: 503, code: 'DEPENDENCY_UNAVAILABLE', message: 'Candle history unavailable', retryable: false, retryAfterMs: null, requestId: null });
   const { host } = mount();
   await advance();
-  expect(host.textContent).toBe('Market capMC100K USDL');
+  expect(host.textContent).toBe('Market capMC$100K');
   expect(host.querySelector('[role="progressbar"], .bg-track, [aria-busy], [role="status"]')).toBeNull();
   expect(athValue(host)).toBeUndefined();
   expect(read).toHaveBeenCalledTimes(1);
@@ -148,14 +148,14 @@ async function theFigureAndBarStayLoadingUntilTheReadSettles() {
   let resolveRead!: (outcome: CandleHistoryOutcome) => void;
   read.mockReturnValue(new Promise(resolve => { resolveRead = resolve; }));
   const { host } = mount();
-  expect(host.textContent).toContain('MC100K USDL');
+  expect(host.textContent).toContain('MC$100K');
   expect(athValue(host)?.getAttribute('aria-busy')).toBe('true');
   expect(athValue(host)?.querySelector('.sl-skeleton')).not.toBeNull();
   expect(host.querySelector('[aria-label="Loading all-time high"]')?.getAttribute('aria-busy')).toBe('true');
   expect(host.querySelector('[role="progressbar"]')).toBeNull();
   await act(async () => resolveRead(candles));
   await advance();
-  expect(athValue(host)?.textContent).toBe('200K USDL');
+  expect(athValue(host)?.textContent).toBe('$200K');
   expect(host.querySelector('[aria-busy]')).toBeNull();
 }
 test(theFigureAndBarStayLoadingUntilTheReadSettles.name, theFigureAndBarStayLoadingUntilTheReadSettles);
@@ -164,10 +164,10 @@ async function noCandlesUseTheMarketCapOfTheMoment() {
   read.mockResolvedValue({ status: 'no_data', nextTime: null });
   const view = mount();
   await advance();
-  expect(athValue(view.host)?.textContent).toBe('100K USDL');
+  expect(athValue(view.host)?.textContent).toBe('$100K');
   expect(view.host.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('100');
   view.render({ ...stats, totalSupplyValuationUsdlRaw: '80000000000' });
-  expect(athValue(view.host)?.textContent).toBe('80K USDL');
+  expect(athValue(view.host)?.textContent).toBe('$80K');
   expect(read).toHaveBeenCalledTimes(1);
 }
 test(noCandlesUseTheMarketCapOfTheMoment.name, noCandlesUseTheMarketCapOfTheMoment);
@@ -177,7 +177,7 @@ async function theTrackKeepsASliverForSmallAndZeroShares() {
   await advance();
   view.render({ ...stats, totalSupplyValuationUsdlRaw: '1000000' });
   const bar = view.host.querySelector('[role="progressbar"]');
-  expect(bar?.getAttribute('aria-label')).toBe('Market cap 1.00 USDL, all-time high 200K USDL; less than 0.01 percent of all-time high');
+  expect(bar?.getAttribute('aria-label')).toBe('Market cap $1.00, all-time high $200K; less than 0.01 percent of all-time high');
   expect(Number(bar?.getAttribute('aria-valuenow'))).toBeCloseTo(0.0005);
   expect((bar?.firstElementChild as HTMLElement).style.width).toBe('2%');
   view.render({ ...stats, totalSupplyValuationUsdlRaw: '0' });
@@ -192,7 +192,7 @@ async function candleHistoryIsCachedPerPoolAndRefreshedOnceAMinute() {
   await advance();
   const another = mount(createdAt, view.client);
   await advance();
-  expect(athValue(another.host)?.textContent).toBe('200K USDL');
+  expect(athValue(another.host)?.textContent).toBe('$200K');
   expect(read).toHaveBeenCalledTimes(1);
   await advance(59_000);
   expect(read).toHaveBeenCalledTimes(1);

@@ -324,7 +324,7 @@ async function marketFirstStateRendersStatsSpotPriceAndNeutralEmptyViews() {
     await session.start(); transport.live();
     await act(async () => root.render(React.createElement(WagmiProvider, { config }, React.createElement(QueryClientProvider, { client: queries }, React.createElement(MarketClientProvider, { client: client(), children: React.createElement(FirstMarketView, { session }) })))));
     await act(async () => waitFor(() => httpReads.some(read => read.path.includes('/candles'))));
-    expect(container.querySelector('[aria-label="Market statistics"]')?.textContent).toContain('Volume · USDL · 24h0');
+    expect(container.querySelector('[aria-label="Market statistics"]')?.textContent).toContain('Volume · 24h$0');
     expect(container.querySelector('[aria-label="Trade history"]')?.textContent).toContain('No trades yet');
     expect(container.querySelector('[aria-label="Price chart"]')?.textContent).toContain('No trades yet');
     expect(container.querySelector('[data-freshness-chip]')?.textContent).toBe('Waiting for trades');

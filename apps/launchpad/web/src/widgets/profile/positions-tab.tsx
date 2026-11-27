@@ -1,4 +1,5 @@
 'use client';
+import { formatCompactUsd } from '@/utils/format';
 
 import { useId, useRef, useState } from 'react';
 import { Calculator } from 'lucide-react';
@@ -89,16 +90,16 @@ export default function PositionsTab({ walletAddress, canShare, defaultOpen = fa
       >
         <div className="flex flex-col gap-2">
           <h3 className="text-sm font-bold text-text">Your trades</h3>
-          <p className="text-xs text-text-muted">Prices are in USDL. Network fees are paid in PAX.</p>
+          <p className="text-xs text-text-muted">Market values are in dollars. Network fees are paid in PAX.</p>
           {portfolio.isPending ? <Skeleton variant="rows" rows={3} label="Loading PnL" /> : null}
           {portfolio.error ? <><p role="alert" className="text-sm text-danger">{humanError(portfolio.error)}</p><Button variant="secondary" size="sm" onClick={() => { void portfolio.refetch(); }}>Retry positions</Button></> : null}
           {value && summary ? (
             <dl className="flex flex-col gap-0.5">
               <KeyValueRow label="Method" value={`${value.algorithm} · history ${summary.basisQuality} · prices ${summary.pricingQuality}`} />
-              <KeyValueRow label="Total value" value={<MaskedAmount>{exactAmount(summary.completeValueUsdlRaw)}</MaskedAmount>} />
-              <KeyValueRow label="Priced value" value={<MaskedAmount>{exactAmount(summary.pricedSubtotalUsdlRaw)}</MaskedAmount>} />
-              <KeyValueRow label="Realized" value={<MaskedAmount>{exactAmount(summary.realizedPnlRaw)}</MaskedAmount>} />
-              <KeyValueRow label="Known realized" value={<MaskedAmount>{exactAmount(summary.knownRealizedSubtotalUsdlRaw)}</MaskedAmount>} />
+              <KeyValueRow label="Total value" value={<MaskedAmount>{formatCompactUsd(summary.completeValueUsdlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount>} />
+              <KeyValueRow label="Priced value" value={<MaskedAmount>{formatCompactUsd(summary.pricedSubtotalUsdlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount>} />
+              <KeyValueRow label="Realized" value={<MaskedAmount>{formatCompactUsd(summary.realizedPnlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount>} />
+              <KeyValueRow label="Known realized" value={<MaskedAmount>{formatCompactUsd(summary.knownRealizedSubtotalUsdlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount>} />
               <KeyValueRow label="Missing prices" value={`${summary.unpricedAssetCount} ${summary.unpricedAssetCount === 1 ? 'coin' : 'coins'}`} />
               <KeyValueRow label="Last updated" value={summary.watermark.observedAt} />
               <KeyValueRow label="Refreshed" value={`${Math.max(0, Math.floor((Date.now() - portfolio.dataUpdatedAt) / 1000))}s ago${portfolio.isRefetchError ? ", couldn't refresh" : ''}`} />
@@ -165,8 +166,8 @@ function PositionFigures({ row, errors, className }: { row: TrackedPortfolio['da
     >
       <h4 className="break-all font-mono-sl text-xs font-bold text-text">{row.tokenAddress}</h4>
       <p>Holding: <MaskedAmount>{decimals !== null && decimals !== undefined && decimals <= 36 ? exactAmount(row.balanceRaw, decimals, 'tokens') : row.balanceRaw}</MaskedAmount></p>
-      <p>Known cost: <MaskedAmount>{exactAmount(row.knownRemainingCostUsdlRaw)}</MaskedAmount>, total cost: <MaskedAmount>{exactAmount(row.remainingCostUsdlRaw)}</MaskedAmount></p>
-      <p>Realized: <MaskedAmount>{exactAmount(row.realizedPnlRaw)}</MaskedAmount>, unrealized: <MaskedAmount>{exactAmount(row.unrealizedPnlRaw)}</MaskedAmount></p>
+      <p>Known cost: <MaskedAmount>{formatCompactUsd(row.knownRemainingCostUsdlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount>, total cost: <MaskedAmount>{formatCompactUsd(row.remainingCostUsdlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount></p>
+      <p>Realized: <MaskedAmount>{formatCompactUsd(row.realizedPnlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount>, unrealized: <MaskedAmount>{formatCompactUsd(row.unrealizedPnlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount></p>
       <p>History {row.basisQuality} · prices {row.pricingQuality} · price time {row.markPrice?.source.observedAt ?? 'not available yet'}</p>
       {errors?.length ? <p role="alert" className="text-danger">Some figures for this coin couldn't load</p> : null}
     </article>

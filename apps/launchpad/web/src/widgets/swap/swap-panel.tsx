@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { displayCoinText } from '@/utils/coin-text';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -18,7 +19,7 @@ import {
 import { formatUnits, zeroAddress, erc20Abi, parseAbi, encodeFunctionData, type Address, type Hash, type TransactionReceipt } from 'viem';
 import { getPaxeerRpcUrl } from '@/core/rpc';
 import { homeChainOfPool, ensureHomeChain, homeChainClient, homeChainMessage, type HomeChain } from '../trade/home-chain';
-import { formatNumber, formatCurrency, safeFixed } from '@/utils/format';
+import { formatNumber, formatCurrency, formatUsdl, safeFixed } from '@/utils/format';
 import type { Operations, V2ContractTypes } from '@kindle/sdk';
 import { useOperations } from '@/core/market/operations';
 import { reportUserFacingError } from '@/core/user-facing-error';
@@ -268,7 +269,7 @@ export function TokenInputBox({
         <button
           type="button"
           onClick={onSelectClick}
-          className="flex min-h-8 min-w-0 max-w-[50%] shrink-0 items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-sm px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))] transition-colors"
+          className="flex min-h-8 min-w-0 max-w-1/2 shrink-0 items-center gap-2 border border-control-edge bg-surface-3 hover:bg-surface-hover rounded-sm px-[calc(var(--sl-space-3)-var(--sl-edge-width))] py-[calc(var(--sl-space-1)-var(--sl-edge-width))] transition-colors"
         >
           {token ? (
             <>
@@ -276,8 +277,8 @@ export function TokenInputBox({
               <span className="min-w-0 truncate text-sm font-semibold text-text" title={token.symbol}>{token.symbol}</span>
             </>
           ) : <span title="Select coin" className="min-w-0 truncate text-xs font-semibold text-text">Select coin</span>}
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="shrink-0 text-text-faint" aria-hidden="true">
-            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          <svg viewBox="0 0 12 12" fill="none" className="size-3 shrink-0 text-text-faint" aria-hidden="true">
+            <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" strokeWidth={launchpadGeometry.iconStroke} strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </div>
@@ -720,7 +721,7 @@ export default function SwapPanel() {
           <div className="flex min-w-0 items-center gap-2">
             <SlippageSelector bps={slippageBps} onChange={setSlippageBps} />
           <div className="hidden items-center gap-1.5 text-2xs text-text-faint sm:flex">
-            <img src="/icons/ArrowsLeftRight.svg" alt="" width={14} height={14} className="opacity-60" />
+            <img src="/icons/ArrowsLeftRight.svg" alt="" width={launchpadGeometry.smallBadge} height={launchpadGeometry.smallBadge} className="opacity-60" />
             Token to Token
           </div>
           </div>
@@ -778,7 +779,7 @@ export default function SwapPanel() {
                   {intermediateUsdl !== null && intermediateUsdl > 0 && (
                     <div className="flex justify-between text-2xs">
                       <span className="text-text-faint">Route via USDL</span>
-                      <span className="text-text">{formatNumber(intermediateUsdl, 4)} USDL</span>
+                      <span className="text-text">{quote ? formatUsdl(quote.intermediateUsdl, { fractionDigits: 4, compact: true, compactDigits: 4, trimCompact: false }) : '...'}</span>
                     </div>
                   )}
 
@@ -807,7 +808,7 @@ export default function SwapPanel() {
                   <div className="flex justify-between text-2xs pt-1">
                     <span className="text-text-faint">Total fees</span>
                     <span className="text-text-faint">
-                      {totalFee !== null ? `${formatNumber(totalFee, 4)} USDL` : '...'}
+                      {totalFee !== null ? formatUsdl(quote!.sellFeeAmount + quote!.buyFeeAmount, { fractionDigits: 4, compact: true, compactDigits: 4, trimCompact: false }) : '...'}
                     </span>
                   </div>
 

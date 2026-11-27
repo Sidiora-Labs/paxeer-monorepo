@@ -1,3 +1,4 @@
+import { formatUsdl, formatCompactUsd } from '@/utils/format';
 import type { PortfolioSummary } from '../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 /** Presentation-only contracts. No PnL arithmetic or wallet connection -> session inference. */
 export type Quality = 'complete' | 'partial' | 'unknown';
@@ -21,6 +22,7 @@ export function exactAmount(raw: string | null, decimals = 6, unit = 'USDL'): st
   if (raw === null) return '—';
   if (!Number.isInteger(decimals) || decimals < 0 || decimals > 36) throw new Error('Invalid decimals');
   const n = rawInteger(raw, true), negative = n < 0n;
+  if (unit === 'USDL') return formatUsdl(raw, { decimals, fractionDigits: decimals, group: false });
   const digits = (negative ? -n : n).toString().padStart(decimals + 1, '0');
   const text = decimals ? `${digits.slice(0, -decimals)}.${digits.slice(-decimals)}` : digits;
   return `${negative ? '-' : ''}${text} ${unit}`;
@@ -40,11 +42,11 @@ export function portfolioLabels(dto: PortfolioDisclosure) {
     inventory: "Coins you've traded here, separate from your wallet balance",
     method: dto.accountingMethodVersion ?? 'Not available yet',
     coverage: dto.basisQuality === 'complete' ? 'Full trade history' : `${dto.basisQuality === 'partial' ? 'Partial' : 'Incomplete'} trade history${dto.coverageStart ? ` since ${dto.coverageStart}` : ''}`,
-    value: dto.pricingQuality === 'complete' ? exactAmount(dto.completeValueUsdlRaw) : '—',
-    subtotal: exactAmount(dto.pricedSubtotalUsdlRaw),
+    value: dto.pricingQuality === 'complete' ? formatCompactUsd(dto.completeValueUsdlRaw, { raw: true, fractionDigits: 6, group: false }) : '—',
+    subtotal: formatCompactUsd(dto.pricedSubtotalUsdlRaw, { raw: true, fractionDigits: 6, group: false }),
     subtotalLabel: dto.pricingQuality === 'complete' ? 'Value' : 'Value (some prices missing)',
-    realized: dto.basisQuality === 'complete' ? exactAmount(dto.realizedPnlRaw) : '—',
-    knownRealized: exactAmount(dto.knownRealizedSubtotalUsdlRaw),
+    realized: dto.basisQuality === 'complete' ? formatCompactUsd(dto.realizedPnlRaw, { raw: true, fractionDigits: 6, group: false }) : '—',
+    knownRealized: formatCompactUsd(dto.knownRealizedSubtotalUsdlRaw, { raw: true, fractionDigits: 6, group: false }),
     mark: dto.markTimestamp ? `Prices as of ${dto.markTimestamp}` : 'Price time not available yet',
   };
 }

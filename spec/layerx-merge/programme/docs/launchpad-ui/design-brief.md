@@ -66,9 +66,9 @@ literal colour.
 | Surface active | `--sl-surface-active` | `#34343f` | `#c7d6e2` |
 | Text | `--sl-text` | `#f5f5f7` | `#101c29` |
 | Text muted (secondary lines, labels) | `--sl-text-muted` | `#a6a6b0` | `#34495e` |
-| Text faint (meta, units, placeholders) | `--sl-text-faint` | `#8e8e99` | `#435568` |
+| Text faint (meta, units, placeholders) | `--sl-text-faint` | `#9f9faa` | `#435568` |
 | Text disabled | `--sl-text-disabled` | `#5c5c66` | `#657587` |
-| Control edge | `--sl-control-edge` | `#70707c` | `#657587` |
+| Control edge | `--sl-control-edge` | `#81818e` | `#657587` |
 | Accent (primary action, up) | `--sl-accent` | `#44e8c8` | `#006852` |
 | Accent hover / active | `--sl-accent-hover`, `--sl-accent-active` | `#6bedd5` / `#2bb89e` | `#005844` / `#004735` |
 | On accent | `--sl-on-accent` | `#06201b` | `#ffffff` |
@@ -124,10 +124,13 @@ fallback. Weights become lighter: text is read, numbers are stressed.
 Rules:
 
 - Every figure (price, value, change, count, time) is set in tabular figures.
+- Market values read with the dollar sign before the figure; amounts of the
+  quote token paid, received, held or claimed read with USDL after the figure.
 - A view has one title of step lg; panels and sections title in md. No view
   stacks two titles above its content.
 - Weight 800 is not used. A name is 600, a value 700, a label 500.
-- Text never wraps inside a control. A name that does not fit ends in an
+- Text never wraps inside a control except a text link, whose label may wrap.
+  A name that does not fit ends in an
   ellipsis and gives its full form to assistive technology.
 
 ## 4. Shape, space and motion

@@ -7,7 +7,7 @@ import { loadable, toUnsupported, type Loadable } from '@/core/market/unsupporte
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
 import { Avatar, Button, EmptyState, ErrorState, IconButton, RankBadge, SectionHeader, UnavailableState } from '@/ui/primitives';
 import { RankRowSkeleton } from '@/ui/shared/skeletons';
-import { formatUsdl, relativeAge, shortAddress } from '@/utils/format';
+import { formatUsdl, relativeAge, shortAddress, formatCompactUsd } from '@/utils/format';
 import { FollowButton } from '@/widgets/social/follow-button';
 import { profileHref, RankRow } from '../rank-row';
 import { RankingTable } from '../ranking-table';
@@ -65,7 +65,7 @@ function Highlights({ cup, items, identities }: HighlightsProps) {
                 </div>
                 <div className="relative flex flex-col gap-1 bg-surface-2 p-3">
                   <span className="truncate text-sm font-semibold text-text">{name}</span>
-                  <span className={cn('text-sm font-bold tabular-nums', toneClass[metricTone(row.metricSigned)])} data-numeric>{formatUsdl(row.metricSigned, { signed: true })}</span>
+                  <span className={cn('text-sm font-bold tabular-nums', toneClass[metricTone(row.metricSigned)])} data-numeric>{formatCompactUsd(row.metricSigned, { raw: true, signed: true })}</span>
                   {prizeForRank(cup, row) !== null ? <span className="text-2xs text-text-muted">Prize {formatUsdl(prizeForRank(cup, row), { fractionDigits: 0 })}</span> : null}
                 </div>
               </Link>

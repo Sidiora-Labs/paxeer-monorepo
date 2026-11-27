@@ -4,7 +4,7 @@ import { surfaceSpacing } from '@/app/presentation-tokens';
 import { useQueries } from '@tanstack/react-query';
 import { Chip, Skeleton } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
-import { formatTokenAmount, formatUsdl, shortAddress } from '@/utils/format';
+import { formatTokenAmount, formatUsdl, shortAddress, formatCompactUsd } from '@/utils/format';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
 import { useOperations } from '@/core/market/operations';
@@ -61,7 +61,7 @@ export interface BountyRewardProps {
 }
 
 /**
- * Reward value in USDL plus the escrowed asset amount. USDL rewards and
+ * Market value plus the escrowed asset amount. USDL rewards and
  * service-reported values are exact; a launched-token reward valued through
  * the pool's supply valuation is marked approximate. Nothing is estimated
  * beyond that: without a real valuation path the value cell says so.
@@ -76,7 +76,7 @@ export function BountyReward({ bounty, context, size = 'md', className }: Bounty
   const token = resolved.token && resolved.token.address.toLowerCase() === bounty.assetAddress.toLowerCase() ? resolved.token : null;
   const symbol = kind === 'usdl' ? 'USDL' : displayCoinText(token?.symbol, bounty.assetAddress);
   const amount = kind === 'usdl'
-    ? formatUsdl(bounty.budgetRaw, { decimals: bountiesContract.usdlDecimals, unit: false, compact: true })
+    ? formatUsdl(bounty.budgetRaw, { decimals: bountiesContract.usdlDecimals, compact: true })
     : token && token.decimals !== null ? formatTokenAmount(bounty.budgetRaw, token.decimals) : null;
 
   return (
@@ -84,16 +84,16 @@ export function BountyReward({ bounty, context, size = 'md', className }: Bounty
       {valuation ? (
         <span data-numeric className={cn('font-bold tabular-nums text-success', size === 'lg' ? 'text-xl' : 'text-lg')}>
           {valuation.exact ? null : <span title="Estimated from the coin's market cap"><span aria-hidden="true">~</span><span className="sr-only">approximately </span></span>}
-          {formatUsdl(valuation.usdlRaw, { compact: true })}
+          {formatCompactUsd(valuation.usdlRaw, { raw: true, compact: true })}
         </span>
       ) : pending ? (
-        <Skeleton width={surfaceSpacing(18)} height={size === 'lg' ? 28 : 24} label="Loading reward value" />
+        <Skeleton width={surfaceSpacing(18)} height={surfaceSpacing(size === 'lg' ? 7 : 6)} label="Loading reward value" />
       ) : (
         <span className="text-xs text-text-faint">Value not available yet</span>
       )}
       <Chip variant="token">
         <span className="sr-only">Reward </span>
-        <span className="min-w-0 truncate" title={symbol}>{amount !== null ? `${amount} ${symbol}` : symbol}</span>
+        <span className="min-w-0 truncate" title={symbol}>{amount !== null ? kind === 'usdl' ? amount : `${amount} ${symbol}` : symbol}</span>
       </Chip>
     </div>
   );

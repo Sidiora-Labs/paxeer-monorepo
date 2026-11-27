@@ -102,8 +102,9 @@ describe('holder rewards components', () => {
     expect(ready).toContain('Holder rewards');
     expect(ready).toContain('At today&#x27;s prices');
     expect(ready).toContain('Wallets rewarded');
-    expect(ready.match(/>18,627,546<\/span><span[^>]*>USDL</g)).toHaveLength(2);
-    expect(ready).toContain('Valued in USDL');
+    expect(ready.match(/>18,627,546<\/span><span[^>]*>USDL</g)).toHaveLength(1);
+    expect(ready).toContain('>$18,627,546</span>');
+    expect(ready).toContain('Valued in dollars');
     expect(ready).toContain('445,691');
     for (const markup of [ready, html(<StatsRow stats={{ state: 'loading' }} />), html(<StatsRow stats={unsupportedStats} />)]) {
       expect(markup.match(/text-xl font-bold/g)).toHaveLength(3);
@@ -114,7 +115,7 @@ describe('holder rewards components', () => {
       expect(markup.match(/min-h-23\.5 sm:min-h-31\.5/g)).toHaveLength(3);
     }
     expect(ready.match(/class="shrink-0 text-(success|text)"/g)).toHaveLength(3);
-    expect(ready.match(/ml-1\.5 shrink-0 whitespace-nowrap/g)).toHaveLength(2);
+    expect(ready.match(/ml-1\.5 shrink-0 whitespace-nowrap/g)).toHaveLength(1);
     expect(ready).toContain(
       'grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3'
     );
@@ -320,7 +321,7 @@ describe('holder rewards components', () => {
     );
     expect(ranked).not.toContain('bg-rank-1-soft');
     expect(ranked).toMatch(/>226,147<span[^>]*>USDL</);
-    expect(ranked).toContain('61K USDL');
+    expect(ranked).toContain('$61K');
     expect(ranked).toContain('Holders paid');
     expect(ranked).toContain('875');
     expect(ranked).toContain('min-h-47');

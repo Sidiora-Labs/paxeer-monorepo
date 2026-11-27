@@ -79,7 +79,7 @@ describe('schema-bound metric and fill presentation', () => {
   it('renders exact USDL values, qualified windows and missing baselines without invented zero', async () => {
     const host = document.createElement('div'); document.body.append(host); const root = createRoot(host);
     await act(async () => root.render(<MarketStats poolAddress={address} stats={stats} />));
-    expect(host.textContent).toContain('Volume · USDL · 24h');
+    expect(host.textContent).toContain('Volume · 24h');
     expect(host.textContent).toContain('999999999999999999999999999999999999999999999999999999999999999999999999.999999');
     expect(host.textContent).toContain('Price change · 24h—');
     expect(host.textContent).toContain('height 20 · revision 1');

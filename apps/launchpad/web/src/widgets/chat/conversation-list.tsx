@@ -1,5 +1,7 @@
 'use client';
 
+import { launchpadGeometry } from '@/app/presentation-tokens';
+
 import { useState, useEffect, useSyncExternalStore } from 'react';
 import { useAccount } from 'wagmi';
 import Link from 'next/link';
@@ -123,7 +125,7 @@ export default function ConversationList() {
                 {relTime(convo.lastMessageAt)}{convo.unreadCount > 0 ? ` · ${convo.unreadCount} unread` : ''}
               </div>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="shrink-0 text-text-faint">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={launchpadGeometry.chartStroke} aria-hidden="true" className="size-4 shrink-0 text-text-faint">
               <polyline points="9 18 15 12 9 6"/>
             </svg>
           </Link>

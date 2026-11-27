@@ -75,7 +75,7 @@ function stripLeavesOutALoss() {
   const { feed, chips } = mount([entry(1, '5000000'), entry(2, '-2000000'), entry(3, '1000000')]);
   expect(feed.chips.map(chip => chip.key)).toEqual([wallets[0], wallets[2]]);
   expect(chips.map(chip => chip.getAttribute('href'))).toEqual([`/profile/${wallets[0]}`, `/profile/${wallets[2]}`]);
-  expect(feed.chips.map(chip => chip.value)).toEqual(['+5.00 USDL', '+1.00 USDL']);
+  expect(feed.chips.map(chip => chip.value)).toEqual(['+$5.00', '+$1.00']);
   expect(feed.emptyText).toBeNull();
 }
 
@@ -87,7 +87,7 @@ function stripLeavesOutAZeroFigure() {
 
 function stripKeepsAnEntryWithoutASignedFigure() {
   const { feed, chips } = mount([entry(1)]);
-  expect(feed.chips).toMatchObject([{ key: wallets[0], value: '0.00 USDL', tone: 'flat' }]);
+  expect(feed.chips).toMatchObject([{ key: wallets[0], value: '$0.00', tone: 'flat' }]);
   expect(chips).toHaveLength(1);
   expect(chips[0].getAttribute('href')).toBe(`/profile/${wallets[0]}`);
 }

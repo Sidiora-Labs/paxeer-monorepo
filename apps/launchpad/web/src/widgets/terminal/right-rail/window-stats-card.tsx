@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ErrorState, NoticeBar, PercentPill, SegmentedControl, Skeleton, Tooltip, UnavailableState } from '@/ui/primitives';
 import type { PoolStats } from '@/core/market/use-stats-batch';
-import { formatCount, formatUsdl } from '@/utils/format';
+import { formatCount, formatCompactUsd } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import type { Trade } from '../../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 import { deriveWindowStats, statsWindows, useWindowCandles, type StatsWindow, type WindowStats } from './window-stats';
@@ -24,7 +24,7 @@ function clockTime(iso: string): string {
 }
 
 function money(raw: bigint, signed = false): string {
-  return formatUsdl(raw, { compact: true, unit: false, signed });
+  return formatCompactUsd(raw, { raw: true, compact: true, signed });
 }
 
 function Figure({ label, children, tone }: { label: string; children: ReactNode; tone?: 'buy' | 'sell' }) {

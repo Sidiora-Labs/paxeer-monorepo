@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { plainCopy, technicalDetail } from '@/core/user-facing-error';
 import { StatTile, type StatTone, humanError } from '@/ui/primitives';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { MaskedAmount } from './balance-visibility';
 import { portfolioIssue, sumUnrealized, usePortfolio } from './portfolio-transport';
 import { PortfolioIssueState } from './portfolio-issue-state';
@@ -50,14 +50,14 @@ export function PnlSummary({ wallet, isOwner, className }: PnlSummaryProps) {
           size="row"
           loading={portfolioLoading}
           tone={pnlTone(realizedRaw)}
-          value={realizedRaw !== null ? <MaskedAmount>{formatUsdl(realizedRaw, { signed: true })}</MaskedAmount> : null}
+          value={realizedRaw !== null ? <MaskedAmount>{formatCompactUsd(realizedRaw, { raw: true, signed: true })}</MaskedAmount> : null}
         />
         <StatTile
           label={unrealized?.partial ? 'Unrealized (partial)' : 'Unrealized'}
           size="row"
           loading={portfolioLoading}
           tone={pnlTone(unrealized && unrealized.counted > 0 ? unrealized.raw : null)}
-          value={unrealized && unrealized.counted > 0 ? <MaskedAmount>{formatUsdl(unrealized.raw, { signed: true })}</MaskedAmount> : null}
+          value={unrealized && unrealized.counted > 0 ? <MaskedAmount>{formatCompactUsd(unrealized.raw, { raw: true, signed: true })}</MaskedAmount> : null}
         />
       </dl>
       <div className="min-h-5">

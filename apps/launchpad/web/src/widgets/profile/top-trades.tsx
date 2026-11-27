@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Avatar, EmptyState, ErrorState, SectionHeader, Skeleton, UnavailableState } from '@/ui/primitives';
-import { formatUsdl, shortAddress } from '@/utils/format';
+import { shortAddress, formatCompactUsd } from '@/utils/format';
 import { useTokenMetadataBatch } from '@/hooks/market/use-token-metadata';
 import { MaskedAmount } from './balance-visibility';
 import { coinHref, tokenIdentity } from './positions-open-closed';
@@ -49,7 +49,7 @@ function TradeRow({ trade, name, symbol, logo, poolAddress }: { trade: TopTrade;
           <span className="block truncate font-mono-sl text-xs text-text-faint">{shortAddress(trade.position.tokenAddress, 6, 4)}</span>
         </span>
         <span className="flex shrink-0 flex-col items-end">
-          <MaskedAmount className={cn('text-num-md font-bold tabular-nums', tone)}>{formatUsdl(trade.realizedRaw, { signed: true })}</MaskedAmount>
+          <MaskedAmount className={cn('text-num-md font-bold tabular-nums', tone)}>{formatCompactUsd(trade.realizedRaw, { raw: true, signed: true })}</MaskedAmount>
           <span className="text-xs text-text-faint">realized</span>
         </span>
       </Link>
