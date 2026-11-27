@@ -17524,6 +17524,18 @@ value = "Point one. When the load of the picture fails, the view draws no pictur
 basis = "Gotcha 5012."
 affects = []
 
+[decision.4069]
+title = "The definition of the wallet gateway sets the agent token secret"
+value = "Point one. The section of variables of deploy/projects/wallet/wallet-gateway.kvx sets AGENT_JWT_SECRET from the input WALLET_WALLET_GATEWAY_AGENT_JWT_SECRET, in the form of the other variables of that section that come from an input. Point two. The section of inputs names that input with the kind generated, under a comment line in the form of the other inputs. The comment says what the value is: the secret that signs agent tokens, as a string of at least 32 characters. Point three. The value is a variable of the service and not a file. The list of files of the image stays as it is. Point four. Not changed here: every other variable and input of the definition, the other definitions of the folder, the source of the gateway and the existing case files."
+basis = "Gotcha 5013."
+affects = []
+
+[decision.4070]
+title = "The project tool leaves a new service in the target environment alone"
+value = "Point one. When the function apply_service has created a service, it removes that service from every other environment of the project before any other write: one write per environment, in the order of the names of the environments, with the field serviceDelete of the platform, which takes the identifier of the service as id and the identifier of the environment as environmentId. The other environments are those the read of the project returned whose name is not the name of the target environment; a project that the run created has none. The name of the operation in the tool is OtherEnvironmentRemove, and the line the tool prints for it has the form of its other writes. Point two. The target environment never gets such a write. A service that the read found never gets one either, also when it has instances in other environments. Point three. The plan of a service that will be created holds one step of the kind elsewhere per other environment, with the name of the environment as its text, directly after the step of the kind create. A project with one environment has no such step. Point four. When such a write fails, the run stops there as it does for any failed write, before the connection to the repository. Point five. Not changed here: the reads, the input of the creation, the other writes and their order, the handling of waves, what the output leaves out, and what a run does for a service that exists in the project and has no instance in the target environment."
+basis = "Gotcha 5014."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47184,6 +47196,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1286]
+title = "Remove a new service from the other environments of its project"
+reqs = ["22998.1"]
+touches = ["tools/deploy/platform-project.py"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/test_platform_project_environments.py && grep -q test_new_service_is_removed_from_the_other_environment tools/deploy/tests/test_platform_project_environments.py && grep -q test_two_other_environments_are_cleared_in_name_order tools/deploy/tests/test_platform_project_environments.py && grep -q test_existing_service_keeps_its_other_instances tools/deploy/tests/test_platform_project_environments.py && grep -q test_single_environment_sends_no_removal tools/deploy/tests/test_platform_project_environments.py && grep -q test_plan_names_the_other_environments tools/deploy/tests/test_platform_project_environments.py"
+do_1 = "do_1 Gotcha 5014, decision 4070. Read tools/deploy/platform-project.py from line 290 to the end of the function apply_service, and tools/deploy/tests/test_platform_project.py from its first line to the end of its helper functions; the transport double starts at line 52 and the project node at line 87 of that file."
+symbols = []
+
+[capability.22.39.1285]
+title = "Set the agent token secret in the definition of the wallet gateway"
+reqs = ["22998.1"]
+touches = ["deploy/projects/wallet/wallet-gateway.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py && grep -q test_definition_sets_the_agent_token_secret tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py && grep -q test_agent_token_secret_is_a_generated_input tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py && grep -q test_schema_still_reads_the_agent_token_secret tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py"
+do_1 = "do_1 Gotcha 5013, decision 4069. Read deploy/projects/wallet/wallet-gateway.kvx whole, services/wallet/gateway/src/env.ts from line 146 to line 162 and tools/deploy/tests/projects/test_wallet_wallet_gateway.py whole."
+symbols = []
 
 [capability.22.39.1284]
 title = "Let the picture of a coin give way when it cannot be read"
@@ -214506,6 +214536,66 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1286]
+title = "Remove a new service from the other environments of its project"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1286"]
+interfaces = []
+do_1 = "do_1 Gotcha 5014, decision 4070. Read tools/deploy/platform-project.py from line 290 to the end of the function apply_service, and tools/deploy/tests/test_platform_project.py from its first line to the end of its helper functions; the transport double starts at line 52 and the project node at line 87 of that file."
+do_2 = "do_2 Change tools/deploy/platform-project.py as decision 4070 says. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file tools/deploy/tests/test_platform_project_environments.py. The file loads the existing case file tools/deploy/tests/test_platform_project.py by its path, the way that file loads the tool, and uses its transport double, its project node, its recorded entries and its helper functions; it changes nothing in that file. A project node with further environments is built in the new file from the node of that helper. One: test_new_service_is_removed_from_the_other_environment. Apply on a project with the target environment and one other environment, where one service is created: the writes hold exactly one OtherEnvironmentRemove, with the identifier of the new service and the identifier of the other environment, directly after the write of the creation and before every other write of that service. Two: test_two_other_environments_are_cleared_in_name_order. The same with two other environments: two such writes, in the order of the names of the environments, and none for the target environment. Three: test_existing_service_keeps_its_other_instances. Apply where the read finds the service: no such write. Four: test_single_environment_sends_no_removal. Apply on a project with one environment: no such write. Five: test_plan_names_the_other_environments. Plan on the project of case two: for the service that will be created the output holds one line of the kind elsewhere per other environment with its name, after the line of the kind create, and no write is sent. Run the existing case file named above by hand before the change and after it. A case of that file that fails the same way before and after is named in the final message with its first message and is not repaired. A case of that file that fails only after the change is repaired inside the paths. Say in the final message that you saw cases one, two and five fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time. The cases use the transport double of the existing case file as it is and add no double of their own. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["tools/deploy/platform-project.py"]
+tests = []
+planned_paths = ["tools/deploy/tests/test_platform_project_environments.py"]
+build_cmd = "python3 -m py_compile tools/deploy/platform-project.py tools/deploy/tests/test_platform_project_environments.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/test_platform_project_environments.py && grep -q test_new_service_is_removed_from_the_other_environment tools/deploy/tests/test_platform_project_environments.py && grep -q test_two_other_environments_are_cleared_in_name_order tools/deploy/tests/test_platform_project_environments.py && grep -q test_existing_service_keeps_its_other_instances tools/deploy/tests/test_platform_project_environments.py && grep -q test_single_environment_sends_no_removal tools/deploy/tests/test_platform_project_environments.py && grep -q test_plan_names_the_other_environments tools/deploy/tests/test_platform_project_environments.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1285]
+title = "Set the agent token secret in the definition of the wallet gateway"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1285"]
+interfaces = []
+do_1 = "do_1 Gotcha 5013, decision 4069. Read deploy/projects/wallet/wallet-gateway.kvx whole, services/wallet/gateway/src/env.ts from line 146 to line 162 and tools/deploy/tests/projects/test_wallet_wallet_gateway.py whole."
+do_2 = "do_2 Change deploy/projects/wallet/wallet-gateway.kvx as decision 4069 says. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py. The file reads the definition and the source the way the existing case file tools/deploy/tests/projects/test_wallet_wallet_gateway.py does and changes nothing in that file. One: test_definition_sets_the_agent_token_secret. The section of variables holds AGENT_JWT_SECRET, and its value is the prefix env: followed by the name of the folder, the name of the service and the name of the variable, in upper case, joined by underscores, with every dash turned into an underscore. Two: test_agent_token_secret_is_a_generated_input. The section of inputs holds that input name once with the kind generated, and the line above it is a comment that holds the word as between two spaces. Three: test_schema_still_reads_the_agent_token_secret. The text of services/wallet/gateway/src/env.ts holds the field AGENT_JWT_SECRET, so that a new name in the source shows here. Run the existing case file named above by hand before the change and after it. A case of that file that fails the same way before and after is named in the final message with its first message and is not repaired. A case of that file that fails only after the change is repaired inside the paths. Say in the final message that you saw the first two cases fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time and never opens a listener or a port: a double answers in the process, and a test file closes its doubles in a step that also runs after a failed case. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/wallet/wallet-gateway.kvx"]
+tests = []
+planned_paths = ["tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py && grep -q test_definition_sets_the_agent_token_secret tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py && grep -q test_agent_token_secret_is_a_generated_input tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py && grep -q test_schema_still_reads_the_agent_token_secret tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
