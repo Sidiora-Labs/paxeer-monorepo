@@ -274,6 +274,13 @@ func (s *ProductionStore) Restrict(ctx context.Context, pool, revision string, b
 	if !addressRE.MatchString(pool) || !revisionValid(revision) {
 		return ErrValidation
 	}
+	var current bool
+	if e := s.Pool.QueryRow(ctx, "SELECT COALESCE(d.moderation_revision >= $2::numeric,false) FROM "+s.table("pools")+" p LEFT JOIN "+s.table("documents")+" d ON d.pool=p.pool WHERE p.pool=$1", pool, revision).Scan(&current); e != nil {
+		return e
+	}
+	if current {
+		return nil
+	}
 	tx, e := s.Pool.Begin(ctx)
 	if e != nil {
 		return e
