@@ -34,7 +34,7 @@ export const Summary: FC<SummaryReturns> = (props) => {
       <SummaryItem
         prefix="$"
         rule="human"
-        label={`${t("affiliate.commission")} (USDC)`}
+        label={`${t("affiliate.commission")} (USDL)`}
         value={statistics.total_rebate}
         direct={statistics.direct_rebate + statistics.direct_bonus_rebate}
         indirect={statistics.indirect_rebate}
@@ -56,7 +56,7 @@ export const Summary: FC<SummaryReturns> = (props) => {
         <SummaryItem
           prefix="$"
           rule="human"
-          label={`${t("affiliate.referralVol")} (USDC)`}
+          label={`${t("affiliate.referralVol")} (USDL)`}
           value={statistics.total_volume}
           direct={statistics.direct_volume}
           indirect={statistics.indirect_volume}

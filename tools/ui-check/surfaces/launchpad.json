@@ -5,6 +5,7 @@
   "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
   "address": "https://sidiora.test:4173",
   "readyPath": "/",
+  "readyMs": 120000,
   "views": [
     {
       "name": "home",
@@ -14,8 +15,9 @@
           "name": "search-dialog",
           "steps": [
             {
-              "action": "wait",
-              "text": "callouts yet"
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+              "key": "Shift"
             },
             {
               "action": "click",
@@ -31,8 +33,9 @@
           "name": "sign-in-dialog",
           "steps": [
             {
-              "action": "wait",
-              "text": "callouts yet"
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+              "key": "Shift"
             },
             {
               "action": "click",
@@ -48,8 +51,9 @@
           "name": "paste-address-dialog",
           "steps": [
             {
-              "action": "wait",
-              "text": "callouts yet"
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+              "key": "Shift"
             },
             {
               "action": "click",
@@ -65,8 +69,9 @@
           "name": "search-filled",
           "steps": [
             {
-              "action": "wait",
-              "text": "callouts yet"
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+              "key": "Shift"
             },
             {
               "action": "click",
@@ -82,31 +87,60 @@
               "text": "2 coins, 0 users"
             }
           ]
+        },
+        {
+          "name": "callouts-tab",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Callouts\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible [role=\"tabpanel\"] :text(\"No callouts yet\")), html:has([data-home-board]:visible section[aria-label=\"Hot callouts\"] :text(\"callouts yet\"))",
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "top-tab",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Top\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible [role=\"tabpanel\"] :text(\"No hot callouts yet\")), html:has([data-home-board]:visible section[aria-label=\"Hot callouts\"] :text(\"callouts yet\"))",
+              "key": "Shift"
+            }
+          ]
         }
       ],
       "ready": [
         {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible :text(\"Pool details: Prices are not loading right now, try again\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        },
+        {
           "action": "wait",
-          "text": "callouts yet"
-        },
-        {
-          "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -139,27 +173,28 @@
       ],
       "ready": [
         {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible :text(\"Pool details: Prices are not loading right now, try again\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        },
+        {
           "action": "wait",
-          "text": "callouts yet"
-        },
-        {
-          "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -168,12 +203,13 @@
       "path": "/?render=empty",
       "ready": [
         {
-          "action": "wait",
-          "text": "callouts yet"
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible h3:text(\"No coins trending yet\")), html:has([data-home-board]:visible :text(\"callouts yet\"))",
+          "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"No coins trending yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"No traders yet\"))",
+          "selector": "html:has([data-home-feed]:visible h3:text(\"No coins trending yet\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"No coins trending yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"No traders yet\"))",
           "key": "Shift"
         },
         {
@@ -183,7 +219,37 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
+        }
+      ],
+      "states": [
+        {
+          "name": "callouts-empty",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Callouts\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible [role=\"tabpanel\"] :text(\"No callouts yet\")), html:has([data-home-board]:visible section[aria-label=\"Hot callouts\"] :text(\"callouts yet\"))",
+              "key": "Shift"
+            }
+          ]
+        },
+        {
+          "name": "top-empty",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Top\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+            },
+            {
+              "action": "press",
+              "selector": "html:has([data-home-feed]:visible [role=\"tabpanel\"] :text(\"No hot callouts yet\")), html:has([data-home-board]:visible section[aria-label=\"Hot callouts\"] :text(\"callouts yet\"))",
+              "key": "Shift"
+            }
+          ]
         }
       ]
     },
@@ -199,12 +265,13 @@
       ],
       "ready": [
         {
-          "action": "wait",
-          "text": "Callouts are not available yet"
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible [data-state=\"unavailable\"]:has-text(\"Trending is not available yet\")), html:has([data-home-board]:visible :text(\"Callouts are not available yet\"))",
+          "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Trending is not available yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"Leaderboard is not available yet\"))",
+          "selector": "html:has([data-home-feed]:visible [data-state=\"unavailable\"]:has-text(\"Trending is not available yet\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Trending is not available yet\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"Leaderboard is not available yet\"))",
           "key": "Shift"
         },
         {
@@ -223,12 +290,16 @@
       "path": "/?render=loading",
       "ready": [
         {
+          "action": "click",
+          "selector": "[data-home-feed]:visible [role=\"tab\"]:has-text(\"Callouts\"), [data-home-board]:visible section[aria-label=\"Hot callouts\"] [data-column-actions] button[aria-pressed]"
+        },
+        {
           "action": "wait",
           "text": "Loading callouts"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
           "key": "Shift"
         },
         {
@@ -238,12 +309,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -257,12 +328,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -516,6 +587,20 @@
               "text": "Be the first to post a callout for this coin."
             }
           ]
+        },
+        {
+          "name": "chart-options",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-chart-toolbar] button[aria-label=\"Chart options\"]"
+            },
+            {
+              "action": "press",
+              "selector": "[role=\"menu\"][aria-label=\"Chart options\"]:has-text(\"USDL\")",
+              "key": "Shift"
+            }
+          ]
         }
       ],
       "ready": [
@@ -564,12 +649,71 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
+        }
+      ]
+    },
+    {
+      "name": "coin-holders",
+      "path": "/coin/0x1111111111111111111111111111111111111111?render=holders",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-coin-header=\"ready\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-mobile-trade-cta])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Hot callouts\"]):not(:has(aside[aria-label=\"Hot callouts\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] iframe):has(section[aria-label=\"Price chart\"] [role=\"group\"]:not([inert])), html:has(section[aria-label=\"Price chart\"] :text(\"No trades yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": ".coin-holders-table tbody tr:has-text(\"Science community\")",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Stats and audit\"]):not(:has(section[aria-label=\"Stats and audit\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"creator-card-title\"] a):not(:has(section[aria-labelledby=\"creator-card-title\"] .sl-skeleton)):not(:has(section[aria-labelledby=\"creator-card-title\"] [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Onchain name: Science Inu"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"Science community\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "$2.00"
         }
       ]
     },
@@ -627,7 +771,12 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
+        },
+        {
+          "action": "press",
+          "selector": "section[aria-label=\"Price chart\"] [role=\"status\"]:has(> button.invisible[inert][aria-hidden=\"true\"] > span:text-is(\"Try again\")):not(:has([data-numeric])) > span:text-is(\"Waiting for trades\")",
+          "key": "Shift"
         }
       ]
     },
@@ -736,12 +885,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -783,11 +932,28 @@
           "steps": [
             {
               "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#create-rewards"
+            },
+            {
+              "action": "click",
               "selector": "html:has([data-shell-ready]) button:has-text(\"More options\")"
             },
             {
               "action": "wait",
               "text": "Fewer options"
+            }
+          ]
+        },
+        {
+          "name": "pair-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#create-pair"
+            },
+            {
+              "action": "wait",
+              "text": "Paired with USDL"
             }
           ]
         }
@@ -809,12 +975,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -857,6 +1023,10 @@
           "steps": [
             {
               "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#chain-rewards"
+            },
+            {
+              "action": "click",
               "selector": "html:has([data-shell-ready]) button:has-text(\"More options\")"
             },
             {
@@ -875,6 +1045,19 @@
             {
               "action": "wait",
               "text": "Connect a wallet to sign in"
+            }
+          ]
+        },
+        {
+          "name": "pair-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#chain-pair"
+            },
+            {
+              "action": "wait",
+              "text": "Paired with USDL"
             }
           ]
         }
@@ -896,12 +1079,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -923,6 +1106,26 @@
           "action": "press",
           "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
+        }
+      ],
+      "states": [
+        {
+          "name": "colour-mode-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) header button[aria-label=\"Open account menu\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Device"
+            },
+            {
+              "action": "press",
+              "selector": "[role=\"radiogroup\"][aria-label=\"Colour mode\"] button[aria-checked=\"true\"]",
+              "key": "Shift"
+            }
+          ]
         }
       ]
     },
@@ -1079,7 +1282,7 @@
             },
             {
               "action": "click",
-              "selector": "html:has([data-shell-ready]) [role=\"radiogroup\"][aria-label=\"Layout\"]:visible [role=\"radio\"]:has-text(\"Grid\")"
+              "selector": "html:has([data-shell-ready]) [role=\"radiogroup\"][aria-label=\"Layout\"]:visible [role=\"radio\"][aria-label=\"Grid\"]"
             },
             {
               "action": "click",
@@ -1105,7 +1308,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1130,7 +1333,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1150,7 +1353,7 @@
         },
         {
           "action": "wait",
-          "text": "No coins yet"
+          "text": "No coins in Trending yet"
         },
         {
           "action": "press",
@@ -1159,7 +1362,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1241,7 +1444,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1266,7 +1469,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1291,7 +1494,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1316,7 +1519,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1341,7 +1544,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1427,7 +1630,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1451,7 +1654,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1503,7 +1706,7 @@
       "ready": [
         {
           "action": "press",
-          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders table tbody tr[data-rank=\"1\"])",
           "key": "Shift"
         },
         {
@@ -1518,7 +1721,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1543,7 +1746,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1572,7 +1775,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1624,7 +1827,7 @@
       "ready": [
         {
           "action": "press",
-          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders table tbody tr[data-rank=\"1\"])",
           "key": "Shift"
         },
         {
@@ -1639,7 +1842,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1663,31 +1866,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
-        }
-      ]
-    },
-    {
-      "name": "leaderboard-squads",
-      "path": "/leaderboard?tab=squads",
-      "ready": [
-        {
-          "action": "wait",
-          "text": "Squad rankings are not available yet"
-        },
-        {
-          "action": "press",
-          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
-          "key": "Shift"
-        },
-        {
-          "action": "press",
-          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1697,7 +1876,7 @@
       "ready": [
         {
           "action": "press",
-          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders [data-rank=\"1\"])",
+          "selector": "html:has([data-cup-state=\"unsupported\"]):has(#leaderboard-panel-traders table tbody tr[data-rank=\"1\"])",
           "key": "Shift"
         },
         {
@@ -1712,7 +1891,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1726,7 +1905,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1740,7 +1919,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1775,7 +1954,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1789,7 +1968,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1803,7 +1982,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1838,7 +2017,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1853,12 +2032,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -1877,12 +2056,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -1896,11 +2075,11 @@
       "ready": [
         {
           "action": "wait",
-          "text": "0x111111...1111"
+          "text": "0x1111...1111"
         },
         {
           "action": "press",
-          "selector": "html:has(#main-content table tbody tr :text(\"0x111111...1111\"))",
+          "selector": "html:has(#main-content table tbody tr :text(\"0x1111...1111\"))",
           "key": "Shift"
         },
         {
@@ -1909,12 +2088,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1935,12 +2114,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1954,7 +2133,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1968,7 +2147,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ],
       "expects": [
@@ -1989,7 +2168,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2003,7 +2182,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2017,7 +2196,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2043,7 +2222,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ],
       "states": [
@@ -2059,6 +2238,21 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) #profile-wallets"
+            }
+          ]
+        },
+        {
+          "name": "chart-collapsed",
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Collapse portfolio chart\"]"
             }
           ]
         }
@@ -2082,7 +2276,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2141,7 +2335,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2167,7 +2361,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2193,7 +2387,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2219,7 +2413,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2228,17 +2422,18 @@
       "path": "/r/science",
       "ready": [
         {
-          "action": "wait",
-          "text": "callouts yet"
-        },
-        {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x111111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
           "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible :text(\"Pool details: Prices are not loading right now, try again\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
           "key": "Shift"
         },
         {
@@ -2248,7 +2443,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2272,7 +2467,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2292,7 +2487,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -2316,7 +2511,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -2389,6 +2584,8 @@
           "name": "settings",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -2406,6 +2603,8 @@
           "name": "coin-selector",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -2428,12 +2627,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -2454,6 +2653,8 @@
           "name": "layout-menu",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -2471,6 +2672,8 @@
           "name": "settings-menu",
           "modes": [
             "default",
+            "reduced-motion",
+            "double-text",
             "keyboard"
           ],
           "steps": [
@@ -2493,7 +2696,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2519,7 +2722,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2566,6 +2769,60 @@
           "selector": "html:has(section[aria-label=\"Price chart\"]):not(:has(section[aria-label=\"Price chart\"] [role=\"status\"]:text-is(\"Loading chart...\")))",
           "key": "Shift"
         }
+      ],
+      "states": [
+        {
+          "name": "positions",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [role=\"tab\"][id=\"terminal-activity-tab-positions\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Sign in to see your position"
+            }
+          ]
+        },
+        {
+          "name": "orders",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [role=\"tab\"][id=\"terminal-activity-tab-orders\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Sign in to see your orders"
+            }
+          ]
+        },
+        {
+          "name": "top-traders",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [role=\"tab\"][id=\"terminal-activity-tab-top-traders\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Top traders are coming soon"
+            }
+          ]
+        },
+        {
+          "name": "creator-coins",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) [role=\"tab\"][id=\"terminal-activity-tab-dev-tokens\"]"
+            },
+            {
+              "action": "wait",
+              "text": "Other coins by this creator are coming soon"
+            }
+          ]
+        }
       ]
     },
     {
@@ -2579,7 +2836,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2604,7 +2861,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2629,7 +2886,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2654,7 +2911,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2664,7 +2921,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(ul[aria-label=\"New pairs\"] li :text(\"< 0.01\"))",
+          "selector": "html:has(ul[aria-label=\"New pairs\"] li :text(\"< $0.01\"))",
           "key": "Shift"
         }
       ]
@@ -2680,7 +2937,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
@@ -2710,12 +2967,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2768,12 +3025,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2792,12 +3049,12 @@
         },
         {
           "action": "press",
-          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
           "key": "Shift"
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2816,7 +3073,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -2840,11 +3097,97 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "Science Orbit"
+        },
+        {
+          "action": "wait",
+          "text": "Not trading yet"
+        },
+        {
+          "action": "wait",
+          "text": "$2.00"
         },
         {
           "action": "press",
           "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
+          "key": "Shift"
+        }
+      ]
+    },
+    {
+      "name": "terminal-empty",
+      "path": "/terminal?render=empty",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-explore-empty])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "No coins trending yet"
+        }
+      ]
+    },
+    {
+      "name": "terminal-error",
+      "path": "/terminal?render=error",
+      "expects": [
+        {
+          "method": "GET",
+          "pattern": "https://sidiora.test:4173/v2/*",
+          "status": 503
+        }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Workspace\"] [role=\"alert\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Trending can't load right now"
+        }
+      ]
+    },
+    {
+      "name": "terminal-loading",
+      "path": "/terminal?render=loading",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-terminal-frame] > div[aria-busy=\"false\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Workspace\"] .sl-skeleton)",
           "key": "Shift"
         }
       ]
@@ -2903,5 +3246,5 @@
       "max": 28
     }
   ],
-  "buildMs": 600000
+  "buildMs": 1800000
 }

@@ -1339,6 +1339,7 @@ func rebuildProject(ctx context.Context, tx *sql.Tx, rows []decode.Row, scope *r
 				margin.add(f.Account)
 				stats.add(f.Account)
 			case decode.TradeSettledRow:
+				margin.add(f.Account)
 				stats.add(f.Account)
 				daily.add(accountDay{f.Account, f.BlockTime.UTC().Truncate(24 * time.Hour)})
 			}

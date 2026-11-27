@@ -1,0 +1,265 @@
+{
+  "name": "Sidiora Launchpad \u2014 create",
+  "directory": "../../../../../",
+  "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs --surface tools/ui-check/surfaces/launchpad/parts/create.json",
+  "address": "https://sidiora.test:4173",
+  "readyPath": "/",
+  "readyMs": 120000,
+  "embeddedMessages": [
+    {
+      "script": "/charting_library/bundles/",
+      "message": "Permissions policy violation: unload is not allowed in this document."
+    }
+  ],
+  "views": [
+    {
+      "name": "create",
+      "path": "/create",
+      "states": [
+        {
+          "name": "draft-filled",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #create-name",
+              "value": "Science Inu"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #create-symbol",
+              "value": "SCINU"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #create-description",
+              "value": "A coin for science."
+            }
+          ]
+        },
+        {
+          "name": "social-links",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary[aria-controls=\"create-social-links-panel\"]"
+            }
+          ]
+        },
+        {
+          "name": "fee-strategies",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#create-rewards"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"More options\")"
+            },
+            {
+              "action": "wait",
+              "text": "Fewer options"
+            }
+          ]
+        },
+        {
+          "name": "pair-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#create-pair"
+            },
+            {
+              "action": "wait",
+              "text": "Paired with USDL"
+            }
+          ]
+        }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#create-name):has(#create-symbol):has(#create-description)",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Custom rules can't load right now, so only Standard is available."
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "$2.00"
+        }
+      ]
+    },
+    {
+      "name": "create-chain",
+      "path": "/create/chain",
+      "states": [
+        {
+          "name": "names-filled",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #chain-name",
+              "value": "science-chain"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #chain-token-name",
+              "value": "Science Inu"
+            },
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #chain-token-symbol",
+              "value": "SCINU"
+            }
+          ]
+        },
+        {
+          "name": "name-validation",
+          "steps": [
+            {
+              "action": "fill",
+              "selector": "html:has([data-shell-ready]) #chain-name",
+              "value": "Invalid name"
+            }
+          ]
+        },
+        {
+          "name": "fee-strategies",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#chain-rewards"
+            },
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"More options\")"
+            },
+            {
+              "action": "wait",
+              "text": "Fewer options"
+            }
+          ]
+        },
+        {
+          "name": "connect-wallet",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button:has-text(\"Connect wallet\")"
+            },
+            {
+              "action": "wait",
+              "text": "Connect a wallet to sign in"
+            }
+          ]
+        },
+        {
+          "name": "pair-open",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) summary#chain-pair"
+            },
+            {
+              "action": "wait",
+              "text": "Paired with USDL"
+            }
+          ]
+        }
+      ],
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(#chain-name):has(#chain-token-name):has(#chain-token-symbol)",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Connect your wallet on Paxeer to check availability."
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444\u20264444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "$2.00"
+        }
+      ]
+    }
+  ],
+  "answers": [
+    {
+      "method": "GET",
+      "pattern": "https://www.google-analytics.com/analytics.js",
+      "file": "answers/analytics.js",
+      "status": 204,
+      "headers": {
+        "content-type": "text/javascript"
+      }
+    }
+  ],
+  "typeScale": [
+    {
+      "min": 11,
+      "max": 12
+    },
+    {
+      "min": 12,
+      "max": 13
+    },
+    {
+      "min": 13,
+      "max": 14
+    },
+    {
+      "min": 14,
+      "max": 16
+    },
+    {
+      "min": 16,
+      "max": 18
+    },
+    {
+      "min": 20,
+      "max": 24
+    },
+    {
+      "min": 24,
+      "max": 28
+    },
+    {
+      "min": 32,
+      "max": 44
+    },
+    {
+      "min": 48,
+      "max": 64
+    },
+    {
+      "min": 16,
+      "max": 28
+    }
+  ],
+  "buildMs": 1800000
+}

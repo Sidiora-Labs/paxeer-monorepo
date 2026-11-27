@@ -1,6 +1,7 @@
 'use client';
 import { useContext, useSyncExternalStore } from 'react';
 import { Operations, type SdkClient } from '@kindle/sdk';
+import { pacedMarketClient } from './paced-client';
 import { accountSession, subscribeAccount } from '@/widgets/profile/account-transport';
 import { GatewayClientContext, browserGatewayClient, browserGatewaySessionClient, browserMarketClient, browserSessionClient, browserUserClient, useMarketClient } from './client';
 
@@ -9,7 +10,7 @@ const bound = new WeakMap<SdkClient, Operations>();
 /** One Operations instance per SdkClient; only in-flight public reads are shared, never completed results. */
 export function operationsFor(client: SdkClient): Operations {
   let operations = bound.get(client);
-  if (!operations) { operations = new Operations(client); bound.set(client, operations); }
+  if (!operations) { operations = new Operations(pacedMarketClient(client)); bound.set(client, operations); }
   return operations;
 }
 

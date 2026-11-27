@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { Box, Flex, Text } from "@paxeer-network/ui";
 
 export const PaxeerNetworkChartTooltip = (props: {
@@ -24,7 +25,7 @@ export const PaxeerNetworkChartTooltip = (props: {
       <Flex direction={"row"} className={props.titleClassName}>
         {prefix}
         <Text.numeral
-          unit={unit}
+          unit={tokenDisplayName(unit)}
           as="div"
           size="sm"
           coloring={coloring}

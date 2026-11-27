@@ -129,7 +129,7 @@ try {
   const receipt = await waitForSequencerReceipt(
     (method, params) => rpc.call(method, params),
     sent.tx_hash,
-    { rung: 'committed', attempts: 30, intervalMs: 1000 },
+    { rung: 'committed', attempts: 30, intervalMs: 1000 }
   );
   if (receipt.rung === 'committed') {
     console.log(receipt.blockNumber, receipt.blockHash, receipt.status);
@@ -144,6 +144,90 @@ try {
 ```
 
 `readSequencerReceipt(rpc, hash)` performs one lookup and can return `null` or a pending `submitted` answer. It authenticates `receipted` and `committed` answers. `authenticateSequencerReceipt(rpc, value, expectedHash)` authenticates an existing answer. `waitForSequencerReceipt` also accepts an `AbortSignal`; its polling limit bounds attempts, not the duration of each fetch. A timeout does not cancel or reverse the submitted transaction.
+
+### Agent and owner clients
+
+`OwnerClient` covers the signed-in user's agent inventory, ownership, policy and treasury routes. Supply the user's bearer token, or a callback that reads the current session token before each call. `AgentClient` takes an agent read token for reads and refresh, and `AgentSigningOptions` for writes. It signs the exact JSON bytes with `signAgentRequest`; the Ed25519 key stays with the caller. These clients are exported from `@paxeer/wallet` and the `@paxeer/wallet/owner` and `@paxeer/wallet/agent-client` subpaths.
+
+```ts
+import { OwnerClient, AgentClient, GatewayClientError } from '@paxeer/wallet';
+
+const owner = new OwnerClient({
+  apiUrl: process.env.PAXEER_WALLET_API!,
+  token: async () => (await paxeer.getSession())?.access_token ?? '',
+});
+const { agents } = await owner.list();
+
+const agent = new AgentClient({ apiUrl: process.env.PAXEER_WALLET_API! });
+// Use the registered did:matrix identity and its Ed25519 seed supplied by the caller.
+async function readAndSend(did: string, privateKey: Uint8Array, agentToken: string) {
+  const self = await agent.me(agentToken);
+  if (!self.wallet) throw new Error('Provision the agent wallet first');
+  try {
+    return await agent.send(
+      { tx: { to: self.wallet.address, value: '1', chainId: 125 } },
+      {
+        keyId: did,
+        privateKey,
+      }
+    );
+  } catch (error) {
+    if (error instanceof GatewayClientError) {
+      console.error(error.status, error.code, error.body);
+    }
+    throw error;
+  }
+}
+```
+
+Amounts and fees use decimal strings in base units. `challenge({ did })` returns the exact UTF-8 `message` to sign with Ed25519; pass that signature, public key, DID and nonce to `verify`. `verify` and `refresh` return the agent's read token; the caller retains and replaces it. Signed writes generate a fresh nonce and a 60-second expiry by default. `authorizationId` carries a retained attestor authorization when needed. Supplying `nonce` or `expiresAt` explicitly gives the caller responsibility for freshness and the gateway's expiry limit.
+
+The clients return every JSON response with a 2xx HTTP status. `simulate` returns `AgentSimulationResponse`: read `ok`, `gas`, `return_data` and `error` to distinguish a successful simulation from a revert. `send`, `transfer` and `approve` return `AgentBroadcastResponse`; when `error` is `outcome_unknown`, retain the transaction hash and follow the receipt polling instructions without resubmitting. Non-2xx responses throw `GatewayClientError`, which preserves the HTTP `status`, gateway `code`, message and original `body`, including nested action errors and recovery instructions. A 2xx response with invalid JSON throws `invalid_gateway_response`. The clients send each request once. `allowanceAndCall` preserves `idempotency_key` and returns the durable action, including its status, error, retry guidance and poll endpoint; `action` reads that state even when its `error` envelope is present. Accepted actions and provisioning can return before completion. Successful send responses preserve the gateway's receipt and rung; callers must authenticate execution receipts before treating them as verified evidence.
+
+Owner methods take `did` before any request body or resource ID. All owner routes use the user bearer token:
+
+| Method                        | Gateway route                              |
+| ----------------------------- | ------------------------------------------ |
+| `list()`                      | `GET /v1/agents`                           |
+| `read(did)`                   | `GET /v1/agents/:did`                      |
+| `claim(did, claim)`           | `POST /v1/agents/:did/claim`               |
+| `updatePolicy(did, patch)`    | `PUT /v1/agents/:did/policy`               |
+| `freeze(did)`                 | `POST /v1/agents/:did/freeze`              |
+| `unfreeze(did)`               | `POST /v1/agents/:did/unfreeze`            |
+| `listRules(did)`              | `GET /v1/agents/:did/rules`                |
+| `addRule(did, rule)`          | `POST /v1/agents/:did/rules`               |
+| `removeRule(did, ruleId)`     | `DELETE /v1/agents/:did/rules/:ruleId`     |
+| `listBudgets(did)`            | `GET /v1/agents/:did/budgets`              |
+| `addBudget(did, budget)`      | `POST /v1/agents/:did/budgets`             |
+| `removeBudget(did, budgetId)` | `DELETE /v1/agents/:did/budgets/:budgetId` |
+| `fund(did, funding)`          | `POST /v1/agents/:did/fund`                |
+| `sweep(did, sweep)`           | `POST /v1/agents/:did/sweep`               |
+| `activity(did)`               | `GET /v1/agents/:did/activity`             |
+
+Use `buildClaim` to construct the agent's countersignature for `claim`. Funding moves native coin or tokens from the owner's standard wallet to the agent. Sweep defaults to the owner's standard wallet when `to` is omitted. Policy patches preserve explicit `null` limits, and budget creation returns the created budget without the usage fields included by budget reads.
+
+| Agent method                      | Gateway route                               | Authentication                      |
+| --------------------------------- | ------------------------------------------- | ----------------------------------- |
+| `challenge(body)`                 | `POST /v1/agent/auth/challenge`             | Public                              |
+| `verify(body)`                    | `POST /v1/agent/auth/verify`                | Public, challenge signature in body |
+| `refresh(token)`                  | `POST /v1/agent/auth/refresh`               | Agent token                         |
+| `whoami(token)`                   | `GET /v1/agent/whoami`                      | Agent token                         |
+| `provision(body, signing)`        | `POST /v1/agent/provision`                  | Signed request                      |
+| `me(token)`                       | `GET /v1/agent/me`                          | Agent token                         |
+| `balances(token, tokens?)`        | `GET /v1/agent/balances?tokens=…`           | Agent token                         |
+| `nonce(token)`                    | `GET /v1/agent/nonce`                       | Agent token                         |
+| `simulate(token, body)`           | `POST /v1/agent/simulate`                   | Agent token                         |
+| `allowance(token, query)`         | `GET /v1/agent/allowance?token=…&spender=…` | Agent token                         |
+| `transaction(token, hash)`        | `GET /v1/agent/tx/:hash`                    | Agent token                         |
+| `activity(token)`                 | `GET /v1/agent/activity`                    | Agent token                         |
+| `sign(body, signing)`             | `POST /v1/agent/sign`                       | Signed request                      |
+| `send(body, signing)`             | `POST /v1/agent/send`                       | Signed request                      |
+| `signMessage(body, signing)`      | `POST /v1/agent/sign-message`               | Signed request                      |
+| `signTypedData(body, signing)`    | `POST /v1/agent/sign-typed-data`            | Signed request                      |
+| `transfer(body, signing)`         | `POST /v1/agent/transfer`                   | Signed request                      |
+| `approve(body, signing)`          | `POST /v1/agent/approve`                    | Signed request                      |
+| `allowanceAndCall(body, signing)` | `POST /v1/agent/actions/allowance-and-call` | Signed request                      |
+| `action(token, actionId)`         | `GET /v1/agent/actions/:action_id`          | Agent token                         |
 
 ### Usage (React)
 

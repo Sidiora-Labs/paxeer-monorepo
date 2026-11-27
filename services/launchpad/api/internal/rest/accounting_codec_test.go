@@ -99,7 +99,7 @@ func TestAccountingCodecParsesAndEncodesPages(t *testing.T) {
 			t.Fatalf("decoded page cursor: %+v, %v", decoded, err)
 		}
 		if candles {
-			if decoded.AfterStart == nil || *decoded.AfterStart != boundary {
+			if decoded.AfterStart == nil || *decoded.AfterStart != boundary || decoded.SnapshotSequence == nil || *decoded.SnapshotSequence != 1 {
 				t.Fatalf("candle boundary: %+v", decoded)
 			}
 		} else if decoded.AfterSequence == nil || *decoded.AfterSequence != boundary || decoded.SnapshotSequence == nil || *decoded.SnapshotSequence != 1 || decoded.AfterEventID != page.NextEventID {

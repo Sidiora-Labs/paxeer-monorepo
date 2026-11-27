@@ -111,7 +111,7 @@ func productionAccountingFixture(t *testing.T) (*store.AccountingReadModel, *pgx
 // filled from the values the fixture wrote, not read back from the database.
 func productionCheckpoints(pool string, creationHeight int64, publication accounting.PublicationV1) (charts, stats accounting.Digest) {
 	payload := publication.Positions[0].PayloadDigest
-	stats = sourcebootstrap.StatsEvidence{SourceStream: productionSourceStream, Pool: pool, ProjectionVersion: productionProjection, PublicationID: publication.PublicationID, PayloadDigest: payload, InitialPreviousHeight: productionCreationsTo - 10, FirstCommitID: "fills", FirstCommitLastHeight: productionFillsTo, FirstCommitBlockHash: productionBlockHash(productionFillsTo)}.Checkpoint()
+	stats = sourcebootstrap.StatsEvidence{SourceStream: productionSourceStream, Pool: pool, ProjectionVersion: productionProjection, PublicationID: publication.PublicationID, PayloadDigest: payload, ReplayFromHeight: productionCreationsTo - 10, CreationTransactionHash: productionCreationTx(pool), CreationLogIndex: 1, FirstCommitID: "fills", FirstCommitLastHeight: productionFillsTo, FirstCommitBlockHash: productionBlockHash(productionFillsTo)}.Checkpoint()
 	charts = sourcebootstrap.ChartsEvidence{SourceStream: productionSourceStream, Pool: pool, ProjectionVersion: productionProjection, PublicationID: publication.PublicationID, PayloadDigest: payload, ReplayFromHeight: productionCreationsTo - 10, CreationTransactionHash: productionCreationTx(pool), CreationLogIndex: 1, FirstCommitID: "fills", FirstCommitLastHeight: productionFillsTo, FirstCommitBlockHash: productionBlockHash(productionFillsTo)}.Checkpoint()
 	return charts, stats
 }

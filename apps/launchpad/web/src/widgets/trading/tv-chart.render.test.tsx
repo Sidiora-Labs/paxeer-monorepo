@@ -60,6 +60,11 @@ const server = createServer((request, response) => {
     response.statusCode = 204; response.end(); return;
   }
   const url = request.url ?? '';
+  if (emptyMarket && url.startsWith('/v2/snapshots?') && new URL(url, 'http://localhost').searchParams.get('topics')?.includes('market.stats.')) {
+    response.writeHead(200, { 'Content-Type': 'application/json', 'X-Schema-Version': '2' });
+    response.end(JSON.stringify({ ...recorded.snapshot.body, data: { snapshot: { ...recorded.snapshot.body.data.snapshot, topics: recorded.snapshot.body.data.snapshot.topics.filter((entry: { topic: string }) => entry.topic.startsWith('market.stats.')) } } }));
+    return;
+  }
   if ((emptyMarket || tradedMarket) && url.startsWith('/v2/snapshots?')) {
     snapshotReads++;
     response.writeHead(404, { 'Content-Type': 'application/json', 'X-Schema-Version': '2', 'Retry-After': '8', 'Cache-Control': 'no-store' });
@@ -97,7 +102,7 @@ const { createRoot } = await import('react-dom/client');
 const { SdkClient } = await import('@kindle/sdk');
 const { useQueryClient } = await import('@tanstack/react-query');
 const AppProviders = (await import('@/ui/providers/app-providers')).default;
-const { MarketClientProvider } = await import('@/page-modules/token/market-session-context');
+const { MarketClientProvider, useMarketLive } = await import('@/page-modules/token/market-session-context');
 const { default: TvChart, CHART_ANSWER_BUDGET_MS } = await import('./tv-chart');
 const { transientRetryBudgetMs } = await import('@/core/transient-retry');
 const { defaultChartSettings, updateChartSettings } = await import('@/widgets/coin/use-chart-settings');
@@ -119,7 +124,8 @@ let queryClient: QueryClient | undefined;
 
 function ChartScenario() {
   queryClient = useQueryClient();
-  return <TvChart poolAddress={pool} />;
+  const market = useMarketLive(pool, { enabled: emptyMarket });
+  return <TvChart poolAddress={pool} market={emptyMarket ? market.session : undefined} />;
 }
 
 function mount() {
@@ -154,18 +160,29 @@ describe('TvChart degraded canvas', () => {
     snapshotReads = 0;
     tradeReads = 0;
     const view = mount();
-    await waitFor(() => view.textContent?.includes('The chart starts with the first trade.') === true && snapshotReads === 1 && tradeReads > 0);
+    await waitFor(() => view.textContent?.includes('The chart starts with the first trade.') === true && candleReads.length > 0 && tradeReads > 0);
+    expect(snapshotReads).toBe(0);
     expect(view.textContent).toContain('No trades yet');
     const status = view.querySelector('section[aria-label="Price chart"] [role="status"]')!;
-    expect(status.textContent).toBe('Waiting for trades');
-    expect(status.querySelector('button')).toBeNull();
+    expect(status.firstElementChild?.textContent).toBe('Waiting for trades');
+    const retry = status.querySelector('button');
+    expect(retry?.textContent).toBe('Try again');
+    expect(retry?.classList.contains('invisible')).toBe(true);
+    expect(retry?.hasAttribute('inert')).toBe(true);
+    expect(retry?.getAttribute('aria-hidden')).toBe('true');
     expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
     expect(view.textContent).not.toMatch(/TOPIC_NOT_STARTED|Loading chart|Updates paused|May be out of date/);
     expect(view.querySelector('[role="alert"], [data-state="unavailable"]')).toBeNull();
+    expect(view.querySelector<HTMLElement>('[data-chart-canvas]')?.style.visibility).toBe('hidden');
+    expect(view.querySelector('[data-chart-canvas]')?.getAttribute('aria-hidden')).toBe('true');
+    expect(view.querySelector('[data-chart-empty]')).not.toBeNull();
+    expect(view.querySelector('[data-opening-price]')?.textContent).toContain('Opening price');
+    expect(view.querySelector('[data-chart-empty]')?.textContent).not.toContain('Try again');
     act(() => root!.unmount());
     root = undefined;
     await tick(20_000);
-    expect(snapshotReads).toBe(1);
+    expect(snapshotReads).toBe(0);
   }
   it(topicNotStartedShowsEmptyCandlesAndWaitingUpdates, topicNotStartedShowsEmptyCandlesAndWaitingUpdates);
 
@@ -181,7 +198,8 @@ describe('TvChart degraded canvas', () => {
     const status = view.querySelector('section[aria-label="Price chart"] [role="status"]')!;
     expect(status.textContent).toContain('Syncing...');
     expect(status.querySelector('button')?.textContent).toBe('Try again');
-    expect(status.querySelector('[data-numeric]')?.textContent).toBe('Block —');
+    expect(status.querySelector('[data-numeric]')).toBeNull();
+    expect(status.textContent).not.toMatch(/Last update at block|—/);
     expect(view.textContent).not.toContain('Waiting for trades');
     expect(view.textContent).not.toContain('No trades yet');
     const prices = view.querySelector<HTMLButtonElement>('button[aria-controls="canonical-chart-table"]')!;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { UserX } from 'lucide-react';
 import { Button, EmptyState, NoticeBar, humanError } from '@/ui/primitives';
 import { FollowButton } from '@/widgets/social/follow-button';
@@ -28,7 +28,9 @@ export interface ProfileBlocks {
   left?: ReactNode;
   /** Extra right-rail content under the account panel (top trades). */
   rightExtra?: ReactNode;
-  /** Centre blocks between the wallets row and the tabs (portfolio block, PnL summary). */
+  /** Value and history summary within the profile head. */
+  headerSummary?: ReactNode;
+  /** Centre blocks between the wallets row and the tabs. */
   centerExtra?: ReactNode;
   /** Tab panels; owner-only panels are added by the view itself. */
   panels?: Partial<Record<ProfileTabKey, ReactNode>>;
@@ -71,8 +73,8 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
     try { await auth.signOut(); } catch (error) { setSignOutError(humanError(error, "Couldn't sign out, try again")); } finally { setSigningOut(false); }
   }
 
-  const issueNotice = <ProfileIssuesNotice reserve />;
-  const { left, centerExtra, rightExtra, panels, placesIssueNotice } = blocks?.({ wallet, isOwner: owner, issueNotice }) ?? {};
+  const issueNotice = <ProfileIssuesNotice />;
+  const { left, headerSummary, centerExtra, rightExtra, panels, placesIssueNotice } = blocks?.({ wallet, isOwner: owner, issueNotice }) ?? {};
   const ownerPanels: Partial<Record<ProfileTabKey, ReactNode>> = owner ? {
     rewards: <RewardsView headingLevel={2} titleClassName="text-xl" />,
     referrals: <ReferralsTab walletAddress={walletAddress} />,
@@ -98,6 +100,7 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
           {!owner ? <FollowButton wallet={wallet} handle={data.profile?.displayName ?? null} size="md" /> : null}
         </>
       )}
+      summary={headerSummary}
       stats={<ProfileStats wallet={wallet} createdAt={data.profile?.createdAt ?? null} />}
       extra={<WalletsExpander wallet={wallet} isOwner={owner} className="-mx-3" />}
       className="rounded-none bg-transparent"
@@ -110,15 +113,13 @@ export default function ProfileView({ walletAddress, blocks }: ProfileViewProps)
       <ProfileReadIssue error={data.profileError} retry={data.refreshProfile} />
       {placesIssueNotice ? null : issueNotice}
       {connectedHere ? (
-        <NoticeBar tone="info" variant="card" className="mx-4 mt-3 md:mx-5" title="This is your wallet" action={<Button variant="primary" size="sm" loading={auth.authenticating} disabled={auth.authenticating} onClick={() => { void auth.authenticate(); }}>Sign in to manage</Button>}>
+        <NoticeBar tone="info" variant="card" className="mx-4 mt-3 md:mx-5" title="This is your wallet" action={<Button variant="inverse" size="sm" loading={auth.authenticating} disabled={auth.authenticating} onClick={() => { void auth.authenticate(); }}>Sign in to manage</Button>}>
           Sign in to edit your profile and see your private positions and settings.
         </NoticeBar>
       ) : null}
       {auth.error ? <p role="alert" className="px-4 pt-2 text-xs text-danger md:px-5">{humanError(auth.error)}</p> : null}
       {centerExtra}
-      <Suspense fallback={<div aria-busy="true" className="h-11" />}>
-        <ProfileTabs isOwner={owner} panels={{ ...panels, ...ownerPanels }} />
-      </Suspense>
+      <ProfileTabs isOwner={owner} panels={{ ...panels, ...ownerPanels }} />
     </>
   );
 

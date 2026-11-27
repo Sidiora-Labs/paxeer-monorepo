@@ -166,7 +166,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`[shutdown] received ${signal}`);
     try {
-      actionWorker.stop();
+      await actionWorker.stop();
       await app.close();
       await closePool();
       process.exit(0);

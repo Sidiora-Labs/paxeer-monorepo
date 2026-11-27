@@ -1,7 +1,9 @@
 'use client';
+import '@/widgets/rewards/rewards-presentation.css';
 
 import { useMemo, useState } from 'react';
-import { ErrorState, LoadMore, UnavailableState } from '@/ui/primitives';
+import { HandCoins } from 'lucide-react';
+import { EmptyState, ErrorState, LoadMore, UnavailableState } from '@/ui/primitives';
 import HolderRewardTokenCard from './holder-reward-token-card';
 import HolderRewardsControls, { type HolderRewardsViewMode } from './holder-rewards-controls';
 import type { HolderRewardsAvailability } from './holder-rewards-contract';
@@ -16,17 +18,16 @@ export function HolderRewardsUnavailable({ availability, onRetry }: { availabili
   if (availability.kind === 'failed') {
     return <ErrorState title="Holder rewards can't load right now" message="Something went wrong, try again" onRetry={onRetry} className="rounded-lg bg-surface-1" />;
   }
+  if (availability.kind === 'unindexed') return <EmptyState icon={HandCoins} title="Holder rewards are not available yet" body="Totals and rankings show up here once they're ready. Check back soon" className="rounded-lg bg-surface-1" />;
   const { marker } = availability;
   return (
     <UnavailableState
       title="Holder rewards"
       plural="auto"
       operation={marker.operation}
-      status={marker.status}
-      message={availability.kind === 'unindexed'
-        ? "Totals and rankings show up here once they're ready. Check back soon"
-        : 'Try again in a moment'}
-      onRetry={onRetry}
+      status={marker.status} notServed={marker.notServed} error={marker.error}
+      message="Try again in a moment"
+      onRetry={marker.retry ?? onRetry}
       className="rounded-lg bg-surface-1"
     />
   );
@@ -101,14 +102,14 @@ export default function HolderRewardsView() {
   const exportRows = rows.length > 0 ? () => downloadCsv(rowsToCsv(rows)) : null;
 
   return (
-    <div className="mx-auto flex w-full max-w-content-narrow-max-width flex-col gap-8 px-4 py-6">
+    <div className="rewards-presentation mx-auto flex min-w-0 w-full max-w-content-narrow-max-width flex-col gap-8 px-4 py-6">
       <HolderRewardsHeader>
         <StatsRow stats={stats} />
       </HolderRewardsHeader>
       <div className="grid min-w-0">
-        <div aria-hidden={list.availability ? true : undefined} inert={list.availability ? true : undefined} className={`col-start-1 row-start-1 flex min-w-0 flex-col gap-8${list.availability ? ' invisible' : ''}`}>
+        {!list.availability ? <div className="col-start-1 row-start-1 flex min-w-0 flex-col gap-8">
           {top.availability ? <HolderRewardsUnavailable availability={top.availability} onRetry={top.retry} /> : <TopPayingRail rows={topRows} loading={top.loading || top.pricesPending || top.identityPending} />}
-          <section aria-labelledby="all-holder-rewards-title" aria-describedby="holder-rewards-scope" className="flex flex-col gap-3">
+          <section aria-labelledby="all-holder-rewards-title" aria-describedby="holder-rewards-scope" className="flex min-w-0 flex-col gap-3">
             <h2 id="all-holder-rewards-title" className="sr-only">All holder rewards coins</h2>
             <HolderRewardsControls order={order} onSortChange={key => setOrder({ key, direction: 'desc' })} view={view} onViewChange={setView} filters={filters} onFiltersChange={setFilters} onExport={exportRows} />
             <p id="holder-rewards-scope" role="status" className="text-xs text-text-faint">
@@ -136,7 +137,7 @@ export default function HolderRewardsView() {
               />
             )}
           </section>
-        </div>
+        </div> : null}
         {list.availability ? <div className="col-start-1 row-start-1 min-w-0 self-start"><HolderRewardsUnavailable availability={list.availability} onRetry={retryAll} /></div> : null}
       </div>
     </div>

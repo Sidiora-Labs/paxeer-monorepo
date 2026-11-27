@@ -1,5 +1,6 @@
 'use client';
 import { useRef, type ReactNode } from 'react';
+import { MarketReadNotice } from '@/core/market/read-notice';
 import { useSparkline } from '@/core/market/use-sparkline';
 import { CoinCard, LoadMore } from '@/ui/primitives';
 import { formatCompactUsd, formatCount } from '@/utils/format';
@@ -18,7 +19,7 @@ function GridCard({ row, starred, onToggleStar }: GridCardProps) {
   const visible = useVisible(ref);
   const sparkline = useSparkline(visible ? row.poolAddress : null);
   return (
-    <li ref={ref} className="flex">
+    <li ref={ref} className="flex flex-col">
       <CoinCard
         variant="grid"
         surface="canvas"
@@ -32,6 +33,8 @@ function GridCard({ row, starred, onToggleStar }: GridCardProps) {
         href={row.href}
         rank={row.rank}
         stage={row.stage}
+        creator={row.creator ?? undefined}
+        description={row.description ?? undefined}
         starred={starred}
         onToggleStar={() => onToggleStar(row.poolAddress)}
         sparkline={sparkline.data?.closes ?? null}
@@ -45,6 +48,7 @@ function GridCard({ row, starred, onToggleStar }: GridCardProps) {
         ]}
         className="w-full"
       />
+      <MarketReadNotice title="Price chart" failed={sparkline.isError} retained={sparkline.data !== undefined} error={sparkline.error} onRetry={() => { void sparkline.refetch(); }} />
     </li>
   );
 }
@@ -72,7 +76,7 @@ export function ExploreGrid({ rows, isStarred, onToggleStar, loading, hasMore, l
       </div>
     );
   }
-  if (rows.length === 0) return <div className="rounded-md bg-surface-1">{empty}</div>;
+  if (rows.length === 0) return <div className="border-b border-surface-3">{empty}</div>;
   return (
     <section aria-label={label} className="flex flex-col gap-2">
       <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,var(--spacing-token-card-min-width)),1fr))] gap-4">

@@ -271,7 +271,7 @@ INSERT INTO indexer.indexer_block_completeness_v1 VALUES(125,'stream_coverage',1
 			}
 			if mode == "invalid frame" || mode == "attempt bound" || mode == "unrouted topic" || mode == "unavailable stream" {
 				var recordedState, class string
-				if err := pool.QueryRow(ctx, "SELECT state,failure_class FROM api_stream.stream_delivery_publications WHERE partition_id=$1 AND sequence=1", partition).Scan(&recordedState, &class); err != nil {
+				if err := pool.QueryRow(ctx, "SELECT state,COALESCE(failure_class,'') FROM api_stream.stream_delivery_publications WHERE partition_id=$1 AND sequence=1", partition).Scan(&recordedState, &class); err != nil {
 					t.Fatal(err)
 				}
 				expectedState, expectedClass := "pending", "transient"
@@ -279,14 +279,18 @@ INSERT INTO indexer.indexer_block_completeness_v1 VALUES(125,'stream_coverage',1
 					expectedState, expectedClass = "quarantined", "schema_violation"
 				}
 				if mode == "attempt bound" {
-					expectedState = "quarantined"
+					expectedState, expectedClass = "published", ""
 				}
 				if recordedState != expectedState || class != expectedClass {
 					t.Fatalf("publication disposition: %s %s", recordedState, class)
 				}
 				var next int64
-				if err := pool.QueryRow(ctx, "SELECT next_sequence FROM api_stream.stream_delivery_offsets WHERE partition_id=$1", partition).Scan(&next); err != nil || next != 1 {
-					t.Fatalf("refused publication offset: %d %v", next, err)
+				wantNext := int64(1)
+				if mode == "attempt bound" {
+					wantNext = 2
+				}
+				if err := pool.QueryRow(ctx, "SELECT next_sequence FROM api_stream.stream_delivery_offsets WHERE partition_id=$1", partition).Scan(&next); err != nil || next != wantNext {
+					t.Fatalf("publication offset: %d, want %d: %v", next, wantNext, err)
 				}
 			}
 		})

@@ -15,11 +15,11 @@
  *   has no trade yet, so the cell shows an em dash with that reason, never 0.
  *   `spotPriceUsdlRaw` (6 decimals) is too coarse for sub-cent coins and is
  *   not used for display.
- * - Market cap is `totalSupplyValuationUsdlRaw` (price x total supply, the
- *   pump.fun "market cap"); `circulatingMarketCapUsdlRaw` is the secondary
+ * - Market cap is `totalSupplyValuationUsdlRaw` (price x total supply); `circulatingMarketCapUsdlRaw` is the secondary
  *   value. Both are null when `supplyValuationQuality` is `unavailable`.
- * - `top10HolderShareBps` / `creatorHoldingShareBps`: basis points of total
- *   supply; null reads "not computed for this coin yet".
+ * - `top10HolderShareBps` / `creatorHoldingShareBps`: basis points of circulating
+ *   supply under `supply_minus_pool_reserve_v1`, converted to shares of total
+ *   supply; missing or invalid shares, supplies or model read as unavailable.
  * - `uniqueTraders24h` / `txCount24h`: unsigned integer strings; absent reads
  *   as unknown (the explore row falls back to buys + sells for transactions).
  */
@@ -27,7 +27,8 @@ import { formatPriceFromDecimalString } from '@/utils/units';
 import { bpsToPercent, scaleRawInteger, WAD_DECIMALS } from './market-units';
 import type { PoolStats } from './use-stats-batch';
 
-export type ChangeWindow = '5m' | '1h' | '6h' | '24h';
+export const changeWindows = ['5m', '1h', '6h', '24h'] as const;
+export type ChangeWindow = (typeof changeWindows)[number];
 export type BaselineQuality = 'complete' | 'insufficient_history' | 'unavailable';
 
 /** A display value, or the reason the cell shows a dash instead (exactly one of the two is non-null). */
@@ -35,9 +36,6 @@ export interface StatValue<T> {
   value: T | null;
   reason: string | null;
 }
-
-export const changeWindows: readonly ChangeWindow[] = ['5m', '1h', '6h', '24h'];
-
 
 type ChangeField = 'priceChangeBps5m' | 'priceChangeBps1h' | 'priceChangeBps6h' | 'priceChangeBps24h';
 type QualityField = 'changeBaselineQuality5m' | 'changeBaselineQuality1h' | 'changeBaselineQuality6h' | 'changeBaselineQuality';
@@ -111,13 +109,18 @@ export function marketCapRaw(stats: PoolStats | null | undefined): string | null
   return statsMarketCap(stats).value;
 }
 
-/** Share of total supply in percent: the ten largest holders, or the creator wallet. */
+/** Share of total supply in percent, truncated to four decimals, from circulating-supply basis points under the row's model. */
 export function statsShare(stats: PoolStats | null | undefined, holder: 'top10' | 'creator'): StatValue<number> {
   if (!stats) return none(noStatsReason);
   const bps = holder === 'top10' ? stats.top10HolderShareBps : stats.creatorHoldingShareBps;
-  if (bps === undefined) return none('Holder shares not available yet');
-  if (bps === null || !Number.isInteger(bps) || bps < 0 || bps > 10_000) return none(sharesNotComputedReason);
-  return ok(bps / 100);
+  const { totalSupplyRaw, circulatingSupplyRaw, circulationModel } = stats;
+  if (circulationModel !== 'supply_minus_pool_reserve_v1'
+    || typeof totalSupplyRaw !== 'string' || UINT.exec(totalSupplyRaw)?.[0] !== totalSupplyRaw
+    || typeof circulatingSupplyRaw !== 'string' || UINT.exec(circulatingSupplyRaw)?.[0] !== circulatingSupplyRaw
+    || bps === undefined || bps === null || !Number.isInteger(bps) || bps < 0 || bps > 10_000) return none(sharesNotComputedReason);
+  const total = BigInt(totalSupplyRaw), circulating = BigInt(circulatingSupplyRaw);
+  if (total === 0n || circulating > total) return none(sharesNotComputedReason);
+  return ok(Number(BigInt(bps) * circulating * 100n / total) / 10_000);
 }
 
 /** Adaptive-precision USDL price: two decimals from $1, four above a cent, four significant digits with subscript zeros below; em dash when absent. */
@@ -125,7 +128,11 @@ export function formatSpotPrice(decimal: string | null | undefined): string {
   return decimal === null || decimal === undefined ? '—' : formatPriceFromDecimalString(decimal);
 }
 
-/** Share of supply as "12.3%" (one decimal, "100%" and "0%" whole). */
+/** Share of supply with one decimal above 1%, two below, whole integers and a less-than form for tiny positive shares. */
 export function formatShare(percent: number): string {
+  if (percent > 0 && percent < 1) {
+    const rounded = percent.toFixed(2);
+    return rounded === '0.00' ? '<0.01%' : `${rounded.replace(/0+$/, '').replace(/\.$/, '')}%`;
+  }
   return Number.isInteger(percent) ? `${percent}%` : `${percent.toFixed(1)}%`;
 }

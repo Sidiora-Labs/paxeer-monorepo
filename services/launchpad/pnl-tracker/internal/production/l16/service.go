@@ -54,6 +54,7 @@ func NewService(authority *BaselineAuthority, second *ethclient.Client, nodeIDs 
 	if authority == nil || authority.pool == nil || authority.rpc == nil || authority.epochGuard == nil || second == nil || second == authority.rpc || nodeIDs[0] == "" || nodeIDs[1] == "" || nodeIDs[0] == nodeIDs[1] || len(nodeIDs[0]) > 256 || len(nodeIDs[1]) > 256 || !digestHex(releaseDigest) || outbox == nil {
 		return nil, ErrBaselineUnavailable
 	}
+	authority.liveFallback = second
 	return &Service{authority: authority, second: second, nodeIDs: nodeIDs, release: releaseDigest, outbox: outbox}, nil
 }
 
@@ -657,7 +658,15 @@ func (s *Service) PublishRebuiltWallet(ctx context.Context, wallet string, head 
 		if len(parts) != 3 || parts[1] != wallet {
 			return summary, delivery.ErrIntegrity
 		}
-		position, e := ProjectPosition(wallet, parts[2], snapshot.State, watermark, nil, statusUnpriced)
+		mark, e := indexedMarkPriceTx(bounded, tx, parts[2], head)
+		if e != nil {
+			return summary, e
+		}
+		quality := statusUnpriced
+		if mark != nil {
+			quality = statusPriced
+		}
+		position, e := ProjectPosition(wallet, parts[2], snapshot.State, watermark, mark, quality)
 		if e != nil {
 			return summary, e
 		}
@@ -867,7 +876,7 @@ func intervalRecords(records []EconomicRecord, step time.Duration) ([]IntervalPn
 	return out, nil
 }
 
-func (s *Service) commitRebuiltHistoryTx(ctx context.Context, tx pgx.Tx, wallet, snapshot, source string, snapshots []RebuildSnapshot, repository l17.Repository) error {
+func (s *Service) commitRebuiltHistoryTx(ctx context.Context, tx pgx.Tx, wallet, snapshot, source string, snapshots []RebuildSnapshot, repository l17.Repository, live ...map[string]liveReplayHistory) error {
 	records := []EconomicRecord{}
 	start := snapshots[0].ObservedThrough
 	end := start
@@ -885,9 +894,25 @@ func (s *Service) commitRebuiltHistoryTx(ctx context.Context, tx pgx.Tx, wallet,
 		if replay.ObservedThrough.After(end) {
 			end = replay.ObservedThrough
 		}
-		partitionRecords, e := s.readReplayArchiveTx(ctx, tx, wallet, replay)
-		if e != nil {
-			return e
+		var partitionRecords []EconomicRecord
+		if len(live) == 0 {
+			partitionRecords, e = s.readReplayArchiveTx(ctx, tx, wallet, replay)
+			if e != nil {
+				return e
+			}
+		} else {
+			if len(live) != 1 {
+				return delivery.ErrIntegrity
+			}
+			qualified, ok := live[0][replay.Partition]
+			raw, err := json.Marshal(replay)
+			if err != nil {
+				return err
+			}
+			if !ok || qualified.snapshotDigest != delivery.Hash(raw) {
+				return delivery.ErrIntegrity
+			}
+			partitionRecords = qualified.records
 		}
 		records = append(records, partitionRecords...)
 		if len(records) > 1000000 {

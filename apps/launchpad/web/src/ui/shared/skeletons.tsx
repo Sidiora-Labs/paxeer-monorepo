@@ -91,7 +91,7 @@ export function SearchResultSkeleton({ count = 4 }: { count?: number }) {
     <div className="flex flex-col gap-0.5">
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="flex items-center gap-2.5 bg-surface-2 px-3 py-2.5">
-          <Shimmer className="size-8 flex-shrink-0 rounded-pill" />
+          <Shimmer className="size-8 flex-shrink-0 rounded-coin" />
           <div className="min-w-0 flex-1 space-y-1.5">
             <Shimmer className="h-3 w-24" />
             <Shimmer className="h-2 w-16" />
@@ -207,7 +207,7 @@ export function CardRailSkeleton({
           className="flex shrink-0 flex-col gap-3 rounded-md bg-surface-1 p-4"
         >
           <div className="flex items-center gap-3">
-            <span className="sl-skeleton size-avatar-xl rounded-sm" />
+            <span className="sl-skeleton size-avatar-xl rounded-coin" />
             <div className="flex flex-1 flex-col gap-2">
               <span className="sl-skeleton h-3 w-2/3" />
               <span className="sl-skeleton h-3 w-1/3" />

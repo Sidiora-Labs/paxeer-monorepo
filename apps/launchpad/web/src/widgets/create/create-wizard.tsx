@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { displayCoinText } from '@/utils/coin-text';
 import {
@@ -59,6 +60,7 @@ import { PurchaseRecoveryControl } from './purchase-recovery-control';
 import { CoinPreviewCard } from './coin-preview-card';
 import { FeeSummary, fundingCopy } from './fee-summary';
 import { LaunchProgress, type LaunchStep } from './launch-progress';
+import { deriveLaunchSteps, fundingPlanForSummary } from './launch-steps';
 import { MediaDropzone } from './media-dropzone';
 import { MediaRuleLegend } from './media-rule-legend';
 import type { StagedMedia } from './media-validation';
@@ -588,7 +590,7 @@ export default function CreateWizard() {
     Object.keys(fieldErrors).length === 0 && missing.length === 0;
   const reviewed = state.reviewed;
   const read = reviewed?.read ?? lastRead;
-  const plan = read ? creationFunding(read) : null;
+  const plan = fundingPlanForSummary(attempt, read);
 
   const opticalReason = useCallback((presetId: string) => {
     if (presetId === STANDARD_OPTICAL) return null;
@@ -768,68 +770,25 @@ export default function CreateWizard() {
   }
 
   function buildSteps(): LaunchStep[] {
-    const steps: LaunchStep[] = [];
-    const approveStatus = attempt
-      ? 'done'
-      : state.phase === 'approving' || plan?.state === 'approval_required'
-        ? 'active'
-        : plan?.state === 'signable'
-          ? 'done'
-          : 'pending';
-    steps.push({
-      id: 'approve',
-      label: 'Approve the 1 USDL fee',
-      status: approveStatus,
-      detail:
-        approveStatus === 'done'
-          ? 'Approved'
-          : approveStatus === 'active'
-            ? 'Confirm in your wallet'
-            : undefined,
+    const descriptions = deriveLaunchSteps({
+      phase: state.phase,
+      approvalStage: state.approvalStage,
+      attempt,
+      plan,
+      firstBuyRaw: draft?.firstBuyRaw,
+      resolutionVerified: state.resolutionVerified,
+      publicationVerified: state.publicationVerified,
+      imageSkipped,
+      metadataSkipped,
+      metadataSettled,
     });
-
-    if (!attempt) {
-      steps.push({
-        id: 'create',
-        label: 'Create coin',
-        status: state.phase === 'signing' ? 'active' : 'pending',
-        detail:
-          state.phase === 'signing' ? 'Confirm in your wallet' : undefined,
-      });
-      steps.push({ id: 'image', label: 'Upload image', status: 'pending' });
-      steps.push({
-        id: 'metadata',
-        label: 'Save coin details',
-        status: 'pending',
-      });
-      steps.push({
-        id: 'first-buy',
-        label: 'First buy',
-        status: draft?.firstBuyRaw === '0' ? 'skipped' : 'pending',
-        detail: draft?.firstBuyRaw === '0' ? 'None' : undefined,
-      });
-      return steps;
-    }
-
+    const steps: LaunchStep[] = [...descriptions];
+    if (!attempt) return steps;
+    const [, createStep, imageStep, metadataStep, buyStep] = descriptions;
     const a = attempt;
-    const resolved = a.state === 'resolved' && state.resolutionVerified;
-    const createStatus =
-      a.state === 'reverted' ? 'error' : resolved ? 'done' : 'active';
-    steps.push({
-      id: 'create',
-      label: 'Create coin',
-      status: createStatus,
-      detail:
-        a.state === 'reverted'
-          ? "Didn't go through"
-          : resolved
-            ? 'Created'
-            : a.createTxHash
-              ? a.state === 'resolved'
-                ? 'Checking...'
-                : 'Confirming...'
-              : 'Not confirmed yet',
-      body: !a.createTxHash ? (
+    steps[1] = {
+      ...createStep,
+      body: createStep.showRecoveryForm ? (
         <>
           <p className="text-xs text-text-muted">
             We couldn&apos;t tell if your wallet sent this. Check your
@@ -872,7 +831,7 @@ export default function CreateWizard() {
             </Button>
           </div>
         </>
-      ) : (
+      ) : a.createTxHash ? (
         <div className="flex flex-wrap items-center gap-3">
           <TxLink hash={a.createTxHash} />
           {a.state !== 'reverted' ? (
@@ -887,42 +846,25 @@ export default function CreateWizard() {
             </Button>
           ) : null}
         </div>
-      ),
-    });
+      ) : undefined,
+    };
 
-    const imageDone = Boolean(a.metadataAssetId);
-    const imageClosed =
-      Boolean(a.metadataPatch) || a.metadataStatus === 'published';
-    const imageStatus = imageDone
-      ? 'done'
-      : imageClosed || imageSkipped
-        ? 'skipped'
-        : resolved
-          ? 'active'
-          : 'pending';
     const differentImage =
       staged &&
       a.draft.stagedMedia &&
       staged.descriptor.sha256 !== a.draft.stagedMedia.sha256;
-    steps.push({
-      id: 'image',
-      label: 'Upload image',
-      status: imageStatus,
-      detail: imageDone
-        ? 'Uploaded'
-        : imageStatus === 'skipped'
-          ? 'No image'
-          : undefined,
+    steps[2] = {
+      ...imageStep,
       body:
-        imageStatus === 'active' ? (
+        imageStep.status === 'active' ? (
           <>
             {staged ? (
               <div className="flex flex-wrap items-center gap-3">
                 <img
                   src={staged.previewUrl}
                   alt=""
-                  width={48}
-                  height={48}
+                  width={launchpadGeometry.images.wallet}
+                  height={launchpadGeometry.images.wallet}
                   decoding="async"
                   className="size-12 rounded-sm object-cover"
                 />
@@ -975,32 +917,12 @@ export default function CreateWizard() {
             </Button>
           </>
         ) : undefined,
-    });
+    };
 
-    const metadataStatus =
-      a.metadataStatus === 'published'
-        ? state.publicationVerified
-          ? 'done'
-          : 'active'
-        : metadataSkipped
-          ? 'skipped'
-          : resolved && (imageDone || imageSkipped || imageClosed)
-            ? 'active'
-            : 'pending';
-    steps.push({
-      id: 'metadata',
-      label: 'Save coin details',
-      status: metadataStatus,
-      detail:
-        a.metadataStatus === 'published'
-          ? 'Saved'
-          : metadataSkipped
-            ? 'Add them later from the coin page'
-            : a.metadataLastError
-              ? "Didn't save, try again"
-              : undefined,
+    steps[3] = {
+      ...metadataStep,
       body:
-        metadataStatus === 'active' ? (
+        metadataStep.status === 'active' ? (
           <>
             <p className="text-xs text-text-muted">
               Adds your description, links and image to the coin page. Your
@@ -1042,42 +964,13 @@ export default function CreateWizard() {
             </div>
           </>
         ) : undefined,
-    });
+    };
 
-    const buyRequested = a.draft.firstBuyRaw !== '0';
-    const buyStatus = !buyRequested
-      ? 'skipped'
-      : a.purchaseState === 'confirmed'
-        ? 'done'
-        : a.purchaseState === 'skipped'
-          ? 'skipped'
-          : a.purchaseState === 'failed'
-            ? 'error'
-            : resolved &&
-                (metadataSettled ||
-                  ['signing_locked', 'outcome_unknown', 'submitted'].includes(
-                    a.purchaseState,
-                  ))
-              ? 'active'
-              : 'pending';
     const quote = state.quote;
-    steps.push({
-      id: 'first-buy',
-      label: 'First buy',
-      status: buyStatus,
-      detail: !buyRequested
-        ? 'None'
-        : a.purchaseState === 'confirmed'
-          ? `${formatUsdl(a.draft.firstBuyRaw)} bought`
-          : a.purchaseState === 'skipped'
-            ? 'Skipped'
-            : a.purchaseState === 'failed'
-              ? "Didn't go through"
-              : buyRequested
-                ? formatUsdl(a.draft.firstBuyRaw)
-                : undefined,
+    steps[4] = {
+      ...buyStep,
       body:
-        buyStatus === 'active' || buyStatus === 'error' ? (
+        buyStep.status === 'active' || buyStep.status === 'error' ? (
           <>
             {!['signing_locked', 'outcome_unknown', 'submitted'].includes(
               a.purchaseState,
@@ -1262,7 +1155,7 @@ export default function CreateWizard() {
             ) : null}
           </>
         ) : undefined,
-    });
+    };
     return steps;
   }
 
@@ -1270,7 +1163,7 @@ export default function CreateWizard() {
   const showProgress = Boolean(attempt || reviewed || lastRead || state.busy);
 
   return (
-    <div className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
+    <div data-create-text className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 pb-[var(--sl-create-action-clearance)] md:pb-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1285,17 +1178,6 @@ export default function CreateWizard() {
             </Button>
           </div>
 
-          {draft ? (
-            <CreateFormFields
-              draft={draft}
-              errors={visibleErrors}
-              locked={locked}
-              onEdit={edit}
-              registeredOpticals={registeredOpticals}
-              registry={registry}
-              opticalReason={opticalReason}
-            />
-          ) : null}
 
           <section
             aria-labelledby="create-media-title"
@@ -1327,6 +1209,18 @@ export default function CreateWizard() {
               </p>
             ) : null}
           </section>
+
+          {draft ? (
+            <CreateFormFields
+              draft={draft}
+              errors={visibleErrors}
+              locked={locked}
+              onEdit={edit}
+              registeredOpticals={registeredOpticals}
+              registry={registry}
+              opticalReason={opticalReason}
+            />
+          ) : null}
 
           <section
             aria-labelledby="create-costs-title"
@@ -1418,9 +1312,10 @@ export default function CreateWizard() {
               </NoticeBar>
             ) : null}
             {action ? (
-              <div className="flex flex-col gap-2">
+              <div data-create-action className="sl-floating sl-floating-opaque fixed inset-x-4 bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom)+var(--sl-space-2))] z-[var(--sl-z-sticky)] flex flex-col gap-2 rounded-lg p-3 md:static md:bg-transparent md:p-0">
+                <p className="flex flex-wrap justify-between gap-2 text-xs text-text-muted md:hidden"><span>Creation fee: {formatUsdl(read?.cost.protocolFeeRaw ?? '1000000')}</span><span>{read ? `${formatTokenAmount(read.cost.gasEstimatePaxRaw, 18, { maxFraction: 6, compact: false })} PAX gas` : 'Plus network fee in PAX'}</span>{draft?.firstBuyRaw !== '0' ? <span>First buy: {formatUsdl(draft?.firstBuyRaw ?? '0')}</span> : null}</p>
                 <Button
-                  variant="primary"
+                  variant={!address ? 'inverse' : 'primary'}
                   size="lg"
                   icon={<Rocket />}
                   disabled={action.disabled}
@@ -1441,7 +1336,7 @@ export default function CreateWizard() {
                   </p>
                 ) : null}
                 {draft ? (
-                  <p className="text-xs text-text-faint">
+                  <p className="hidden text-xs text-text-faint md:block">
                     {rewardsLine[draft.feeStrategy] ??
                       `Creator rewards go to ${feeStrategyLabel(draft.feeStrategy).toLowerCase()}`}
                     . Creating costs 1 USDL, and your wallet may ask you to
@@ -1636,6 +1531,7 @@ export default function CreateWizard() {
             symbol={draft?.symbol ?? ''}
             description={draft?.description ?? ''}
             image={staged?.previewUrl ?? null}
+            creator={address ? shortAddress(address) : 'Your wallet'}
             strategy={draft?.feeStrategy ?? 0}
             socialLinks={draft?.socialLinks ?? []}
           />

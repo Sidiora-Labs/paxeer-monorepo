@@ -20,6 +20,7 @@ const ALL_CODES: ActionErrorCode[] = [
   'FORBIDDEN_DESTINATION',
   'SIMULATION_REVERTED',
   'TRANSACTION_REVERTED',
+  'NONCE_CONSUMED',
   'AGENT_FROZEN',
   'INSUFFICIENT_BALANCE',
   'INSUFFICIENT_GAS',
@@ -34,7 +35,12 @@ const ALL_CODES: ActionErrorCode[] = [
 
 describe('action error envelope', () => {
   it('maps every code to exactly one of the four retry strategies', () => {
-    const strategies = new Set(['NEVER', 'POLL_ACTION', 'RETRY_SAME_ACTION', 'USER_INTERVENTION']);
+    const strategies = new Set([
+      'NEVER',
+      'POLL_ACTION',
+      'RETRY_SAME_ACTION',
+      'USER_INTERVENTION',
+    ]);
     for (const code of ALL_CODES) {
       expect(strategies.has(retryStrategyFor(code))).toBe(true);
     }
@@ -54,6 +60,26 @@ describe('action error envelope', () => {
     expect(env.retry.after_ms).toBeNull();
     expect(env.remedy.action).toBe('NONE');
     expect(env.remedy.endpoint).toBeNull();
+  });
+
+  it('consumed nonces terminate without retry or a remedy endpoint', () => {
+    const envelope = buildErrorEnvelope({
+      actionId: 'act_0123456789abcdef01234567',
+      phase: 'approval_confirmation',
+      code: 'NONCE_CONSUMED',
+      message: 'approval nonce consumed',
+      cause: { leg: 'approval', nonce: 7, hashes: ['0xdead'] },
+    });
+    expect(envelope.retry).toEqual({
+      strategy: 'NEVER',
+      allowed: false,
+      after_ms: null,
+      reuse_idempotency_key: true,
+      must_not_resubmit: false,
+    });
+    expect(envelope.remedy).toEqual({ action: 'NONE', endpoint: null });
+    expect(envelope.cause).toEqual({ leg: 'approval', nonce: 7, hashes: ['0xdead'] });
+    expect(terminalStatusFor('NONCE_CONSUMED')).toBe('failed_terminal');
   });
 
   it('POLL_ACTION codes forbid resubmission and point at the poll endpoint', () => {

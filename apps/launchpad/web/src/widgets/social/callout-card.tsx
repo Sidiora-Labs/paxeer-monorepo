@@ -66,7 +66,7 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
   }
 
   return (
-    <article aria-labelledby={headingId} data-callout-id={callout.id} className={cn('flex flex-col gap-3 rounded-md bg-surface-1 p-3', variant === 'rail' && 'p-4', className)}>
+    <article aria-labelledby={headingId} data-callout-id={callout.id} className={cn('flex flex-col gap-3 bg-surface-1 p-4', variant === 'feed' ? 'sl-hairline' : 'rounded-md', className)}>
       <header className="flex items-start gap-3">
         {profileHref ? (
           <Link prefetch={false} href={profileHref} className="shrink-0 rounded-pill" aria-label={`Open profile of ${authorLabel}`}>
@@ -76,7 +76,7 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
           <Avatar src={null} name={authorLabel} size="lg" decorative />
         )}
         <div className="min-w-0 flex-1">
-          <h3 id={headingId} className="flex min-w-0 items-center gap-2 text-md font-bold text-text">
+          <h3 id={headingId} className="flex min-w-0 items-center gap-2 text-md font-semibold text-text">
             {profileHref ? <Link prefetch={false} href={profileHref} className="truncate hover:underline">{authorLabel}</Link> : <span className="truncate" title={callout.authorId}>{authorLabel}</span>}
             <AgeChip iso={callout.createdAt} className="shrink-0" />
             {callout.corrected ? <span className="inline-flex shrink-0 items-center gap-1 text-xs text-text-faint"><Pencil aria-hidden="true" className="size-icon-sm" />Edited</span> : null}
@@ -133,12 +133,12 @@ export function CalloutCard({ callout, stats, variant = 'feed', clampLines = 4, 
 /** Loading placeholder matching the card anatomy (avatar, three lines, embed block). */
 export function CalloutCardSkeleton({ className }: { className?: string }) {
   return (
-    <div aria-hidden="true" className={cn('flex flex-col gap-3 rounded-md bg-surface-1 p-3', className)}>
+    <div aria-hidden="true" className={cn('sl-hairline flex flex-col gap-3 bg-surface-1 p-4', className)}>
       <div className="flex items-center gap-3">
         <Skeleton variant="circle" className="size-avatar-lg" />
-        <div className="flex flex-1 flex-col gap-1.5"><Skeleton width="40%" /><Skeleton width="20%" className="h-3" /></div>
+        <div className="flex flex-1 flex-col gap-1.5"><Skeleton width="var(--sl-skeleton-width-label)" /><Skeleton width="var(--sl-skeleton-width-short)" className="h-3" /></div>
       </div>
-      <Skeleton /><Skeleton width="92%" /><Skeleton width="60%" />
+      <Skeleton /><Skeleton width="var(--sl-skeleton-width-line)" /><Skeleton width="var(--sl-skeleton-width-medium)" />
       <Skeleton variant="block" height={surfaceSpacing(16)} />
     </div>
   );

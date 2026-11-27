@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { cn, Flex, Text } from "@paxeer-network/ui";
@@ -47,12 +48,12 @@ export const ConvertRate: FC<ConvertRateProps> = (props) => {
         )}
       >
         <Text intensity={80}>1</Text>
-        <span>{sourceSymbol}</span>
+        <span>{tokenDisplayName(sourceSymbol)}</span>
         <span>=</span>
 
         <Text intensity={80}>{formatSwapPrice}</Text>
 
-        <span>{targetSymbol}</span>
+        <span>{tokenDisplayName(targetSymbol)}</span>
         {suffix}
       </Flex>
     </Flex>

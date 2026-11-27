@@ -259,6 +259,7 @@ func recordedCreationMovements(t *testing.T, ctx context.Context, s *realMarketS
 // to require, which no factory-created market satisfies), a different
 // factory, a partial seed or an extra creation transfer are refused.
 func TestFactoryCreationSupplyMatchesDeployedCreationPath(t *testing.T) {
+	parallelDatabaseTest(t)
 	requireCommittedMarket(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -309,6 +310,7 @@ func TestFactoryCreationSupplyMatchesDeployedCreationPath(t *testing.T) {
 // with its own query, and it is byte-for-byte the attestation the indexer's
 // recorded inventory frames are bound to. A new indexer fence rebinds it.
 func TestBaselineAheadIssuesCreatorBaselineBeforeFirstFillPostgres(t *testing.T) {
+	parallelDatabaseTest(t)
 	requireCommittedMarket(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
@@ -516,8 +518,10 @@ func consumeRecordedInventoryFrames(t *testing.T, ctx context.Context, s *realMa
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = js.CreateOrUpdateConsumer(ctx, stream, broker); err != nil {
-		t.Fatal(err)
+	if _, err = retryInventoryStreamRequest(ctx, func(requestCtx context.Context) (jetstream.Consumer, error) {
+		return js.CreateOrUpdateConsumer(requestCtx, stream, broker)
+	}); err != nil {
+		t.Fatalf("create broker consumer: %v", err)
 	}
 	publisher, err := natsdriver.NewPublisher(nc, stream)
 	if err != nil {

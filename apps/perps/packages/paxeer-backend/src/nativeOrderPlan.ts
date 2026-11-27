@@ -57,7 +57,7 @@ export function planNativeOrder(
       order.collateral_token.toUpperCase(),
     )
   )
-    throw new Error("This order entry uses USDC collateral.");
+    throw new Error("This order entry uses USDL collateral.");
   const side = order.side.toUpperCase();
   if (!["BUY", "SELL"].includes(side)) throw new Error("Choose Buy or Sell.");
   if (!quantity.isFinite() || quantity.lte(0))

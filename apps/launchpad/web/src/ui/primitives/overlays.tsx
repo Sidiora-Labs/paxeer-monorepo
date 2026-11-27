@@ -168,7 +168,7 @@ export function DropdownMenu({
         className={cn(
           'inline-flex items-center justify-center gap-1.5 rounded-sm font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text',
           open && 'bg-surface-3 text-text',
-          trigger
+          trigger || showLabel
             ? size === 'sm'
               ? 'min-h-control-height-sm px-2 py-1 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))]'
               : 'min-h-control-height-md px-3 py-2 text-base'
@@ -178,14 +178,15 @@ export function DropdownMenu({
           triggerClassName
         )}
       >
-        {showLabel ? <span>{label}</span> : null}
-        {trigger ?? (
-          <ChevronDown
-            aria-hidden="true"
-            className={cn('size-icon-md transition-transform duration-fast', open && 'rotate-180')}
-          />
-        )}
-        {showLabel && trigger ? (
+        {showLabel ? <span className="whitespace-nowrap">{label}</span> : null}
+        {trigger ??
+          (showLabel ? null : (
+            <ChevronDown
+              aria-hidden="true"
+              className={cn('size-icon-md transition-transform duration-fast', open && 'rotate-180')}
+            />
+          ))}
+        {showLabel ? (
           <ChevronDown
             aria-hidden="true"
             className={cn('size-icon-sm transition-transform duration-fast', open && 'rotate-180')}
@@ -208,7 +209,7 @@ export function DropdownMenu({
                 flushSync(() => setOpen(false));
               }}
               style={{ top: position.top, left: position.left }}
-              className="sl-popover absolute z-[var(--sl-z-dropdown)] min-w-[min(var(--sl-menu-min-width),calc(100dvw-var(--sl-space-6)))] max-w-[calc(100dvw-var(--sl-space-6))] max-h-[var(--sl-dialog-max-height)] overflow-y-auto rounded-md bg-surface-3 p-1 shadow-pop"
+              className="sl-popover absolute z-[var(--sl-z-dropdown)] min-w-[min(var(--sl-menu-min-width),calc(100dvw-var(--sl-space-6)))] max-w-[calc(100dvw-var(--sl-space-6))] max-h-[var(--sl-dialog-max-height)] overflow-y-auto rounded-md sl-floating p-1"
             >
               {items.map((item, index) => {
                 const role = item.selected !== undefined ? 'menuitemradio' : 'menuitem';
@@ -332,13 +333,13 @@ export function ModalFrame({
       closeOnScrim={closeOnScrim}
       aria-labelledby={titleId}
       aria-describedby={subtitle ? subtitleId : undefined}
-      className={cn('flex-col rounded-lg bg-surface-2 shadow-modal', modalWidth[size], className)}
+      className={cn('flex-col rounded-md sl-floating', modalWidth[size], className)}
     >
       <div className="@container/modal-header flex shrink-0 flex-wrap items-start gap-3 px-4 pt-4">
         <div className="order-last min-w-0 flex-1 basis-full @xs/modal-header:order-none @xs/modal-header:basis-40">
           <h2
             id={titleId}
-            className={cn('text-xl font-extrabold text-text', hideTitle && 'sr-only')}
+            className={cn('text-md font-semibold text-text', hideTitle && 'sr-only')}
           >
             {title}
           </h2>
@@ -471,7 +472,7 @@ export function Tooltip({ content, children, delay, align = 'center', className 
                 if (!focused.current) deferHide();
               }}
               style={position ? { top: position.top, left: position.left } : undefined}
-              className="sl-popover fixed z-[var(--sl-z-tooltip)] max-w-[min(var(--sl-notice-max-width),calc(100dvw-var(--sl-space-6)))] rounded-sm bg-surface-3 px-2 py-1 text-xs text-text shadow-pop"
+              className="sl-popover fixed z-[var(--sl-z-tooltip)] max-w-[min(var(--sl-notice-max-width),calc(100dvw-var(--sl-space-6)))] rounded-sm sl-floating px-2 py-1 text-xs text-text"
             >
               {content}
             </div>,

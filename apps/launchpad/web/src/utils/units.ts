@@ -1,3 +1,5 @@
+import { formatCompactUsd } from './format';
+
 /**
  * Exact fixed-point unit conversion for money math (domain-15 / D2).
  *
@@ -88,14 +90,14 @@ export function formatPriceFromDecimalString(dec: string): string {
   const [intStr = '0', fracStr = ''] = body.split('.');
 
   const isZero = /^0*$/.test(intStr) && /^0*$/.test(fracStr);
-  if (isZero) return '$0.00';
+  if (isZero) return formatCompactUsd('0.00', { numeral: true });
 
-  const prefix = neg ? '-$' : '$';
+  const prefix = neg ? '-' : '';
   const asNum = Number(body);
   // For values >= $0.01 the legacy float rounding is precise enough and keeps
   // output identical to the prior implementation.
-  if (asNum >= 1) return `${prefix}${asNum.toFixed(2)}`;
-  if (asNum >= 0.01) return `${prefix}${asNum.toFixed(4)}`;
+  if (asNum >= 1) return formatCompactUsd(`${prefix}${asNum.toFixed(2)}`, { numeral: true });
+  if (asNum >= 0.01) return formatCompactUsd(`${prefix}${asNum.toFixed(4)}`, { numeral: true });
 
   // Sub-cent: derive significant digits exactly from the fractional string.
   let zeros = 0;
@@ -104,11 +106,11 @@ export function formatPriceFromDecimalString(dec: string): string {
     else break;
   }
   const sig = fracStr.slice(zeros, zeros + 4).replace(/0+$/, '');
-  if (!sig) return '$0.00';
-  if (zeros <= 3) return `${prefix}0.${'0'.repeat(zeros)}${sig}`;
+  if (!sig) return formatCompactUsd('0.00', { numeral: true });
+  if (zeros <= 3) return formatCompactUsd(`${prefix}0.${'0'.repeat(zeros)}${sig}`, { numeral: true });
   const sub = String(zeros)
     .split('')
     .map((d) => SUBSCRIPT_DIGITS[Number(d)] ?? d)
     .join('');
-  return `${prefix}0.0${sub}${sig}`;
+  return formatCompactUsd(`${prefix}0.0${sub}${sig}`, { numeral: true });
 }

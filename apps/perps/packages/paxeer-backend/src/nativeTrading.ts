@@ -198,6 +198,7 @@ export async function executeNativeOrder(
     const quote = reviewedDeposit
       ? await useQuoter().quoteOpenPosition({
           ...planned,
+          account: address,
           collateralAmount: funding.requiredAmount,
         })
       : bound.quote;
@@ -298,6 +299,7 @@ export async function prepareNativeQuote(
   );
   const quote = await useQuoter().quoteOpenPosition({
     ...plan,
+    account: state.address ?? undefined,
     collateralAmount: funding.requiredAmount,
   });
   if (nativeOrderKey(order, leverage) !== key)

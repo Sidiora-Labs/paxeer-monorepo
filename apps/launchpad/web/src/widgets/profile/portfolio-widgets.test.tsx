@@ -181,9 +181,9 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
 
   it('PnlSummary shows realized from the summary and unrealized summed from positions, and no unserved buy volume', async () => {
     const view = mount(<PnlSummary wallet={trader} isOwner={false} />);
-    await waitFor(() => view.container.textContent?.includes('-2.50 USDL') ?? false);
+    await waitFor(() => view.container.textContent?.includes('-$2.50') ?? false);
     const text = view.container.textContent ?? '';
-    expect(text).toContain('-0.75 USDL');
+    expect(text).toContain('-$0.75');
     expect(text).not.toContain('Buy volume');
     expect(pnl.paths.some(path => path.startsWith('/users/'))).toBe(false);
     unmount(view);
@@ -195,6 +195,13 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
     const openRows = open.container.querySelectorAll('ul[aria-label="Open positions"] > li');
     expect(openRows).toHaveLength(1);
     expect(openRows[0].textContent).toContain('0x1111...1111');
+    const coinRow = openRows[0].querySelector('a')!;
+    expect(openRows[0].querySelectorAll('a')).toHaveLength(1);
+    expect(coinRow.textContent).toContain('Position value');
+    expect(coinRow.textContent).toContain('Unrealized -$0.75');
+    expect(coinRow.className).toContain('sl-hairline');
+    expect(coinRow.className).toContain('sl-row-wash-down');
+    expect(coinRow.querySelector('svg.lucide-arrow-down-right')).not.toBeNull();
     expect(Array.from(open.container.querySelectorAll('a')).some(link => link.textContent === 'Sell')).toBe(false);
     unmount(open);
 
@@ -202,15 +209,18 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
     await waitFor(() => closed.container.textContent?.includes('Lantern') ?? false);
     const closedRows = closed.container.querySelectorAll('ul[aria-label="Closed positions"] > li');
     expect(closedRows).toHaveLength(1);
-    expect(closedRows[0].textContent).toContain('+2.50 USDL');
+    expect(closedRows[0].textContent).toContain('+$2.50');
     expect(closedRows[0].textContent).toContain('complete');
+    expect(closedRows[0].querySelectorAll('a')).toHaveLength(1);
+    expect(closedRows[0].querySelector('a')?.className).toContain('sl-row-wash-up');
+    expect(closedRows[0].querySelector('svg.lucide-arrow-up-right')).not.toBeNull();
     expect(closed.container.querySelector(`a[href="${poolPath(125, poolB)}"]`)).not.toBeNull();
     unmount(closed);
   });
 
   it('TopTrades ranks closed positions and shows the empty sentence for a fresh wallet', async () => {
     const ranked = mount(<TopTrades wallet={trader} />);
-    await waitFor(() => ranked.container.textContent?.includes('+2.50 USDL') === true && ranked.container.textContent.includes('Lantern'));
+    await waitFor(() => ranked.container.textContent?.includes('+$2.50') === true && ranked.container.textContent.includes('Lantern'));
     expect(ranked.container.querySelectorAll('ol[aria-label="Top trades"] > li')).toHaveLength(1);
     expect(ranked.container.textContent).toContain('Lantern');
     expect(ranked.container.textContent).not.toMatch(/\dx\b/);
@@ -270,7 +280,7 @@ describe('portfolio widgets against a real pnl-tracker origin (visitor)', () => 
 
   it('masks every amount while balances are hidden', async () => {
     const view = mount(<PnlSummary wallet={trader} isOwner={false} />);
-    await waitFor(() => view.container.textContent?.includes('-2.50 USDL') ?? false);
+    await waitFor(() => view.container.textContent?.includes('-$2.50') ?? false);
     const hide = Array.from(view.container.querySelectorAll('button')).find(button => button.textContent === 'hide');
     act(() => { hide?.click(); });
     const masked = view.container.querySelectorAll('[data-masked="true"]');

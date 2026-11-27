@@ -43,6 +43,7 @@ fn pending_default_start_report_names_one_submission() -> TestResult {
     let config = config_without_pending_key(&peer);
     assert_eq!(config.max_pending_submissions, 1);
     assert!(start_report(&config).contains("max_pending_submissions 1"));
+    assert!(peer.state.lock().unwrap().evm_observation_reads.is_empty());
     Ok(())
 }
 

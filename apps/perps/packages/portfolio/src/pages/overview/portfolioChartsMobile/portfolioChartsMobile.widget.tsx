@@ -9,7 +9,7 @@ export const PortfolioChartsMobileWidget: React.FC = () => {
   const state = usePortfolioChartsState();
   return (
     <PortfolioChartsMobileUI
-      data={data || EMPTY_LIST}
+      data={[...(data || EMPTY_LIST)]}
       invisible={invisible}
       {...state}
     />

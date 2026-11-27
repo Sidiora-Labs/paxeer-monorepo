@@ -105,7 +105,7 @@ const Asset: FC<PortfolioSheetState> = (props) => {
           }}
           className="oui-cursor-pointer"
         >
-          {`${t("common.totalValue")} (USDC)`}
+          {`${t("common.totalValue")} (USDL)`}
         </Text.formatted>
         <Text.numeral
           size="base"
@@ -119,7 +119,7 @@ const Asset: FC<PortfolioSheetState> = (props) => {
       </Flex>
       <Grid cols={2} rows={1} width={"100%"}>
         <Statistic
-          label={`${t("common.unrealizedPnl")} (USDC)`}
+          label={`${t("common.unrealizedPnl")} (USDL)`}
           classNames={{
             label: "oui-text-2xs oui-text-base-contrast-36",
           }}
@@ -150,7 +150,7 @@ const Asset: FC<PortfolioSheetState> = (props) => {
           </Flex>
         </Statistic>
         <Statistic
-          label={`${t("trading.asset.unsettledPnl")} (USDC)`}
+          label={`${t("trading.asset.unsettledPnl")} (USDL)`}
           classNames={{
             label: "oui-text-2xs oui-text-base-contrast-36",
           }}
@@ -227,7 +227,7 @@ const MarginRatio: FC<PortfolioSheetState> = (props) => {
         </Flex>
       </Statistic>
       <Statistic
-        label={`${t("trading.asset.free&TotalCollateral")} (USDC)`}
+        label={`${t("trading.asset.free&TotalCollateral")} (USDL)`}
         classNames={{
           label: "oui-text-2xs oui-text-base-contrast-36",
         }}

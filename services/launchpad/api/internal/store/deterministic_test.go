@@ -88,7 +88,7 @@ func TestL22RealPostgresPaginationSnapshotDeadline(t *testing.T) {
 	token := ""
 	last := 151
 	for page := 0; page < 3; page++ {
-		got, e := r.Trades(ctx, fixtureAddress, "", token, 50)
+		got, e := repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, fixtureAddress, "", token, 50) })
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -113,10 +113,12 @@ func TestL22RealPostgresPaginationSnapshotDeadline(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			if _, e = r.Trades(ctx, "0x2222222222222222222222222222222222222222", "", token, 50); !errors.Is(e, ErrCursorScope) {
+			if _, e = repeatDeterministicRead(func() (TradePage, error) {
+				return r.Trades(ctx, "0x2222222222222222222222222222222222222222", "", token, 50)
+			}); !errors.Is(e, ErrCursorScope) {
 				t.Fatal(e)
 			}
-			if _, e = r.Trades(ctx, fixtureAddress, "", token+"x", 50); !errors.Is(e, ErrCursorInvalid) {
+			if _, e = repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, fixtureAddress, "", token+"x", 50) }); !errors.Is(e, ErrCursorInvalid) {
 				t.Fatal(e)
 			}
 		} else if got.NextCursor != nil {
@@ -133,18 +135,21 @@ func TestL22RealPostgresPaginationSnapshotDeadline(t *testing.T) {
 		t.Fatal(len(seen))
 	}
 	// Pause after the snapshot SELECT has established repeatable-read visibility.
-	e := r.read(ctx, fixtureAddress, "0", func(ctx context.Context, tx pgx.Tx, s SnapshotRead) error {
-		if _, e := p.Exec(ctx, `INSERT INTO `+fixtureSchema+`.market_snapshots SELECT chain_id,pool_address,3,152,chain_height,block_hash,now(),'{"reserveRaw":"152"}' FROM `+fixtureSchema+`.market_snapshots WHERE revision=1`); e != nil {
-			return e
-		}
-		var revision string
-		if e := tx.QueryRow(ctx, `SELECT max(revision)::text FROM `+fixtureSchema+`.market_snapshots`).Scan(&revision); e != nil {
-			return e
-		}
-		if revision != string(s.Watermark.ProjectionRevision) {
-			t.Fatalf("nonrepeatable snapshot %s %+v", revision, s)
-		}
-		return nil
+	_, e := repeatDeterministicRead(func() (struct{}, error) {
+		err := r.read(ctx, fixtureAddress, "0", func(ctx context.Context, tx pgx.Tx, s SnapshotRead) error {
+			if _, e := p.Exec(ctx, `INSERT INTO `+fixtureSchema+`.market_snapshots SELECT chain_id,pool_address,revision+1,applied_event+1,chain_height,block_hash,now(),'{"reserveRaw":"152"}' FROM `+fixtureSchema+`.market_snapshots WHERE revision=$1::numeric`, string(s.Watermark.ProjectionRevision)); e != nil {
+				return e
+			}
+			var revision string
+			if e := tx.QueryRow(ctx, `SELECT max(revision)::text FROM `+fixtureSchema+`.market_snapshots`).Scan(&revision); e != nil {
+				return e
+			}
+			if revision != string(s.Watermark.ProjectionRevision) {
+				t.Fatalf("nonrepeatable snapshot %s %+v", revision, s)
+			}
+			return nil
+		})
+		return struct{}{}, err
 	})
 	if e != nil {
 		t.Fatal(e)
@@ -211,7 +216,7 @@ func TestL22RealPostgresRejectsCorruptWatermark(t *testing.T) {
 		if _, e := p.Exec(ctx, `UPDATE `+fixtureSchema+`.market_snapshots SET block_hash=$1`, hash); e != nil {
 			t.Fatal(e)
 		}
-		if _, e := r.Snapshot(ctx, fixtureAddress); !errors.Is(e, ErrDataIntegrity) {
+		if _, e := repeatDeterministicRead(func() (SnapshotRead, error) { return r.Snapshot(ctx, fixtureAddress) }); !errors.Is(e, ErrDataIntegrity) {
 			t.Fatalf("hash=%q err=%v", hash, e)
 		}
 	}
@@ -219,14 +224,14 @@ func TestL22RealPostgresRejectsCorruptWatermark(t *testing.T) {
 		if _, e := p.Exec(ctx, `UPDATE `+fixtureSchema+`.market_snapshots SET block_hash=$1,observed_at=$2`, "0x"+strings.Repeat("a", 64), timestamp); e != nil {
 			t.Fatal(e)
 		}
-		if _, e := r.Snapshot(ctx, fixtureAddress); !errors.Is(e, ErrDataIntegrity) {
+		if _, e := repeatDeterministicRead(func() (SnapshotRead, error) { return r.Snapshot(ctx, fixtureAddress) }); !errors.Is(e, ErrDataIntegrity) {
 			t.Fatalf("timestamp=%v err=%v", timestamp, e)
 		}
 	}
 	if _, e := p.Exec(ctx, `UPDATE `+fixtureSchema+`.market_snapshots SET block_hash=NULL,observed_at=now()`); e != nil {
 		t.Fatal(e)
 	}
-	if _, e := r.Snapshot(ctx, fixtureAddress); !errors.Is(e, ErrDataIntegrity) {
+	if _, e := repeatDeterministicRead(func() (SnapshotRead, error) { return r.Snapshot(ctx, fixtureAddress) }); !errors.Is(e, ErrDataIntegrity) {
 		t.Fatal(e)
 	}
 }
@@ -239,14 +244,14 @@ func TestProductionContinuationWithoutRetainedSnapshotRequiresRestart(t *testing
 			t.Fatal(err)
 		}
 	}
-	page, err := r.Trades(ctx, fixtureAddress, "", "", 1)
+	page, err := repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, fixtureAddress, "", "", 1) })
 	if err != nil || page.NextCursor == nil {
 		t.Fatal(page, err)
 	}
 	if _, err = p.Exec(ctx, `DELETE FROM `+fixtureSchema+`.market_snapshots`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = r.Trades(ctx, fixtureAddress, "", *page.NextCursor, 1); !errors.Is(err, ErrCursorExpired) {
+	if _, err = repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, fixtureAddress, "", *page.NextCursor, 1) }); !errors.Is(err, ErrCursorExpired) {
 		t.Fatal("missing retained snapshot reported as pool absence", err)
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -65,30 +66,44 @@ func productionRuntimeConfig(t *testing.T) (config.Config, statsRuntimeDocument)
 	redisURL := internaltest.NewRedisURL(t)
 	d := readDelivery(t, filepath.Join("testdata", "delivery.production.json"))
 	suffix := strings.ReplaceAll(time.Now().UTC().Format("150405.000000000"), ".", "")
+	streamNames := map[string]string{
+		d.Consumers[0].Stream: "RUNTIME_MARKET_" + suffix,
+		d.Phase2.OutputStream: "RUNTIME_STATS_" + suffix,
+	}
 	d.Consumers[0].Stream = "RUNTIME_MARKET_" + suffix
 	d.Consumers[0].Durable = "runtime_market_" + suffix
 	d.Phase2.OutputStream = "RUNTIME_STATS_" + suffix
+	streamSubjects := map[string][]string{
+		d.Consumers[0].Stream: {d.Consumers[0].Subject},
+		d.Phase2.OutputStream: {d.Phase2.StatsSubject},
+	}
 	for i := range d.Phase2.SearchConsumers {
 		c := &d.Phase2.SearchConsumers[i].Consumer
 		c.Durable += "_" + suffix
-		if d.Phase2.SearchConsumers[i].Kind == "creation" {
-			c.Stream = d.Consumers[0].Stream
-		} else {
-			c.Stream = d.Phase2.OutputStream
+		if streamNames[c.Stream] == "" {
+			streamNames[c.Stream] = "RUNTIME_" + c.Stream + "_" + suffix
 		}
+		c.Stream = streamNames[c.Stream]
+		streamSubjects[c.Stream] = append(streamSubjects[c.Stream], c.Subject)
 	}
 	nc := internaltest.ConnectNATS(t, os.Getenv("L20_NATS_URL"))
 	js, err := nc.JetStream()
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, stream := range []nats.StreamConfig{{Name: d.Consumers[0].Stream, Subjects: []string{"accounting.market.v1", "canonical.creation.v1"}, Storage: nats.FileStorage, MaxBytes: 1048576}, {Name: d.Phase2.OutputStream, Subjects: []string{"stats.minute.v2", "search.invalidation.v2"}, Storage: nats.FileStorage, MaxBytes: 1048576}} {
+	streamOrder := make([]string, 0, len(streamSubjects))
+	for name := range streamSubjects {
+		streamOrder = append(streamOrder, name)
+	}
+	sort.Strings(streamOrder)
+	for _, name := range streamOrder {
+		stream := nats.StreamConfig{Name: name, Subjects: streamSubjects[name], Storage: nats.FileStorage, MaxBytes: 1048576}
 		if _, err := js.AddStream(&stream); err != nil {
 			t.Fatal(err)
 		}
-		name := stream.Name
+		streamName := stream.Name
 		t.Cleanup(func() {
-			if err := js.DeleteStream(name); err != nil {
+			if err := js.DeleteStream(streamName); err != nil {
 				t.Error(err)
 			}
 		})

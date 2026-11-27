@@ -57,7 +57,7 @@ function CenterSkeleton() {
     <div aria-busy="true" className="flex flex-col gap-1">
       <Skeleton variant="block" height={surfaceSpacing(13)} label="pair header" className="rounded-md" />
       <Skeleton variant="block" height={surfaceSpacing(105)} label="chart" className="rounded-md" />
-      <Skeleton variant="rows" rows={6} label="trades" className="rounded-md bg-surface-1" />
+      <Skeleton variant="rows" rows={6} label="trades" className="rounded-none bg-surface-1" />
     </div>
   );
 }
@@ -91,7 +91,7 @@ export default function TerminalCoinView({ poolAddress }: { poolAddress: string 
       <TerminalFrame
         left={left}
         center={(
-          <div className="rounded-md bg-surface-1">
+          <div className="rounded-none bg-surface-1">
             <EmptyState
               variant="panel"
               icon={SearchX}

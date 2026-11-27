@@ -2,9 +2,10 @@
   "name": "Sidiora Launchpad \u2014 explore",
   "directory": "../../../../../",
   "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
-  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs --surface tools/ui-check/surfaces/launchpad/parts/explore.json",
   "address": "https://sidiora.test:4173",
   "readyPath": "/",
+  "readyMs": 120000,
   "views": [
     {
       "name": "explore",
@@ -54,7 +55,7 @@
             },
             {
               "action": "click",
-              "selector": "html:has([data-shell-ready]) [role=\"radiogroup\"][aria-label=\"Layout\"]:visible [role=\"radio\"]:has-text(\"Grid\")"
+              "selector": "html:has([data-shell-ready]) [role=\"radiogroup\"][aria-label=\"Layout\"]:visible [role=\"radio\"][aria-label=\"Grid\"]"
             },
             {
               "action": "click",
@@ -80,7 +81,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -105,7 +106,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -125,7 +126,7 @@
         },
         {
           "action": "wait",
-          "text": "No coins yet"
+          "text": "No coins in Trending yet"
         },
         {
           "action": "press",
@@ -134,7 +135,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -216,7 +217,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -241,7 +242,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -266,7 +267,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -291,7 +292,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -316,7 +317,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -341,7 +342,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -365,7 +366,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -445,7 +446,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -469,7 +470,15 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "Science Orbit"
+        },
+        {
+          "action": "wait",
+          "text": "Not trading yet"
+        },
+        {
+          "action": "wait",
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -532,5 +541,5 @@
       "max": 28
     }
   ],
-  "buildMs": 600000
+  "buildMs": 1800000
 }

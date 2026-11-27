@@ -8,6 +8,7 @@ import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { USDL_ADDRESS } from '@/core/network/contracts';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { Button, EmptyState, ErrorState, FormField, IconButton, SegmentedControl, UnavailableState } from '@/ui/primitives';
+import { formatCompactUsd } from '@/utils/format';
 import { exactPriceRatio } from '@/page-modules/token/market-presentation';
 import { useAccountSession } from '@/widgets/profile/use-account-session';
 import { alertCooldowns, alertCreateBody, priceRatio, type AlertDirection } from './model';
@@ -45,7 +46,7 @@ function failure(operation: string, error: unknown): Failure {
 
 function FailureNote({ value, title }: { value: Failure; title: string }) {
   return value.kind === 'unsupported'
-    ? <UnavailableState variant="inline" title={title} operation={value.marker.operation} status={value.marker.status} />
+    ? <UnavailableState variant="inline" title={title} operation={value.marker.operation} status={value.marker.status} notServed={value.marker.notServed} />
     : <ErrorState variant="inline" message={value.message} />;
 }
 
@@ -66,14 +67,14 @@ function AlertForm({ pool, operations, wallet }: { pool: string; operations: Ope
   const token = snapshot.data?.token ?? null;
   const decimals = token && token.decimalsQuality === 'verified' ? token.decimals : null;
   const tokenAddress = snapshot.data?.pool.tokenAddress ?? null;
-  const priceError = price.trim() !== '' && !priceRatio(price) ? 'Enter a USDL price above 0' : null;
+  const priceError = price.trim() !== '' && !priceRatio(price) ? 'Enter a price above 0' : null;
   const blocked = snapshot.isPending ? 'Loading...' : snapshot.isError ? "This coin can't load right now" : decimals === null || tokenAddress === null ? 'Alerts are not available for this coin yet' : null;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy || blocked || decimals === null || tokenAddress === null) return;
     const body = alertCreateBody({ poolAddress: pool, tokenAddress, tokenDecimals: decimals, usdlAddress: USDL_ADDRESS, direction, price, cooldownSeconds: Number(cooldown), observedAt: new Date() });
-    if (!body) { setError({ kind: 'error', message: 'Enter a USDL price above 0' }); return; }
+    if (!body) { setError({ kind: 'error', message: 'Enter a price above 0' }); return; }
     setBusy(true); setError(null);
     try {
       const alert = await createAlert(operations, body, crypto.randomUUID());
@@ -89,7 +90,7 @@ function AlertForm({ pool, operations, wallet }: { pool: string; operations: Ope
   return (
     <form onSubmit={submit} className="flex flex-col gap-2 px-2" aria-label="Create price alert">
       <SegmentedControl label="Alert direction" options={directionOptions} value={direction} onChange={setDirection} fullWidth />
-      <FormField id={`${id}-price`} label="Price (USDL per token)" surface="surface-2" error={priceError} mono
+      <FormField id={`${id}-price`} label="Price ($ per token)" surface="surface-2" error={priceError} mono
         inputProps={{ inputMode: 'decimal', autoComplete: 'off', placeholder: '0.0001', value: price, onChange: event => setPrice(event.target.value) }} />
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-text-faint">Repeat at most every</span>
@@ -120,7 +121,7 @@ function AlertRow({ alert, operations }: { alert: Alert; operations: Operations 
       <div className="flex items-center gap-2 text-sm">
         <span className="min-w-0 flex-1 truncate">
           {alert.direction === 'crosses_above' ? 'Rises above' : 'Falls below'}{' '}
-          <span className="font-bold tabular-nums">{exactPriceRatio(alert.threshold.numerator, alert.threshold.denominator)} USDL</span>
+          <span className="font-bold tabular-nums">{formatCompactUsd(exactPriceRatio(alert.threshold.numerator, alert.threshold.denominator), { numeral: true })}</span>
         </span>
         <span className="text-2xs uppercase text-text-faint">{alert.state}</span>
         <IconButton label="Delete alert" icon={<Trash2 />} size="sm" loading={busy} onClick={remove} />

@@ -479,7 +479,7 @@ export async function publishCustodyAuthority(
       left join wallets w on w.id = a.wallet_id
       cross join lateral (select (date_trunc('day', now() at time zone 'UTC') + p.daily_reset_utc_hour * interval '1 hour') at time zone 'UTC' as reset) clock
       cross join lateral (select clock.reset - case when clock.reset > now() then interval '1 day' else interval '0 days' end as start) boundary
-      left join wallet_signatures s on s.principal_did = a.did and s.created_at >= now() - interval '24 hours'
+      left join wallet_signatures s on s.principal_did = a.did and s.wallet_id = w.id and s.created_at >= now() - interval '24 hours'
         and s.created_at < coalesce(w.migrated_at, 'infinity'::timestamptz)
       group by a.did, boundary.start`);
     for (const row of rows) {

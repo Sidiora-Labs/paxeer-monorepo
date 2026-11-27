@@ -128,7 +128,7 @@ function deploymentRegenerationFeedsWebConsumers() {
   ]).toEqual([data.router, data.quoter, data.feesRouter, data.opticalRegistry, data.protocolConfig, data.usdl]);
   expect(productionTradeDeployment).toEqual({
     revision: data.manifestSha256, router: data.router, spender: data.launchpadPrecompile, quoter: data.quoter,
-    registry: data.poolRegistry, emitter: data.eventEmitter, usdl: data.usdl,
+    registry: data.poolRegistry, emitter: data.eventEmitter, swapRecordWriter: data.launchpadPrecompile, usdl: data.usdl,
     pins: deployment.CORE_TRADE_EXECUTION_ROLES.map(role => {
       const identity = data.roleIdentity[role];
       return { address: data[role], runtimeHash: identity.runtimeHash,

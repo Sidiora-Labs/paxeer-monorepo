@@ -24,7 +24,7 @@ type stage struct {
 	instructions []instruction
 }
 
-var services = []string{"perps-indexer", "perps-gateway", "perps-explorer", "perps-portal", "perps-replay", "perps-loadtest"}
+var services = []string{"perps-indexer", "perps-gateway", "perps-explorer", "perps-portal", "perps-replay", "perps-quoter", "perps-loadtest"}
 
 var (
 	digestPattern = "*@sha256:" + strings.Repeat("?", 64) + ")"
@@ -141,7 +141,7 @@ func checkDockerfile(src string) error {
 		return errors.New("build stage has no ARG SERVICE")
 	}
 	if !build.runContaining(`case "${SERVICE}" in ` + strings.Join(services, "|") + `) ;;`) {
-		return errors.New("SERVICE is not restricted to the six binaries")
+		return errors.New("SERVICE is not restricted to the seven binaries")
 	}
 	if !build.runContaining(`go build -mod=readonly -trimpath `) || !build.runContaining(`-o /out/app "./services/platform/perps-data/cmd/${SERVICE}"`) {
 		return errors.New("go build does not use -mod=readonly -trimpath on services/platform/perps-data/cmd/${SERVICE}")
@@ -199,7 +199,7 @@ func TestDockerfile(t *testing.T) {
 		{"build_image_default", "ARG BUILD_IMAGE\nARG RUNTIME_IMAGE\nFROM", "ARG BUILD_IMAGE=golang:1.25.6\nARG RUNTIME_IMAGE\nFROM", "global ARGs [{ARG BUILD_IMAGE=golang:1.25.6} {ARG RUNTIME_IMAGE}], want BUILD_IMAGE and RUNTIME_IMAGE without defaults"},
 		{"runtime_digest_unchecked", `case "${RUNTIME_IMAGE}" in`, `case "${RUNTIME_TAG}" in`, "RUNTIME_IMAGE is not refused unless pinned by digest"},
 		{"cgo_enabled", "ENV CGO_ENABLED=0", "ENV CGO_ENABLED=1", "CGO_ENABLED=1 in ENV"},
-		{"service_list", "|perps-loadtest)", ")", "SERVICE is not restricted to the six binaries"},
+		{"service_list", "|perps-loadtest)", ")", "SERVICE is not restricted to the seven binaries"},
 		{"no_trimpath", "-mod=readonly -trimpath ", "-mod=readonly ", "go build does not use -mod=readonly -trimpath on services/platform/perps-data/cmd/${SERVICE}"},
 		{"root_user", "USER 65532:65532", "USER root", `runtime USER "root", want 65532:65532`},
 		{"entrypoint", `ENTRYPOINT ["/app/app"]`, `ENTRYPOINT ["/bin/sh"]`, `runtime ENTRYPOINT "[\"/bin/sh\"]", want ["/app/app"]`},

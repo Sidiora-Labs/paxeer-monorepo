@@ -80,9 +80,7 @@ def test_tools_python_baseline_tracks_exact_cases():
     })
     paxeer_cases = [case for case in cases
                     if case["nodeid"].startswith("tools/paxeer-x/tests/")]
-    remaining = {
-        "tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid",
-    }
+    remaining = set()
     retired = expected - remaining
     assert not retired & {case["nodeid"] for case in cases}
     assert {case["nodeid"] for case in paxeer_cases} <= remaining

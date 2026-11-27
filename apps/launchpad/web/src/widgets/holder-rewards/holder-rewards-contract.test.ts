@@ -93,7 +93,7 @@ describe('holder rewards contract against a real HTTP origin', () => {
     expect((failure as CapabilityUnavailableError).status).toBe(404);
     expect(unserved.paths).toContain(`/v2/holder-rewards/pools?sort=rewards&limit=${holderRewardsPageSize}`);
     const classified = classifyHolderRewardsFailure(holderRewardsOperations.pools, failure);
-    expect(classified).toEqual({ kind: 'unindexed', marker: { state: 'unsupported', operation: 'IF_HOLDER_REWARDS_POOLS', status: 404, message: 'Unavailable endpoint /v2/holder-rewards/pools' } });
+    expect(classified).toEqual({ kind: 'unindexed', marker: { state: 'unsupported', operation: 'IF_HOLDER_REWARDS_POOLS', status: 404, notServed: true, message: 'Unavailable endpoint /v2/holder-rewards/pools' } });
 
     const stats = await fetchHolderRewardsStats(operations).catch((error: unknown) => error);
     expect(stats).toBeInstanceOf(CapabilityUnavailableError);
@@ -106,7 +106,7 @@ describe('holder rewards contract against a real HTTP origin', () => {
     expect(failure).toBeInstanceOf(HttpError);
     expect((failure as HttpError).status).toBe(503);
     expect(degraded.paths).toContain('/v2/holder-rewards/pools?sort=mcap&cursor=abc&limit=10');
-    expect(classifyHolderRewardsFailure(holderRewardsOperations.pools, failure)).toEqual({ kind: 'degraded', marker: { state: 'unsupported', operation: 'IF_HOLDER_REWARDS_POOLS', status: 503, message: 'DEPENDENCY_UNAVAILABLE' } });
+    expect(classifyHolderRewardsFailure(holderRewardsOperations.pools, failure)).toEqual({ kind: 'degraded', marker: { state: 'unsupported', operation: 'IF_HOLDER_REWARDS_POOLS', status: 503, message: 'DEPENDENCY_UNAVAILABLE', error: failure } });
   });
 
   it('reports every other failure as a genuine error, never as unsupported', async () => {

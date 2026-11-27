@@ -805,6 +805,7 @@ type User {
 type UserBalance {
   token: String
   balance: BigDecimal
+  locked: BigDecimal
   totalDeposited: BigDecimal
   totalWithdrawn: BigDecimal
   depositCount: Int

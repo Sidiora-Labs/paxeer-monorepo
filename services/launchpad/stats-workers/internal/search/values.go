@@ -1,6 +1,7 @@
 package search
 
 const (
+	valueAddress         = "address"
 	valueVisibility      = "visibility"
 	valuePaused          = "paused"
 	valueToken           = "token"

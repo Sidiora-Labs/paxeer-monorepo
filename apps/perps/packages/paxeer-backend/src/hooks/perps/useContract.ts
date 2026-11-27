@@ -14,6 +14,7 @@ export async function readContract(params: {
   abi: readonly unknown[];
   functionName: string;
   args?: readonly unknown[];
+  account?: Address;
 }) {
   const client = getPublicClient();
   return client.readContract(params as any);

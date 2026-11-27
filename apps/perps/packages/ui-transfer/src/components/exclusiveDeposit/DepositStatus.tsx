@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Flex, Text, ChevronRightIcon } from "@paxeer-network/ui";
@@ -19,7 +20,7 @@ export const DepositStatusBlock: FC<DepositStatusBlockProps> = ({
   const t = t0 as any;
   const label = t("transfer.exclusiveDeposit.depositPending", {
     amount,
-    symbol,
+    symbol: tokenDisplayName(symbol),
   });
 
   const handleClick = () => {

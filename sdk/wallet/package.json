@@ -27,6 +27,14 @@
     "./types": {
       "types": "./src/types.ts",
       "default": "./src/types.ts"
+    },
+    "./owner": {
+      "types": "./dist/owner.d.ts",
+      "import": "./dist/owner.js"
+    },
+    "./agent-client": {
+      "types": "./dist/agent-client.d.ts",
+      "import": "./dist/agent-client.js"
     }
   },
   "files": [

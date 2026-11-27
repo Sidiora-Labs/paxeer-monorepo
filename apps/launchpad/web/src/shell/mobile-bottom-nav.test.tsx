@@ -54,12 +54,12 @@ afterEach(() => {
 });
 
 describe('MobileBottomNav bar', () => {
-  it('renders five icon-only targets in reference order with accessible names', async () => {
+  it('renders five labelled targets with accessible names', async () => {
     await render('/');
     const items = targets();
     expect(items.map(item => item.getAttribute('aria-label'))).toEqual(['Home', 'Explore', 'Create', 'Bounties', 'More']);
     for (const item of items) {
-      expect(item.textContent?.trim()).toBe('');
+      expect(item.textContent?.trim()).toBe(item.getAttribute('aria-label'));
       expect(item.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
     }
     expect(items.slice(0, 4).map(item => item.getAttribute('href'))).toEqual(['/', '/explore', '/create', '/bounties']);
@@ -72,28 +72,28 @@ describe('MobileBottomNav bar', () => {
     expect(nav().className).not.toContain('lg:hidden');
   });
 
-  it('separates by background contrast only: no border or ring classes, create is not a filled accent tile', async () => {
+  it('uses a translucent surface with a hairline and an accent create disc', async () => {
     await render('/');
-    expect(nav().className).toContain('bg-surface-1');
-    expect(nav().outerHTML).not.toMatch(/\bborder\b|border-[a-z]|\bring-|shadow-|gradient/);
-    expect(nav().querySelector('[class~="bg-accent"]')).toBeNull();
-    expect(
-      targets().map(item => [...item.classList].filter(name => name.startsWith('bg-')))
-    ).toEqual([['bg-accent-soft'], [], [], [], []]);
+    expect(nav().className.split(/\s+/)).toEqual(expect.arrayContaining(['sl-mobile-destinations', 'border-t', 'border-surface-3']));
+    expect(nav().outerHTML).not.toMatch(/\bring-|shadow-|gradient/);
+    const createDisc = nav().querySelector('[class~="bg-accent"]')!;
+    expect(createDisc.closest('a')?.getAttribute('href')).toBe('/create');
+    expect(createDisc.classList).toContain('rounded-pill');
+    expect(targets().every(item => !item.classList.contains('bg-accent-soft'))).toBe(true);
   });
 
   it('tints only the active target and marks it as the current page', async () => {
     await render('/explore');
     const [home, explore] = targets();
     expect(explore.getAttribute('aria-current')).toBe('page');
-    expect(explore.className).toContain('text-accent');
+    expect(explore.classList).toContain('text-text');
     expect(home.getAttribute('aria-current')).toBeNull();
-    expect(home.className).not.toContain('text-accent');
+    expect(home.classList).toContain('text-text-muted');
   });
 
   it('tints More when the current route lives in the sheet', async () => {
     await render('/leaderboard');
-    expect(moreButton().className).toContain('text-accent');
+    expect(moreButton().classList).toContain('text-text');
     expect(targets().filter(item => item.getAttribute('aria-current') === 'page')).toHaveLength(0);
   });
 });
@@ -114,8 +114,9 @@ describe('More sheet', () => {
     const expected = [...navItems.filter(item => item.section === 'main'), ...navItems.filter(item => item.section === 'bottom')]
       .filter(item => item.requires === 'public' && !pinned.has(item.id)).map(item => item.label);
     expect(links).toEqual(expected);
-    expect(links.slice(0, 4)).toEqual(['Leaderboard', 'Live', 'Holder rewards', 'Terminal']);
-    expect(dialog.className).toContain('bg-surface-2');
+    expect(links.slice(0, 5)).toEqual(['Leaderboard', 'Live', 'Holder rewards', 'Agents', 'Terminal']);
+    expect(dialog.classList).toContain('sl-floating');
+    expect(dialog.classList).toContain('sl-sheet');
     expect(assertControlEdges(dialog.outerHTML)).not.toMatch(
       /\bborder\b|border-[a-z]|\bring-|shadow-|gradient/
     );

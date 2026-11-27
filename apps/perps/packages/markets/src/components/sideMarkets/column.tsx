@@ -22,9 +22,9 @@ export const useSideMarketsColumns = (
   return [
     {
       ...symbolCol,
-      width: 115,
+      width: 92,
     },
-    volOiCol,
-    lastPctCol,
+    { ...volOiCol, width: 100 },
+    { ...lastPctCol, width: 80 },
   ] as Column[];
 };

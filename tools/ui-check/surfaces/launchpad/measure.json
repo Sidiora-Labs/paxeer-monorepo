@@ -5,6 +5,7 @@
   "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
   "address": "https://sidiora.test:4173",
   "readyPath": "/",
+  "readyMs": 120000,
   "views": [
     {
       "name": "home",
@@ -2071,7 +2072,7 @@
       "max": 28
     }
   ],
-  "buildMs": 600000,
+  "buildMs": 1800000,
   "geometry": {
     "file": "earlier-geometry.json",
     "widths": [

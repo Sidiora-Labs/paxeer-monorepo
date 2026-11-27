@@ -121,6 +121,11 @@ func (p *Publisher) Record(ctx context.Context, tx pgx.Tx, r Request) error {
 			return e
 		}
 	}
+	if r.Action == commentAction || r.Action == commentHideAction || r.Action == reactionAction {
+		if _, e = tx.Exec(ctx, `INSERT INTO interaction_visibility_revision(scope,revision) SELECT 'comments:wallet:'||author,1 FROM interaction_comments WHERE id=$1 ON CONFLICT(scope) DO UPDATE SET revision=interaction_visibility_revision.revision+1`, r.ID); e != nil {
+			return e
+		}
+	}
 	if e = p.Delivery.Enqueue(ctx, tx, subject, envelope); e != nil {
 		return e
 	}

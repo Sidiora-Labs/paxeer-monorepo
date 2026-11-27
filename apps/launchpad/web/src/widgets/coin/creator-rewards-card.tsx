@@ -11,6 +11,7 @@ import { usePrivateAccountQuery } from '@/widgets/profile/use-private-account-qu
 import { accountRequest } from '@/widgets/profile/account-transport';
 import { formatTokenAmount, formatUsdl } from '@/utils/format';
 import { userFacingMessage } from '@/core/user-facing-error';
+import { rewardProgramTitle } from '@/widgets/rewards/reward-disclosure';
 
 type RewardsResponse = V2ContractTypes['RewardsResponse'];
 type Reward = V2ContractTypes['Reward'];
@@ -52,27 +53,27 @@ export default function CreatorRewardsCard({ poolAddress }: { poolAddress: strin
   return (
     <section aria-labelledby="creator-rewards-title" className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 id="creator-rewards-title" className="text-sm font-bold text-text">Your creator rewards</h2>
+        <h2 id="creator-rewards-title" className="text-sm font-semibold text-text">Your creator rewards</h2>
         <Button variant="link" size="sm" href="/rewards">View rewards</Button>
       </div>
       {signedOut ? <SignedOutState variant="inline" title="Sign in to see your creator rewards" /> : null}
       {rewards.isPending && !signedOut ? <Skeleton variant="rows" rows={2} label="creator rewards" /> : null}
-      {marker ? <UnavailableState variant="inline" title="Creator rewards" operation={marker.operation} status={marker.status} /> : null}
+      {marker ? <UnavailableState variant="inline" title="Creator rewards" operation={marker.operation} status={marker.status} notServed={marker.notServed} error={marker.error} /> : null}
       {rewards.isError && !marker && !signedOut ? <p role="alert" className="text-sm text-danger">Creator rewards can&apos;t load right now. {userFacingMessage(rewards.error)}</p> : null}
       {rewards.data ? (
         totals.length ? (
-          <dl className="flex flex-col gap-1 rounded-md bg-surface-2 px-3 py-1">
+          <dl className="flex flex-col gap-1 rounded-sm bg-surface-2 px-3 py-1">
             {totals.map(row => (
-              <KeyValueRow key={row.programId} label={row.programId} value={amount(row.claimable, row.usdl)} trailing={<span className="text-xs text-text-faint">claimable</span>} />
+              <KeyValueRow key={row.programId} label={rewardProgramTitle(row.programId)} value={amount(row.claimable, row.usdl)} trailing={<span className="text-xs text-text-faint">claimable</span>} />
             ))}
             {totals.map(row => (
-              <KeyValueRow key={`${row.programId}-earned`} label={`${row.programId} earned`} value={amount(row.earned, row.usdl)} />
+              <KeyValueRow key={`${row.programId}-earned`} label={`${rewardProgramTitle(row.programId)} earned`} value={amount(row.earned, row.usdl)} />
             ))}
           </dl>
         ) : <EmptyState variant="inline" title="No creator rewards yet" body="Rewards build up as people trade your coin." />
       ) : null}
       <p className="text-xs text-text-faint">Totals include rewards from all your coins.</p>
-      <UnavailableState variant="inline" title="Your rewards from this coin" operation="IF_REWARDS.sharePct" status={null} />
+      <UnavailableState variant="inline" title="Your rewards from this coin" plural operation="IF_REWARDS.sharePct" status={null} />
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { FC, useMemo } from "react";
 import { cnBase } from "tailwind-variants";
 import { Text, TextProps } from "./text";
@@ -207,7 +208,7 @@ export const Numeral: FC<NumeralProps> = (props) => {
     const prefixEle = prefix ? (
       prefix
     ) : currency ? (
-      <span>{currency}</span>
+      <span>{tokenDisplayName(currency)}</span>
     ) : undefined;
 
     const child_unit = (

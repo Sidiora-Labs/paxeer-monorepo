@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
 import { createRequire } from 'node:module';
-import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, test } from 'vitest';
 import { SdkClient } from '@kindle/sdk';
 
 // jsdom swaps AbortController while fetch stays undici, so run in node and install only the missing browser globals (as shell/ticker-strip.test.tsx does).
@@ -38,7 +38,7 @@ function serve(): Promise<{ server: Server; origin: string; paths: string[] }> {
       if (url.pathname === '/v2/search') {
         const q = url.searchParams.get('q'); const type = url.searchParams.get('type');
         status = 200;
-        body = searchResponse(q === 'pax' && type === 'pool' ? [{ id: `125:${pool}`, kind: 'pool', label: 'Pax Coin', poolAddress: pool, tokenAddress: token, wallet: null, score: '1' }] : []);
+        body = searchResponse((q === 'pax' || q === pool) && type === 'pool' ? [{ id: `125:${pool}`, kind: 'pool', label: 'Pax Coin', poolAddress: pool, tokenAddress: token, wallet: null, score: '1' }] : []);
       } else if (url.pathname === '/metadata/batch') {
         status = 200;
         body = { [token]: { token_address: token, pool_address: pool, name: 'Pax Coin', symbol: 'PAXC' } };
@@ -104,12 +104,51 @@ function type(input: HTMLInputElement, value: string) {
   });
 }
 
+async function searchHeadlineAgreesWithTheWalletRow() {
+  const address = '0x' + 'c3'.repeat(20);
+  const container = mount(<SearchView initialQuery={` ${address} `} />);
+  await waitFor(() => container.textContent?.includes('No coins or named users match; open this wallet') === true);
+  expect(container.textContent).not.toContain('No coins or users match');
+  const wallet = container.querySelector('[aria-label="Wallet"] [role="option"]');
+  expect(wallet?.textContent).toContain('Open wallet 0xc3c3c3...c3c3');
+  expect(wallet?.textContent).toContain('View profile');
+  expect(wallet?.hasAttribute('disabled')).toBe(false);
+  expect(container.querySelectorAll('[role="option"]')).toHaveLength(1);
+  expect(container.textContent).not.toMatch(/1 coin|1 user/);
+  expect(served.paths).toEqual(expect.arrayContaining([
+    `GET /v2/search?q=${address}&type=pool&limit=10`,
+    `GET /v2/search?q=${address}&type=token&limit=10`,
+    `GET /v2/search?q=${address}&type=profile&limit=10`,
+  ]));
+
+  type(container.querySelector<HTMLInputElement>('input[role="combobox"]')!, 'missingcoin');
+  await waitFor(() => container.textContent?.includes('No coins or users match "missingcoin"') === true);
+  expect(container.querySelector('[aria-label="Wallet"]')).toBeNull();
+  expect(container.querySelectorAll('[role="option"]')).toHaveLength(0);
+  expect(container.textContent).not.toContain('open this wallet');
+  expect(container.textContent).not.toMatch(/1 coin|1 user/);
+  expect(served.paths).toContain('GET /v2/search?q=missingcoin&type=profile&limit=10');
+
+  type(container.querySelector<HTMLInputElement>('input[role="combobox"]')!, pool);
+  await waitFor(() => container.textContent?.includes('1 coin, 0 users') === true);
+  expect(container.querySelectorAll('[role="option"]')).toHaveLength(2);
+  expect(container.querySelector('[aria-label="Wallet"] [role="option"]')?.textContent).toContain('View profile');
+  expect(container.textContent).not.toContain('No coins or named users match');
+
+  type(container.querySelector<HTMLInputElement>('input[role="combobox"]')!, 'pax');
+  await waitFor(() => container.textContent?.includes('1 coin, 0 users') === true);
+  expect(container.querySelectorAll('[role="option"]')).toHaveLength(1);
+  expect(container.querySelector('[aria-label="Wallet"]')).toBeNull();
+}
+
 describe('/search page', () => {
   afterEach(() => { cleanup?.(); cleanup = null; served.paths.length = 0; });
   afterAll(async () => {
     await new Promise<void>(resolve => served.server.close(() => resolve()));
     dom.window.close();
   });
+
+  test(searchHeadlineAgreesWithTheWalletRow.name, searchHeadlineAgreesWithTheWalletRow);
 
   it('is a shell route, so /search?q= no longer renders the not-found page', () => {
     expect(routeForPath('/search')?.id).toBe('search');

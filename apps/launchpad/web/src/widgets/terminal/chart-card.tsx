@@ -30,7 +30,7 @@ export function clockLabel(now: number): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())} (UTC${sign}${hours}${minutes ? `:${pad(minutes)}` : ''})`;
 }
 
-/** Terminal centre chart: the shared TradingView chart (toolbar, plot, resize) with fullscreen, interval quick picks and a local clock. */
+/** Terminal centre chart: the shared price chart (toolbar, plot, resize) with fullscreen, interval quick picks and a local clock. */
 export default function TerminalChartCard({ poolAddress }: { poolAddress: string }) {
   const cardRef = useRef<HTMLElement>(null);
   const snapshot = usePoolSnapshot(poolAddress);
@@ -62,7 +62,7 @@ export default function TerminalChartCard({ poolAddress }: { poolAddress: string
   const height = fullscreen && viewportHeight !== null ? Math.min(CHART_MAX_HEIGHT, Math.max(0, viewportHeight - FULLSCREEN_CHROME)) : undefined;
 
   return (
-    <section ref={cardRef} aria-label="Chart" className={cn('flex min-w-0 shrink-0 flex-col overflow-hidden rounded-md bg-surface-1', fullscreen && 'h-screen w-screen rounded-none')}>
+    <section ref={cardRef} aria-label="Chart" className={cn('flex min-w-0 shrink-0 flex-col overflow-hidden bg-canvas', fullscreen && 'h-screen w-screen rounded-none')}>
       <div className="min-w-0 flex-1">
         <PremiumErrorBoundary area="Terminal chart">
           <Suspense fallback={<Skeleton variant="block" height={surfaceSpacing(95)} label="price chart" />}>
@@ -76,7 +76,7 @@ export default function TerminalChartCard({ poolAddress }: { poolAddress: string
           </Suspense>
         </PremiumErrorBoundary>
       </div>
-      <div className="flex min-h-8 shrink-0 flex-wrap items-center gap-1 bg-surface-1 px-2 text-xs">
+      <div className="flex min-h-8 shrink-0 flex-wrap items-center gap-1 bg-canvas px-2 text-xs">
         <div role="group" aria-label="Quick candle interval" className="flex items-center gap-0.5">
           {QUICK_INTERVALS.map(option => {
             const active = settings.interval === option.value;

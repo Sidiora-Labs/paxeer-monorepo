@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+*::-webkit-scrollbar,
+:where(html)::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track,
+:where(html)::-webkit-scrollbar-track {
+  background-color: transparent;
+  border-radius: 4px;
+  padding-top: 20px;
+}
+
+*::-webkit-scrollbar-thumb,
+:where(html)::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  border-style: dashed;
+  border-color: transparent;
+  border-width: 1px;
+  background-color: rgb(var(--oui-color-base-7));
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover,
+:where(html)::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--oui-color-base-5));
+  border-radius: 3px;
+}
+
+*::-webkit-scrollbar-corner,
+:where(html)::-webkit-scrollbar-corner {
+  background-color: transparent;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  *,
+  :where(html) {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--oui-color-base-7)) transparent;
+  }
+
+  .hide-scrollbar,
+  .oui-hide-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
 @layer components {
   @property --gradientAngle {
     syntax: "<angle>";
@@ -139,7 +186,52 @@ code {
   overflow: auto !important;
 }
 
+.oui-tabs-list,
+.oui-scaffold-topNavbar > div > div > div:last-child,
+.oui-portfolio-trader-card,
+.oui-portfolio-trader-card > div,
+.oui-datepicker-trigger > span,
+.oui-orderBook button > span {
+  scrollbar-width: none;
+}
+
+.oui-tabs-list::-webkit-scrollbar,
+.oui-scaffold-topNavbar > div > div > div:last-child::-webkit-scrollbar,
+.oui-portfolio-trader-card::-webkit-scrollbar,
+.oui-portfolio-trader-card > div::-webkit-scrollbar,
+.oui-datepicker-trigger > span::-webkit-scrollbar,
+.oui-orderBook button > span::-webkit-scrollbar {
+  display: none;
+}
+
 .oui-sheet-content {
   max-height: 100dvh;
   overflow-y: auto;
+}
+
+.cookie-consent-banner {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+@media (min-width: 1024px) {
+  .cookie-consent-banner-at-top {
+    top: 24px;
+    bottom: auto;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .cookie-consent-banner {
+    position: sticky;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 12px);
+    left: auto;
+    transform: none;
+    margin: 12px auto;
+    margin-bottom: calc(64px + env(safe-area-inset-bottom, 0px) + 12px);
+    max-height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px) - 24px);
+    overflow-y: auto;
+  }
 }

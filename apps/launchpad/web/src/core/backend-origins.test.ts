@@ -184,13 +184,13 @@ async function middlewareConfigurationErrorsRemainRenderable() {
     expect(response.headers.get('Permissions-Policy')).toBe('clipboard-write=(self), clipboard-read=(self), unload=(self)');
 
     const layout = await RootLayout({ children: createElement('div', { 'data-state': 'configured-app' }) });
-    const body = layout.props.children;
-    const errorView = body.props.children;
+    const body = layout.props.children[1];
+    const errorView = body.props.children[1];
     const { BackendConfigurationError: ErrorView } = await import('@/ui/shared/backend-configuration-error');
     expect(errorView.type).toBe(ErrorView);
     expect(errorView.props.problems.map((problem: { variable: string }) => problem.variable)).toEqual(variables);
     const markup = renderToStaticMarkup(layout);
-    expect(markup).toContain('<html lang="en">');
+    expect(markup).toContain('<html lang="en" data-color-mode="dark" data-color-mode-default="dark">');
     expect(markup).toContain('role="alert"');
     expect(markup).toContain('data-state="backend-configuration-error"');
     expect(markup).toContain(plainCopy.configuration);

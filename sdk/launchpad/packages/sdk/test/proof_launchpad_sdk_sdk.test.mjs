@@ -169,6 +169,7 @@ function config(origin, production = false) {
 async function runConsumerProof() {
   const hooks = installWebLoader();
   const load = path => import(new URL(path, web).href);
+  const { marketRetryPace } = await load('core/retry-pace.ts');
   const { operationsFor } = await load('core/market/operations.ts');
   const { fetchPlatformMetricsV2 } = await load('core/market/platform-metrics.ts');
   const { fetchPoolDetailListing } = await load('core/market/pool-listings.ts');
@@ -284,6 +285,7 @@ async function runConsumerProof() {
     assert.equal(app.failure, null, app.failure?.stack);
     return { namedProducers: named.length + 1, marketConsumers: 6, requests: app.requests.length, malformedResults: malformedCalls.size + 1 };
   } finally {
+    marketRetryPace.clear();
     const closed = new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     server.closeAllConnections();
     await closed;

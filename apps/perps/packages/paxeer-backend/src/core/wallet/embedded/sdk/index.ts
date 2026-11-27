@@ -10,6 +10,8 @@
  *   3. All signing happens on the API server; the SDK never sees key material.
  */
 
+import { AgentOwnerClient } from "./agents";
+
 import {
   createClient,
   type AuthChangeEvent,
@@ -29,6 +31,7 @@ import {
 } from "./types";
 
 export * from "./types";
+export * from "./agents";
 
 export type OAuthProvider =
   | "google"
@@ -39,6 +42,7 @@ export type OAuthProvider =
 
 export class PaxeerWallet {
   readonly supabase: SupabaseClient;
+  readonly agents: AgentOwnerClient;
   private readonly apiUrl: string;
   private readonly fetchImpl: typeof fetch;
 
@@ -51,6 +55,11 @@ export class PaxeerWallet {
 
     this.apiUrl = config.apiUrl.replace(/\/$/, "");
     this.fetchImpl = config.fetch ?? globalThis.fetch.bind(globalThis);
+    this.agents = new AgentOwnerClient({
+      apiUrl: this.apiUrl,
+      getSession: () => this.getSession(),
+      fetch: this.fetchImpl,
+    });
     this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
       auth: {
         persistSession: true,

@@ -13,7 +13,9 @@ def test_plan_order_matches_known_plans() -> None:
     plans = load_plans()
     names = ["v6.9", "v6.10", "v6.12.0", "v7.0", "v7.0-anchor-store-delete"]
     assert [plan["name"] for plan in plans] == names
-    assert list(load(PLAN_PATH)) == [f"plan.{name}" for name in names]
+    rows = load(PLAN_PATH)
+    assert rows["meta"] == {"format_version": 1}
+    assert list(rows) == ["meta", *[f"plan.{name}" for name in names]]
     assert load_plans(PLAN_PATH) == plans
     assert [plan["handler"] for plan in plans] == [
         "runActivationUpgrade",

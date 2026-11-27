@@ -16,7 +16,7 @@ export const PriceInput: React.FC<{
     prefix?: string;
   };
 }> = (props) => {
-  const [placeholder, setPlaceholder] = useState<string>("USDC");
+  const [placeholder, setPlaceholder] = useState<string>("USDL");
   const { t } = useTranslation();
 
   return (
@@ -47,7 +47,7 @@ export const PriceInput: React.FC<{
         setPlaceholder("");
       }}
       onBlur={() => {
-        setPlaceholder("USDC");
+        setPlaceholder("USDL");
       }}
       formatters={[
         inputFormatter.numberFormatter,

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { FC, ReactNode } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { OrderSide } from "@paxeer-network/types";
@@ -96,7 +97,7 @@ const Header = (props: { base: string; quote: string; className?: string }) => {
   return (
     <Row
       left={t("common.time")}
-      mid={`${t("common.price")}(${props.quote})`}
+      mid={`${t("common.price")}(${tokenDisplayName(props.quote)})`}
       right={`${t("common.qty")}(${props.base})`}
       classNames={{
         root: cn(

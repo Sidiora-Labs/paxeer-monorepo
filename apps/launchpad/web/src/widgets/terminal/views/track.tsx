@@ -128,7 +128,7 @@ function TrackRowItem({ row }: { row: TrackRow }) {
       <Link prefetch={false} href={row.href} aria-label={`Open profile of ${row.label}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
       <Avatar src={row.avatarUrl} name={row.label} size="md" decorative />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="truncate text-sm font-bold text-text">{row.label}</span>
+        <span className="truncate text-sm font-semibold text-text">{row.label}</span>
         <span className="font-mono text-xs text-text-faint">{row.short}</span>
       </div>
       <div className="hidden shrink-0 sm:block"><FollowCounts wallet={row.wallet} /></div>
@@ -142,10 +142,10 @@ function TrackRowItem({ row }: { row: TrackRow }) {
 function FollowedActivity() {
   const feed = useFollowingTicker();
   return (
-    <section aria-labelledby="terminal-track-activity" className="flex flex-col gap-2 rounded-md bg-surface-1 p-3">
-      <h2 id="terminal-track-activity" className="text-sm font-bold text-text">Activity from wallets you follow</h2>
+    <section aria-labelledby="terminal-track-activity" className="flex flex-col gap-2 rounded-none bg-surface-1 p-3">
+      <h2 id="terminal-track-activity" className="text-sm font-semibold text-text">Activity from wallets you follow</h2>
       {feed.state === 'loading' ? <Skeleton variant="rows" rows={3} label="followed activity" /> : null}
-      {feed.state === 'unsupported' ? <UnavailableState variant="inline" title="Followed-wallet activity" operation={feed.operation} status={feed.status} /> : null}
+      {feed.state === 'unsupported' ? <UnavailableState variant="inline" title="Followed-wallet activity" operation={feed.operation} status={feed.status} notServed={feed.notServed} error={feed.error} /> : null}
       {feed.state === 'error' ? <ErrorState variant="inline" title="Activity can't load right now" message={userFacingMessage(feed.error)} onRetry={feed.retry} /> : null}
       {feed.state === 'signed-out' ? <p className="text-sm text-text-faint">{feed.prompt}</p> : null}
       {feed.state === 'ready' && feed.chips.length === 0 ? <EmptyState variant="inline" title={feed.emptyText ?? 'No activity from wallets you follow yet.'} /> : null}
@@ -204,16 +204,16 @@ export function FollowingList() {
   const state = loadable(query.isFetchNextPageError && query.data ? { ...query, status: 'success' } : query, followingOperation);
   if (!scope) return null;
   return (
-    <section aria-labelledby="terminal-track-following" className="flex min-h-0 flex-col overflow-hidden rounded-md bg-surface-1">
+    <section aria-labelledby="terminal-track-following" className="flex min-h-0 flex-col overflow-hidden rounded-none bg-surface-1">
       <header className="flex h-8 shrink-0 items-center justify-between px-3">
-        <h2 id="terminal-track-following" className="flex items-center gap-1.5 text-sm font-bold text-text">
+        <h2 id="terminal-track-following" className="flex items-center gap-1.5 text-sm font-semibold text-text">
           Following
           {state.state === 'ready' ? <span data-numeric className="text-xs tabular-nums text-text-faint">{formatCount(rows.length)}{page?.nextCursor ? '+' : ''}</span> : null}
         </h2>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {state.state === 'loading' ? <><span className="sr-only" role="status">Loading followed wallets</span><TableRowsSkeleton rows={6} columns={3} /></> : null}
-        {state.state === 'unsupported' ? <UnavailableState title="Followed wallets" operation={state.operation} status={state.status} onRetry={() => { void query.refetch(); }} /> : null}
+        {state.state === 'unsupported' ? <UnavailableState title="Followed wallets" operation={state.operation} status={state.status} notServed={state.notServed} error={state.error} onRetry={() => { void query.refetch(); }} /> : null}
         {state.state === 'error' ? <ErrorState title="Followed wallets can't load right now" message={userFacingMessage(state.error)} onRetry={state.retry} variant="inline" /> : null}
         {state.state === 'ready' && rows.length === 0 ? <EmptyState icon={UserPlus} title={query.hasNextPage ? 'No followed wallets found yet' : 'You are not following anyone yet'} body={query.hasNextPage ? 'Load more to keep looking.' : 'Follow traders from their profile or a callout and they show up here.'} action={<Button variant="secondary" size="sm" href="/leaderboard">Find traders</Button>} /> : null}
         {state.state === 'ready' && rows.length > 0 ? (
@@ -233,8 +233,8 @@ export default function TerminalTrackView() {
   const wallet = session?.session.wallet.toLowerCase() ?? null;
   if (!wallet) {
     return (
-      <div className="flex h-full items-center justify-center rounded-md bg-surface-1">
-        <EmptyState icon={Radar} title="Sign in to track wallets" body="The wallets you follow and their callouts appear here once your account is signed in." action={<Button variant="primary" size="sm" onClick={() => openAuthModal('Sign in to track wallets')}>Sign in</Button>} />
+      <div className="flex items-start justify-center bg-surface-1">
+        <EmptyState icon={Radar} title="Sign in to track wallets" body="The wallets you follow and their callouts appear here once your account is signed in." action={<Button variant="inverse" size="sm" onClick={() => openAuthModal('Sign in to track wallets')}>Sign in</Button>} />
       </div>
     );
   }

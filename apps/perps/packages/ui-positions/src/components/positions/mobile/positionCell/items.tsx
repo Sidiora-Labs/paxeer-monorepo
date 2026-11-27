@@ -75,7 +75,7 @@ export const UnrealPnL: FC<PositionCellState> = (props) => {
         {t("common.unrealizedPnl")}
       </Text>
       <Text intensity={20} className="oui-ms-0.5">
-        (USDC)
+        (USDL)
       </Text>
     </div>
   );
@@ -196,7 +196,7 @@ export const Notional: FC<PositionCellState> = (props) => {
       label={
         <span>
           {t("common.notional")}
-          <Text intensity={20}>(USDC)</Text>
+          <Text intensity={20}>(USDL)</Text>
         </span>
       }
       classNames={{

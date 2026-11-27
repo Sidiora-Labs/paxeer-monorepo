@@ -1,0 +1,24 @@
+.frame > header {
+  background: var(--sl-canvas);
+}
+
+.frame > div > aside[aria-label='Pair discovery'] {
+  border-inline-end: var(--sl-edge-width) solid var(--sl-surface-3);
+}
+
+.frame > div > aside[aria-label='Position and trading'] {
+  border-inline-start: var(--sl-edge-width) solid var(--sl-surface-3);
+}
+
+.frame table thead,
+.frame table thead tr {
+  background: var(--sl-canvas);
+}
+
+.frame table tbody tr {
+  border-block-end: var(--sl-edge-width) solid var(--sl-surface-3);
+}
+
+.frame table [data-numeric] {
+  font-variant-numeric: tabular-nums;
+}

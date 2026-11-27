@@ -15,7 +15,7 @@ import { cupBadge, cupHighlights, cupOperations, ladderTotalRaw, metricTone, pri
 import { isLeaderboardTab, parseTab } from './leaderboard-view';
 import { parsePeriod, PeriodControl, periodWindows } from './period-control';
 import { profileHref, RankRow } from './rank-row';
-import { SquadsTab } from './squads-tab';
+import { RankingTable } from './ranking-table';
 
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
 const wallet = '0xAbCdEf0123456789abcdef0123456789ABCDEF01';
@@ -106,36 +106,36 @@ describe('period and tab mapping', () => {
 });
 
 describe('rank row', () => {
-  it('renders podium tone, handle, short wallet, signed PnL, prize pill and the profile link', () => {
+  it('renders podium tone, handle, short wallet, signed PnL, prize figure and the profile link', () => {
     const identity = { ...fallbackIdentity(wallet, 'profile'), displayName: 'hdegroot' };
-    const html = renderToStaticMarkup(<ol><RankRow rank={1} wallet={wallet} identity={identity} metricSigned="285822310000" prizeRaw="50000000000" size="lg" actions={<button type="button">Follow</button>} /></ol>);
+    const html = renderToStaticMarkup(<RankingTable label="Traders"><RankRow rank={1} wallet={wallet} identity={identity} metricSigned="285822310000" prizeRaw="50000000000" size="lg" actions={<button type="button">Follow</button>} /></RankingTable>);
     expect(html).toContain('text-rank-1');
     expect(html).toContain('hdegroot');
     expect(html).toContain(`href="${profileHref(wallet)}"`);
-    expect(html).toContain('+285,822.31 USDL');
+    expect(html).toContain('+$285,822.31');
     expect(html).toContain('50,000 USDL');
     expect(html).toContain('text-success');
     expect(html).toContain('Follow');
-    expect(html).toContain('min-h-list-row-lg');
+    expect(html).toContain('h-list-row-lg');
     expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
   it('falls back to the short address, colours losses and marks the viewer row', () => {
-    const html = renderToStaticMarkup(<ol><RankRow rank={7} wallet={wallet} metricSigned="-1500000" self /></ol>);
+    const html = renderToStaticMarkup(<RankingTable label="Traders"><RankRow rank={7} wallet={wallet} metricSigned="-1500000" self /></RankingTable>);
     expect(html).toContain(shortAddress(wallet.toLowerCase(), 6, 4));
     expect(html).toContain('text-danger');
-    expect(html).toContain('-1.50 USDL');
+    expect(html).toContain('-$1.50');
     expect(html).toContain('>You<');
-    // Board rows are 48px with the handle at text-md bold and PnL at num-md (components.md 36).
-    expect(html).toContain('min-h-12');
+    // Names use the row-name step; figures use the numeric table step.
+    expect(html).toContain('h-12');
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const link = doc.querySelector('a')!;
-    expect(link.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-md', 'font-bold']));
+    expect(link.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-md', 'font-semibold']));
     expect(link.querySelector('span')!.className.split(/\s+/)).toContain('truncate');
-    expect(html).toMatch(/class="text-md font-bold[^"]*tabular-nums text-danger"/);
+    expect(html).toMatch(/class="text-num-md font-semibold[^"]*tabular-nums text-danger"/);
     expect(html).not.toContain('text-rank-');
   });
   it('shows an em dash when the metric is unavailable', () => {
-    const html = renderToStaticMarkup(<ol><RankRow rank={4} wallet={wallet} metricSigned={null} qualityNote="Not tracked yet" /></ol>);
+    const html = renderToStaticMarkup(<RankingTable label="Traders"><RankRow rank={4} wallet={wallet} metricSigned={null} qualityNote="Not tracked yet" /></RankingTable>);
     expect(html).toContain('aria-label="no data yet"');
     expect(html).toContain('Not tracked yet');
   });
@@ -150,16 +150,17 @@ describe('cup hero and rules', () => {
     expect(html).not.toContain('IF_CUP_CURRENT');
     expect(html).not.toContain('404');
     expect(html).toContain('Prizes and results show up here once cups start');
-    expect(html).toContain('Try again');
-    // The notice is the shared unavailable chip inside the frame, not a replacement for it.
-    expect(html).toContain('data-state="unavailable"');
-    expect(html).toContain('Competitions are not available yet');
+    expect(html).not.toContain('Try again');
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(doc.querySelectorAll('h2')).toHaveLength(1);
+    expect(doc.querySelector('[data-state="unavailable"], [role="alert"]')).toBeNull();
+    expect(doc.querySelector('svg')?.classList.contains('text-text-faint')).toBe(true);
     expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
   it('renders a served null cup as a genuine empty answer without a retry', () => {
     const html = render(<CupHero cup={{ state: 'ready', data: null }} onRetry={() => {}} />);
     expect(html).toContain('No competition scheduled');
-    expect(html).toContain('There is no cup running right now');
+    expect(html).toContain('Prizes and results show up here once cups start');
     expect(html).not.toContain('IF_CUP_CURRENT');
     expect(html).not.toContain('Try again');
   });
@@ -181,7 +182,7 @@ describe('cup hero and rules', () => {
     expect(html).toContain('Solo cup');
     expect(assertControlEdges(html)).not.toMatch(BORDER);
   });
-  it('keeps the frame, in-frame control and a prize line with no figure in every unavailable state', () => {
+  it('keeps the period control above one compact state without an invented prize or rules', () => {
     const control = <PeriodControl value="1d" onChange={() => {}} cupDisabled />;
     for (const state of [
       { state: 'error' as const, error: new Error('x'), retry: () => {} },
@@ -189,26 +190,32 @@ describe('cup hero and rules', () => {
       { state: 'loading' as const },
     ]) {
       const html = render(<CupHero cup={state} onRetry={() => {}} control={control} />);
-      expect(html).toContain('md:before:aspect-[16/7]');
+      const doc = new DOMParser().parseFromString(html, 'text/html');
       expect(html).toContain('aria-label="Ranking period"');
       expect(html).not.toContain('USDL');
-      if (state.state !== 'loading') {
-        expect(html).toContain('No prize pool announced');
-        // The rules row keeps its place (disabled) so the hero anatomy matches a ready cup.
-        expect(html).toContain('Schedule, scoring, eligibility and rules');
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const rules = doc.querySelector('summary#cup-rules-unavailable')!;
-        expect(rules.getAttribute('aria-disabled')).toBe('true');
-        expect(rules.getAttribute('aria-expanded')).toBe('false');
-        expect(rules.closest('details')!.hasAttribute('open')).toBe(false);
-        expect(doc.querySelector<HTMLDivElement>('#cup-rules-unavailable-panel')!.hidden).toBe(true);
+      expect(html).not.toContain('before:aspect-');
+      expect(doc.querySelector('details, [data-cup-art]')).toBeNull();
+      expect(doc.querySelector('section')?.className).toBe('flex min-w-0 flex-col gap-3');
+      if (state.state === 'loading') {
+        expect(doc.querySelector('[aria-busy="true"]')).not.toBeNull();
+        expect(doc.querySelectorAll('.sl-skeleton')).toHaveLength(3);
+      } else {
+        expect(doc.querySelectorAll('h2')).toHaveLength(1);
+        expect(doc.querySelector('[role="alert"]') !== null).toBe(state.state === 'error');
+        expect(doc.querySelector('button:not([role="radio"])') !== null).toBe(state.state === 'error');
       }
-      // The art area is present in every state, and the frame grows instead of clipping its content.
-      expect(html).toContain('data-cup-art');
-      expect(html).not.toContain('overflow-hidden');
       expect(assertControlEdges(html)).not.toMatch(BORDER);
       expect(html).not.toMatch(/\bshadow/);
     }
+  });
+  it('shows one neutral first-period form and the served prize for a scheduled cup', () => {
+    const html = render(<CupHero cup={{ state: 'ready', data: { ...cup, status: 'scheduled' } }} onRetry={() => {}} />);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    expect(html).toContain('Standings open when the cup starts');
+    expect(html).toContain('100,000 USDL');
+    expect(doc.querySelectorAll('[class*="@container/state"]')).toHaveLength(1);
+    expect(doc.querySelector('[role="alert"]')).toBeNull();
+    expect(doc.querySelector('button')).toBeNull();
   });
   it('places the rules row and the control inside a ready hero', () => {
     const html = render(<CupHero cup={{ state: 'ready', data: cup }} onRetry={() => {}} control={<PeriodControl value="cup" onChange={() => {}} />} />);
@@ -225,13 +232,10 @@ describe('cup hero and rules', () => {
   });
 });
 
-describe('squads tab', () => {
-  it('states that no ranking operation exists instead of listing squads', () => {
-    const html = render(<SquadsTab />);
-    expect(html).toContain('Squad rankings are not available yet');
-    expect(html).not.toContain('read model');
-    expect(html).toContain('Check back soon');
-    expect(html).not.toMatch(/>[^<]*no response/);
-    expect(assertControlEdges(html)).not.toMatch(BORDER);
+describe('leaderboard tabs', () => {
+  it('opens the traders board for a squads address', () => {
+    expect(isLeaderboardTab('squads')).toBe(false);
+    expect(parseTab('squads', false)).toBe('traders');
+    expect(parseTab('squads', true)).toBe('traders');
   });
 });

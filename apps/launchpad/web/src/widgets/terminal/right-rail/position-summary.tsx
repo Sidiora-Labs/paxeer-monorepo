@@ -5,7 +5,7 @@ import { isSignedOutError, type Loadable } from '@/core/market/unsupported';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { useAccountSession } from '@/widgets/profile/use-account-session';
 import { portfolioIssue, positionValueRaw, usePortfolio, usePositionPages, type PortfolioPosition, type PortfolioRead } from '@/widgets/profile/portfolio-transport';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { userFacingMessage } from '@/core/user-facing-error';
 
@@ -59,9 +59,9 @@ function Tile({ label, value, tone, note, partial }: { label: string; value: Rea
   return (
     <div className="flex min-w-0 flex-col items-center gap-0.5">
       <dt className="text-2xs text-text-faint">{label}</dt>
-      <dd className={cn('max-w-full truncate text-xs font-bold tabular-nums', tone === 'up' ? 'text-success' : tone === 'down' ? 'text-danger' : 'text-text')}>
+      <dd className={cn('max-w-full text-xs font-bold tabular-nums', tone === 'up' ? 'text-success' : tone === 'down' ? 'text-danger' : 'text-text')}>
         <Tooltip content={note}>
-          <span tabIndex={0} aria-label={`${label}: ${typeof value === 'string' ? value : ''}${partial ? ' (partial)' : ''}. ${note}`}>
+          <span tabIndex={0} className="rounded-xs focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus" aria-label={`${label}: ${typeof value === 'string' ? value : ''}${partial ? ' (partial)' : ''}. ${note}`}>
             {value}{partial ? <span className="text-text-faint">*</span> : null}
           </span>
         </Tooltip>
@@ -73,7 +73,7 @@ function Tile({ label, value, tone, note, partial }: { label: string; value: Rea
 const toneOf = (raw: bigint | null): 'up' | 'down' | undefined => (raw === null || raw === 0n ? undefined : raw > 0n ? 'up' : 'down');
 
 function Tiles({ figures, loading }: { figures: PositionFigures; loading: boolean }) {
-  const show = (item: SummaryFigure, signed = false) => (loading && item.raw === null ? '...' : item.raw === null ? '-' : formatUsdl(item.raw, { compact: true, unit: false, signed }));
+  const show = (item: SummaryFigure, signed = false) => (loading && item.raw === null ? '...' : item.raw === null ? '-' : formatCompactUsd(item.raw, { raw: true, compact: true, signed }));
   return (
     <dl className="grid grid-cols-4 gap-1">
       <Tile label="Value" value={show(figures.value)} note={figures.value.note} partial={figures.value.partial} />
@@ -144,7 +144,7 @@ export function PositionSummary({ tokenAddress }: { poolAddress: string; tokenAd
   const { session } = useAccountSession();
   const wallet = session?.session.wallet.toLowerCase() ?? null;
   return (
-    <section aria-label="Your position" className="flex flex-col gap-1 rounded-md bg-surface-1 px-2 py-2">
+    <section aria-label="Your position" className="sl-hairline flex flex-col gap-1 bg-surface-1 px-2 py-2">
       {wallet ? <OwnedSummary key={`${wallet}:${session?.epoch}`} wallet={wallet} tokenAddress={tokenAddress} /> : (
         <>
           <Tiles figures={signedOut} loading={false} />

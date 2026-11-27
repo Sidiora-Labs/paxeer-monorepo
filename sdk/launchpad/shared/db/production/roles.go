@@ -11,6 +11,8 @@ import (
 var identifier = regexp.MustCompile(`^[a-z][a-z0-9_]{0,62}$`)
 var versionedView = regexp.MustCompile(`^[a-z][a-z0-9_]*_v[1-9][0-9]*$`)
 
+const publicSchema = "public"
+
 // Grants are table-specific; foreign reads are column-scoped versioned views.
 type Grant struct {
 	Schema        string   `json:"schema"`
@@ -73,7 +75,7 @@ func (m RoleManifest) Validate() error {
 			return fmt.Errorf("invalid role/schema identifier")
 		}
 	}
-	if m.Service == "" || m.Schema == "public" || m.Schema == valueMigrationControl || strings.HasPrefix(m.Schema, "pg_") || m.OwnerRole == m.RuntimeRole || m.Superuser || m.CreateDB || m.CreateRole || m.BypassRLS || m.RuntimeOwnsObjects {
+	if m.Service == "" || m.Schema == publicSchema || m.Schema == valueMigrationControl || strings.HasPrefix(m.Schema, "pg_") || m.OwnerRole == m.RuntimeRole || m.Superuser || m.CreateDB || m.CreateRole || m.BypassRLS || m.RuntimeOwnsObjects {
 		return fmt.Errorf("unsafe runtime role manifest")
 	}
 	if len(m.OwnerReadGrants) > 0 {

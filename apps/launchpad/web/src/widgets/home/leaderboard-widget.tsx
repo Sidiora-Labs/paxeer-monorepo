@@ -8,7 +8,7 @@ import { Avatar, EmptyState, ErrorState, RankBadge, SegmentedControl, SelectPill
 import { useLeaderboard, type LeaderboardCategory, type LeaderboardWindow } from '@/core/market/use-leaderboard';
 import { queryKeys } from '@/core/query-keys';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
-import { formatUsdl, shortAddress } from '@/utils/format';
+import { shortAddress, formatCompactUsd } from '@/utils/format';
 import { RankRowSkeleton } from '@/ui/shared/skeletons';
 import type { WidgetProps } from './widget-registry';
 import { columnNoticeClass, columnToolbarClass } from './panel-state';
@@ -46,9 +46,9 @@ export function leaderboardMetric(entry: { metricRaw: string; metricSigned?: str
   const signed = entry.metricSigned ?? null;
   if (signed !== null) {
     const negative = signed.startsWith('-');
-    return { text: formatUsdl(signed, { compact: true, unit: false, signed: true }), tone: negative ? 'danger' : 'success' };
+    return { text: formatCompactUsd(signed, { raw: true, compact: true, signed: true }), tone: negative ? 'danger' : 'success' };
   }
-  return { text: formatUsdl(entry.metricRaw, { compact: true, unit: false }), tone: 'neutral' };
+  return { text: formatCompactUsd(entry.metricRaw, { raw: true, compact: true }), tone: 'neutral' };
 }
 
 const toneClass: Record<LeaderboardMetric['tone'], string> = { success: 'text-success', danger: 'text-danger', neutral: 'text-text' };
@@ -80,7 +80,7 @@ export function LeaderboardWidget({ filter }: WidgetProps) {
         {board.state === 'loading' ? (
           <RankRowSkeleton count={8} />
         ) : board.state === 'unsupported' ? (
-          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Leaderboard" operation={board.operation} status={board.status} message={board.status === 404 ? 'The leaderboard is coming soon' : board.message} onRetry={retry} />
+          <UnavailableState variant="chip" plural="auto" surface={1} wrap className={columnNoticeClass} title="Leaderboard" operation={board.operation} status={board.status} notServed={board.notServed} error={board.error} message={board.status === 404 ? 'The leaderboard is coming soon' : board.message} onRetry={board.retry ?? retry} />
         ) : board.state === 'error' ? (
           <ErrorState variant="chip" className={columnNoticeClass} message="Couldn't load the leaderboard" error={board.error} onRetry={board.retry} />
         ) : visible.length === 0 ? (
@@ -92,10 +92,10 @@ export function LeaderboardWidget({ filter }: WidgetProps) {
               const name = identity?.displayName ?? null;
               const metric = leaderboardMetric(entry);
               return (
-                <li key={entry.wallet} className="relative flex h-table-row items-center gap-3 px-3 hover:bg-surface-hover">
+                <li key={entry.wallet} className="sl-hairline relative flex h-table-row items-center gap-3 px-3 hover:bg-surface-1">
                   <RankBadge rank={entry.rank} className="w-7 shrink-0" />
                   <Avatar src={identity?.avatarUrl ?? null} name={name ?? shortAddress(entry.wallet)} size="md" decorative />
-                  <Link prefetch={false} href={`/profile/${entry.wallet}`} className={cn('min-w-0 flex-1 truncate after:absolute after:inset-0 after:content-[\'\']', name ? 'text-md font-bold text-text' : 'font-mono text-sm text-text-muted')}>
+                  <Link prefetch={false} href={`/profile/${entry.wallet}`} className={cn('min-w-0 flex-1 truncate after:absolute after:inset-0 after:content-[\'\']', name ? 'text-md font-semibold text-text' : 'font-mono text-sm text-text-muted')}>
                     {name ?? shortAddress(entry.wallet)}
                   </Link>
                   {entry.quality === 'partial' ? <span className="text-2xs text-text-faint" title="Still counting">partial</span> : null}

@@ -9,12 +9,11 @@ import { queryKeys } from '@/core/query-keys';
 import { leaderboardLimit, useLeaderboard, type LeaderboardCategory, type LeaderboardWindow, type LeaderboardsResponse } from '@/core/market/use-leaderboard';
 import { useWalletIdentities, type WalletIdentity } from '@/core/market/use-wallet-identities';
 import type { Loadable } from '@/core/market/unsupported';
-import { Avatar, EmptyState, ErrorState, RankBadge, SelectPill, Skeleton, TabStrip, UnavailableState, type SelectOption, type TabItem } from '@/ui/primitives';
-import { formatUsdl, relativeAge, shortAddress } from '@/utils/format';
+import { Avatar, EmptyState, ErrorState, RankBadge, SelectPill, Skeleton, UnavailableState, type SelectOption } from '@/ui/primitives';
+import { relativeAge, shortAddress, formatCompactUsd } from '@/utils/format';
 import { accountSession, subscribeAccount } from './account-transport';
 import { useProfileIssue } from './profile-issues';
 
-export type LeaderboardPanelTab = 'traders' | 'rewards';
 export type LeaderboardMetric = 'profit' | 'volume';
 export type LeaderboardEntry = LeaderboardsResponse['data']['snapshot']['entries'][number];
 
@@ -23,10 +22,6 @@ export const leaderboardMetricCategory: Record<LeaderboardMetric, LeaderboardCat
 /** Rows the rail requests; the contract caps a page at `leaderboardLimit`. */
 export const profileLeaderboardRows = 25;
 
-const tabs: TabItem<LeaderboardPanelTab>[] = [
-  { id: 'traders', label: 'Top traders' },
-  { id: 'rewards', label: 'Top rewards' },
-];
 const metricOptions: SelectOption<LeaderboardMetric>[] = [
   { value: 'profit', label: 'Profit' },
   { value: 'volume', label: 'Volume' },
@@ -50,7 +45,7 @@ export interface LeaderboardPanelProps {
 /** Value column text; `unavailable` entries carry no trustworthy metric and render a dash. */
 export function leaderboardValue(entry: LeaderboardEntry, metric: LeaderboardMetric): string | null {
   if (entry.quality === 'unavailable') return null;
-  return formatUsdl(metric === 'profit' ? entry.metricSigned ?? entry.metricRaw : entry.metricRaw, { signed: metric === 'profit' });
+  return formatCompactUsd(metric === 'profit' ? entry.metricSigned ?? entry.metricRaw : entry.metricRaw, { raw: true, signed: metric === 'profit' });
 }
 
 /** Short wallet without the 0x prefix so the initials fallback reads as two hex digits. */
@@ -85,7 +80,7 @@ function LeaderboardRow({ entry, identity, metric, self }: LeaderboardRowProps) 
         </span>
         <Avatar src={identity?.avatarUrl ?? null} name={avatarName(identity, wallet)} size="md" decorative loading={identity?.resolution === 'pending'} />
         <span className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className={cn('truncate text-sm font-bold', name ? 'text-text' : 'font-mono text-text-muted')}>{label}</span>
+          <span className={cn('truncate text-sm font-semibold', name ? 'text-text' : 'font-mono text-text-muted')}>{label}</span>
           {self ? <span className="shrink-0 rounded-pill bg-accent-soft-strong px-1.5 text-2xs font-bold text-accent">You</span> : null}
           {entry.quality === 'partial' ? <span className="shrink-0 text-2xs text-text-faint">partial</span> : null}
         </span>
@@ -133,7 +128,7 @@ function LeaderboardBody({ board, identities, metric, viewer, onRetry }: Leaderb
   const collected = useProfileIssue('leaderboard', board.state === 'error' ? { label: 'Leaderboard', error: board.error, retry: board.retry } : null);
   if (board.state === 'loading') return <Skeleton variant="rows" rows={8} label="leaderboard" />;
   if (board.state === 'unsupported') {
-    return <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} message="Check back in a bit" onRetry={onRetry} />;
+    return <UnavailableState title="Leaderboard" operation={board.operation} status={board.status} notServed={board.notServed} error={board.error} message="Check back in a bit" onRetry={board.retry ?? onRetry} />;
   }
   if (board.state === 'error' && collected) return <PlaceholderRows rows={12} />;
   if (board.state === 'error') return <ErrorState title="Can't load leaderboard right now" message="Check your connection and try again" onRetry={board.retry} />;
@@ -155,12 +150,10 @@ function LeaderboardBody({ board, identities, metric, viewer, onRetry }: Leaderb
  * Profile left rail: ranked wallets from IF_LEADERBOARDS. The board, metric
  * and window controls drive the real request; a 404/501/503 from core/api
  * arrives as the Loadable's unsupported marker and renders the unavailable
- * state with a retry. Top rewards has no contract category, so that tab
- * explains itself without issuing a request.
+ * state with a retry.
  */
 export function LeaderboardPanel({ limit = profileLeaderboardRows, initialMetric = 'profit', initialWindow = '7d', className }: LeaderboardPanelProps) {
-  const idPrefix = `leaderboard${useId()}`;
-  const [tab, setTab] = useState<LeaderboardPanelTab>('traders');
+  const headingId = `profile-leaderboard${useId()}-title`;
   const [metric, setMetric] = useState<LeaderboardMetric>(initialMetric);
   const [period, setPeriod] = useState<LeaderboardWindow>(initialWindow);
   const rows = Math.min(limit, leaderboardLimit);
@@ -172,36 +165,22 @@ export function LeaderboardPanel({ limit = profileLeaderboardRows, initialMetric
   const viewer = useSyncExternalStore(subscribeAccount, accountSession, noSession)?.session.wallet.toLowerCase() ?? null;
 
   const retry = () => { void queryClient.invalidateQueries({ queryKey: queryKeys.leaderboard(category, period, rows) }); };
-  const panelId = (id: LeaderboardPanelTab) => `${idPrefix}-panel-${id}`;
-  const tabId = (id: LeaderboardPanelTab) => `${idPrefix}-tab-${id}`;
 
   return (
-    <section aria-label="Leaderboard" className={cn('flex flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
-      <TabStrip tabs={tabs} active={tab} onChange={setTab} label="Leaderboard" idPrefix={idPrefix} />
-      {tab === 'traders' ? (
-        <div role="tabpanel" id={panelId('traders')} aria-labelledby={tabId('traders')} className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2 px-1">
-            <SelectPill options={metricOptions} value={metric} onChange={setMetric} label="Metric" />
-            <SelectPill options={windowOptions} value={period} onChange={setPeriod} label="Window" />
-            {board.state === 'ready' ? (
-              <span className="ml-auto text-2xs text-text-faint">
-                Updated <time dateTime={board.data.generatedAt}>{relativeAge(board.data.generatedAt)}</time> ago
-              </span>
-            ) : null}
-          </div>
-          <LeaderboardBody board={board} identities={identities} metric={metric} viewer={viewer} onRetry={retry} />
+    <section aria-labelledby={headingId} className={cn('flex flex-col gap-2 rounded-lg bg-surface-1 p-2', className)}>
+      <h2 id={headingId} className="px-1 text-sm font-semibold text-text">Top traders</h2>
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <SelectPill options={metricOptions} value={metric} onChange={setMetric} label="Metric" />
+          <SelectPill options={windowOptions} value={period} onChange={setPeriod} label="Window" />
+          {board.state === 'ready' ? (
+            <span className="ml-auto text-2xs text-text-faint">
+              Updated <time dateTime={board.data.generatedAt}>{relativeAge(board.data.generatedAt)}</time> ago
+            </span>
+          ) : null}
         </div>
-      ) : (
-        <div role="tabpanel" id={panelId('rewards')} aria-labelledby={tabId('rewards')}>
-          <UnavailableState
-            title="Top rewards"
-            plural
-            operation="IF_LEADERBOARDS"
-            status={null}
-            message="Check back soon"
-          />
-        </div>
-      )}
+        <LeaderboardBody board={board} identities={identities} metric={metric} viewer={viewer} onRetry={retry} />
+      </div>
     </section>
   );
 }

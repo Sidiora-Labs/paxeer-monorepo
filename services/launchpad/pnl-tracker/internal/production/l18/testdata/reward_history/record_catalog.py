@@ -1,4 +1,7 @@
-"""Record the reward runtime's registered schema dependencies from PostgreSQL."""
+"""Record the reward runtime's registered schema dependencies from PostgreSQL.
+
+Changes registering migrations in the runtime role's schema, its granted schemas except migration_control, or their predecessors must renew this transcript with this recorder in the same change and verify the cases of internal/production/l18.
+"""
 
 import argparse
 import hashlib
@@ -142,7 +145,7 @@ def record(dsn):
             apply(relative, raw, raw.decode(), item["transaction_mode"] == "transactional")
             applied[str(item["migration_id"])] = item["sha256"]
         return {"description": "Reward runtime catalog from the registered migration dependency plan and legacy sources.",
-                "registry_sha256": checksum(registry_raw), "applied": applied,
+                "applied": applied,
                 "sources": sources, "objects": dict(sorted(objects.items()))}
     finally:
         sql(dsn, f'DROP DATABASE "{database}" WITH (FORCE);')

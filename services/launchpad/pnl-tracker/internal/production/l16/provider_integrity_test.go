@@ -65,6 +65,7 @@ func inventoryProviderVariant(t *testing.T, origin string, match func(inventoryR
 }
 
 func TestRecordedInventoryRejectsProviderInconsistency(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	service, pool := recordedRebuildService(t, ctx)
 	origin := coordinatorReplayRecordedRPC(t)
@@ -175,6 +176,7 @@ func TestRecordedInventoryRejectsProviderInconsistency(t *testing.T) {
 }
 
 func TestBaselineAheadDistinguishesRefusalAndArchiveRecovery(t *testing.T) {
+	parallelDatabaseTest(t)
 	ctx := context.Background()
 	for _, mode := range []string{"archive recovery", "source gap", "invalid supply", "integrity disagreement", "both unavailable"} {
 		t.Run(mode, func(t *testing.T) {

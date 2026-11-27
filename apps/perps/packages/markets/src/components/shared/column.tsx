@@ -105,7 +105,11 @@ export function getLastColumn() {
     width: 100,
     render: (value, record) => {
       return (
-        <Text.numeral dp={record.quote_dp || 2} size="2xs">
+        <Text.numeral
+          dp={record.quote_dp ?? 2}
+          tick={record.quote_tick}
+          size="2xs"
+        >
           {value}
         </Text.numeral>
       );
@@ -122,7 +126,11 @@ export function getMarkColumn() {
     width: 100,
     render: (value, record) => {
       return (
-        <Text.numeral dp={record.quote_dp || 2} size="2xs">
+        <Text.numeral
+          dp={record.quote_dp ?? 2}
+          tick={record.quote_tick}
+          size="2xs"
+        >
           {value}
         </Text.numeral>
       );
@@ -139,7 +147,11 @@ export function getIndexColumn() {
     width: 100,
     render: (value, record) => {
       return (
-        <Text.numeral dp={record.quote_dp || 2} size="2xs">
+        <Text.numeral
+          dp={record.quote_dp ?? 2}
+          tick={record.quote_tick}
+          size="2xs"
+        >
           {value}
         </Text.numeral>
       );
@@ -273,7 +285,11 @@ export function getLastAnd24hPercentageColumn(
             gapY={1}
             className={cn(isFavoriteList && "group-hover:oui-invisible")}
           >
-            <Text.numeral dp={record.quote_dp || 2} size="2xs">
+            <Text.numeral
+              dp={record.quote_dp ?? 2}
+              tick={record.quote_tick}
+              size="2xs"
+            >
               {record["24h_close"]}
             </Text.numeral>
             <Text.numeral
@@ -313,10 +329,19 @@ export function getMarkIndexColumn() {
     },
     render: (value, record) => (
       <Flex direction="column" itemAlign="end" gapY={1}>
-        <Text.numeral dp={record.quote_dp || 2} size="2xs">
+        <Text.numeral
+          dp={record.quote_dp ?? 2}
+          tick={record.quote_tick}
+          size="2xs"
+        >
           {value}
         </Text.numeral>
-        <Text.numeral dp={record.quote_dp || 2} size="2xs" intensity={54}>
+        <Text.numeral
+          dp={record.quote_dp ?? 2}
+          tick={record.quote_tick}
+          size="2xs"
+          intensity={54}
+        >
           {record.index_price}
         </Text.numeral>
       </Flex>

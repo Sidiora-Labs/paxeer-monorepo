@@ -71,7 +71,7 @@ func (r Repository) Latest(ctx context.Context, wallet string, now time.Time) (s
 	defer release()
 	var id, revision string
 	var expires time.Time
-	e = r.Pool.QueryRow(ctx, "SELECT id::text,revision::text,expires_at FROM portfolio_snapshots WHERE wallet=$1 ORDER BY revision DESC LIMIT 1", wallet).Scan(&id, &revision, &expires)
+	e = r.Pool.QueryRow(ctx, "SELECT id::text,revision::text,expires_at FROM portfolio_snapshots WHERE wallet=$1 ORDER BY portfolio_snapshots.revision DESC LIMIT 1", wallet).Scan(&id, &revision, &expires)
 	if e == nil && !now.Before(expires) {
 		return "", "", expires, ErrRestart
 	}

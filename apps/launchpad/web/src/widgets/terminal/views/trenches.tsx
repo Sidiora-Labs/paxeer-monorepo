@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { displayCoinText } from '@/utils/coin-text';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -10,7 +11,7 @@ import { safeSocialUrl } from '@/widgets/trading/token-description';
 import { AgeChip, Avatar, Button, EmptyState, ErrorState, LoadMore, PercentPill, SegmentedControl, StageBadge, Tooltip, UnavailableState } from '@/ui/primitives';
 import { TableRowsSkeleton } from '@/ui/shared/skeletons';
 import { terminalPoolPath } from '../sub-nav';
-import { formatCount, formatUsdl } from '@/utils/format';
+import { formatCount, formatCompactUsd } from '@/utils/format';
 import { userFacingMessage } from '@/core/user-facing-error';
 import { StatDash } from '@/ui/shared/stat-value';
 import { formatShare } from '@/core/market/pool-stats-display';
@@ -98,19 +99,19 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
   const socials = pairSocials(metadata);
   const marketCap = row.mcapRaw === null
     ? <StatDash reason={row.mcapReason ?? 'Market cap is not available.'} subject="Market cap" className="text-sm" />
-    : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-sm font-bold tabular-nums text-text">{formatUsdl(row.mcapRaw, { compact: true, unit: false })}</span>;
+    : <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatCompactUsd(row.circulatingMcapRaw, { raw: true, compact: true })}` : undefined} className="text-sm font-bold tabular-nums text-text">{formatCompactUsd(row.mcapRaw, { raw: true, compact: true })}</span>;
   const statisticsClass = 'flex h-full shrink-0 flex-col items-end justify-center gap-0.5';
   return (
-    <li className="relative flex h-11 items-center gap-2 bg-surface-1 px-2 transition-colors duration-fast hover:bg-surface-hover">
+    <li className="sl-hairline relative flex h-11 items-center gap-2 bg-surface-1 px-2 transition-colors duration-fast hover:bg-surface-hover">
       <Link prefetch={false} href={terminalPoolPath(row.poolAddress)} aria-label={`${row.symbol} ${row.name}`} className="absolute inset-0 rounded-sm focus-visible:outline-2 focus-visible:outline-offset-[calc(var(--sl-focus-offset)*-1)] focus-visible:outline-focus" />
-      <Avatar src={row.image} name={row.symbol} size="md" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} /> : undefined} />
+      <Avatar src={row.image} name={row.name} size="md" shape="square" decorative badge={row.stage ? <StageBadge stage={row.stage} size={launchpadGeometry.smallBadge} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="flex min-w-0 items-baseline gap-1.5 text-sm">
-          <span className="min-w-0 truncate font-bold text-text" title={row.symbol}>{row.symbol}</span>
-          <span className="truncate text-xs text-text-muted" title={row.name}>{row.name}</span>
+          <span className="min-w-0 truncate font-semibold text-text" title={row.name}>{row.name}</span>
+          <span className="truncate text-xs text-text-muted" title={row.symbol}>{row.symbol}</span>
         </p>
         <div className="flex min-w-0 items-center gap-2 text-xs text-text-faint">
-          <AgeChip iso={row.createdAtMs} className="font-bold text-accent" />
+          <AgeChip iso={row.createdAtMs} className="text-text-muted" />
           {row.holders !== null ? (
             <span className="inline-flex items-center gap-0.5 tabular-nums" title="Holders">
               <Users aria-hidden="true" className="size-3" />
@@ -140,7 +141,7 @@ function PairRow({ row, metadata, timeframe }: PairRowProps) {
       ) : (
         <div className={statisticsClass}>
           {marketCap}
-          <PercentPill value={change.value} variant="text" />
+          <PercentPill value={change.value} />
         </div>
       )}
     </li>
@@ -156,9 +157,9 @@ interface TrenchColumnProps {
 
 function TrenchColumn({ title, count, control, children }: TrenchColumnProps) {
   return (
-    <section aria-label={title} className="flex min-h-0 flex-col overflow-hidden rounded-md bg-surface-1">
+    <section aria-label={title} className="sl-hairline flex min-h-0 flex-col overflow-hidden bg-surface-1">
       <header className="flex min-h-8 shrink-0 flex-wrap items-center justify-between gap-2 px-2">
-        <h2 className="flex flex-wrap items-center gap-1.5 text-sm font-bold text-text">
+        <h2 className="flex flex-wrap items-center gap-1.5 text-sm font-semibold text-text">
           {title}
           {count !== null ? <span data-numeric className="text-xs font-semibold tabular-nums text-text-faint">{formatCount(count)}</span> : null}
         </h2>
@@ -191,7 +192,7 @@ function NewPairsBody({ state, timeframe }: { state: ExploreRowsState; timeframe
   const metadata = state.metadata.state === 'ready' ? state.metadata.data : {};
   const ranking = state.ranking;
   if (state.loading || ranking.state === 'loading') return <><span className="sr-only" role="status">Loading new pairs</span><TableRowsSkeleton rows={1} columns={3} dense /></>;
-  if (ranking.state === 'unsupported') return <UnavailableState title="New pairs" operation={ranking.operation} status={ranking.status} onRetry={state.reload} />;
+  if (ranking.state === 'unsupported') return <UnavailableState title="New pairs" operation={ranking.operation} status={ranking.status} notServed={ranking.notServed} onRetry={state.reload} />;
   if (ranking.state === 'error') return <ErrorState title="New pairs can't load right now" message={userFacingMessage(ranking.error)} onRetry={state.reload} variant="inline" />;
   if (buckets.newPairs.length === 0) return <EmptyState icon={Sprout} title="No new coins yet" body="New launches appear here as soon as they are created." action={<Button variant="secondary" size="sm" href="/create">Create coin</Button>} />;
   return (
@@ -220,7 +221,7 @@ function NewPairsColumn() {
 function GraduationColumn({ title }: { title: string }) {
   return (
     <TrenchColumn title={title} count={null}>
-      <UnavailableState title={title} operation={graduationEvidence.operation} status={null} message={graduationEvidence.message} />
+      <EmptyState icon={Sprout} title={`${title} is not available yet`} body={graduationEvidence.message} />
     </TrenchColumn>
   );
 }

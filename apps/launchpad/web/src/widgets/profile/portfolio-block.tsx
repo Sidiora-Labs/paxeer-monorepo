@@ -2,10 +2,10 @@
 
 import { surfaceSpacing, launchpadGeometry } from '@/app/presentation-tokens';
 import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
-import { ArrowDownToLine, ChevronDown, CircleDollarSign } from 'lucide-react';
+import { ArrowDownRight, ArrowDownToLine, ArrowUpRight, ChartNoAxesCombined, ChevronDown, CircleDollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, Chip, IconButton, SegmentedControl, Skeleton, UnavailableState } from '@/ui/primitives';
-import { formatPercent, formatUsdl } from '@/utils/format';
+import { Button, Chip, EmptyState, IconButton, SegmentedControl, Skeleton, UnavailableState } from '@/ui/primitives';
+import { formatPercent, formatCompactUsd } from '@/utils/format';
 import { openAccountMenu } from '@/shell/account-menu-store';
 import { isSignedOutError } from '@/core/market/unsupported';
 import { SignedOutState } from '@/ui/shared/signed-out-state';
@@ -39,11 +39,11 @@ export function splitAmount(text: string): { integer: string; fraction: string |
   return { integer: text.slice(0, dot), fraction: text.slice(dot) };
 }
 
-const deltaClass = { gain: 'text-success', loss: 'text-danger', flat: 'text-text-muted' } as const;
+const deltaClass = { gain: 'bg-percent-up-soft text-percent-up', loss: 'bg-percent-down-soft text-percent-down', flat: 'bg-surface-2 text-text-muted' } as const;
 
 /**
- * S16 portfolio value block: value with split typography, window delta, rank
- * line, 1D/1W/1M segmented control, USDL chip, Deposit (own profile) and the
+ * Portfolio value with split typography, window result and period,
+ * a range control, quote asset, Deposit for the owner and the
  * collapsible value chart. Every amount honours the balance visibility toggle.
  */
 export function PortfolioBlock({ wallet, isOwner, className, notice }: PortfolioBlockProps) {
@@ -63,7 +63,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
   const partialValue = !!summary && summary.completeValueUsdlRaw === null;
   const decimals = portfolio.loadable.state === 'ready' ? portfolio.loadable.data.decimals : 6;
   const quote = portfolio.loadable.state === 'ready' ? portfolio.loadable.data.quoteAsset : 'USDL';
-  const amount = valueRaw !== null ? splitAmount(formatUsdl(valueRaw, { decimals, unit: false })) : null;
+  const amount = valueRaw !== null ? splitAmount(formatCompactUsd(valueRaw, { raw: true, decimals})) : null;
   const chartId = `${useId()}-portfolio-chart`;
   const valueFailed = portfolio.loadable.state === 'error' && !issue && !(owner && isSignedOutError(portfolio.loadable.error));
   const historyFailed = history.state === 'error' && !historyIssue && !(owner && isSignedOutError(history.error));
@@ -76,7 +76,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
     <section aria-labelledby="portfolio-value-title" className={cn('flex flex-col gap-3 rounded-lg bg-surface-1 p-4', className)} data-profile-section="portfolio">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-h-19 min-w-0 max-w-full">
-          <h2 id="portfolio-value-title" className="text-xs font-normal text-text-faint">Portfolio value</h2>
+          <h2 id="portfolio-value-title" className="text-xs font-medium text-text-muted">Portfolio value</h2>
           {portfolio.loadable.state === 'loading' ? (
             <Skeleton width={surfaceSpacing(45)} height={surfaceSpacing(10)} label="Loading portfolio value" className="max-w-full" />
           ) : amount ? (
@@ -85,12 +85,11 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
                 <span className="text-2xl font-bold">{amount.integer}</span>
                 {amount.fraction ? <span className="text-lg font-semibold text-text-muted">{amount.fraction}</span> : null}
               </MaskedAmount>
-              <span className="ml-1.5 text-sm font-semibold text-text-faint">{quote}</span>
             </p>
           ) : issue ? (
             <PortfolioIssueState issue={issue} variant="inline" className="max-w-md" />
           ) : portfolio.loadable.state === 'unsupported' ? (
-            <UnavailableState variant="inline" title="Portfolio value" operation={portfolio.loadable.operation} status={portfolio.loadable.status} onRetry={portfolio.refetch} />
+            <UnavailableState variant="inline" title="Portfolio value" operation={portfolio.loadable.operation} status={portfolio.loadable.status} notServed={portfolio.loadable.notServed} error={portfolio.loadable.error} onRetry={portfolio.refetch} />
           ) : valueFailed && valueCollected ? (
             <p data-numeric className="text-2xl font-bold"><Dash label="Portfolio value" /></p>
           ) : portfolio.loadable.state === 'error' ? (
@@ -104,8 +103,8 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
               <Skeleton width={surfaceSpacing(35)} height={surfaceSpacing(4)} label="Loading change" />
             ) : delta ? (
               <>
-                <MaskedAmount className={cn('tabular-nums', deltaClass[delta.tone])}>
-                  {formatUsdl(delta.absRaw, { decimals, signed: true })}{delta.pct !== null ? ` (${formatPercent(delta.pct)})` : ''}
+                <MaskedAmount className={cn('inline-flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-num-sm tabular-nums', deltaClass[delta.tone])}>
+                  {delta.tone === 'gain' ? <ArrowUpRight aria-hidden="true" className="size-3" /> : delta.tone === 'loss' ? <ArrowDownRight aria-hidden="true" className="size-3" /> : null}{formatCompactUsd(delta.absRaw, { raw: true, decimals, signed: true })}{delta.pct !== null ? ` (${formatPercent(delta.pct)})` : ''}
                 </MaskedAmount>
                 <span className="text-xs text-text-faint">{range}</span>
               </>
@@ -141,13 +140,13 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
       </div>
 
       {collapsed ? notice : null}
-      <div id={chartId} hidden={collapsed} className={cn(!collapsed && 'relative flex min-h-40 flex-col justify-center gap-3 [&:has([data-profile-notice])_[data-portfolio-chart-loading]]:invisible')}>
+      <div id={chartId} hidden={collapsed} className={cn(!collapsed && 'relative flex flex-col justify-center gap-3 [&:has([data-profile-notice])_[data-portfolio-chart-loading]]:invisible')}>
         {collapsed ? null : notice}
         {collapsed ? null : history.state === 'loading' ? (
-          <div data-portfolio-chart-loading className="absolute inset-0"><Skeleton variant="block" label="Loading portfolio chart" className="size-full" /></div>
+          <div data-portfolio-chart-loading className="h-40"><Skeleton variant="block" label="Loading portfolio chart" className="size-full" /></div>
         ) : history.state === 'ready' ? (
           points.length === 0 ? (
-            <p className="flex min-h-40 items-center justify-center rounded-md bg-surface-2 px-4 text-center text-sm text-text-faint">No history yet. The chart fills in once this wallet holds coins.</p>
+            <EmptyState icon={ChartNoAxesCombined} title="No history yet" body="The chart fills in once this wallet holds coins." className="p-4" />
           ) : (
             <PortfolioChart points={points} tone={delta?.tone ?? 'flat'} height={launchpadGeometry.chart.portfolioCompactHeight} />
           )
@@ -155,7 +154,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
           <PortfolioIssueState issue={historyIssue} variant="inline" />
         ) : history.state === 'unsupported' ? (
           <div className="flex items-center justify-center rounded-md bg-surface-1 px-4 text-center">
-            <UnavailableState variant="inline" title="Portfolio chart" operation={history.operation} status={history.status} message={history.message} />
+            <UnavailableState variant="inline" title="Portfolio chart" operation={history.operation} status={history.status} notServed={history.notServed} message={history.message} />
           </div>
         ) : owner && isSignedOutError(history.error) ? (
           <SignedOutState variant="inline" title="Sign in to see your value history" />

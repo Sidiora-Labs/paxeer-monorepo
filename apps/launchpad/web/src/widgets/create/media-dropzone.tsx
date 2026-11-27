@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { CircleAlert, ImagePlus, LoaderCircle, TriangleAlert } from 'lucide-react';
@@ -49,7 +50,7 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
     void accept(event.dataTransfer?.files ?? null);
   }
 
-  const zoneTone = error ? 'bg-danger-soft' : dragOver ? 'bg-accent-soft' : 'bg-surface-2';
+  const zoneTone = error ? 'border-danger bg-surface-2' : dragOver ? 'border-control-edge bg-surface-hover' : 'border-control-edge bg-surface-2';
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
@@ -57,7 +58,7 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
         onDragOver={event => { if (disabled) return; event.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        className={cn('rounded-lg p-4 transition-colors duration-fast', zoneTone)}
+        className={cn('w-fit max-w-full rounded-md border p-3 transition-colors duration-fast', zoneTone)}
       >
         <input
           ref={inputRef}
@@ -72,9 +73,9 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
         />
         {staged ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <img src={staged.previewUrl} alt={`Selected image ${staged.descriptor.name}`} width={120} height={120} decoding="async" className="size-30 shrink-0 rounded-md bg-surface-3 object-cover" />
+            <img src={staged.previewUrl} alt={`Selected image ${staged.descriptor.name}`} width={launchpadGeometry.images.preview} height={launchpadGeometry.images.preview} decoding="async" className="size-30 shrink-0 rounded-md bg-surface-3 object-cover" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
-              <p className="truncate text-sm font-bold text-text" title={staged.descriptor.name}>{staged.descriptor.name}</p>
+              <p className="truncate text-sm font-semibold text-text" title={staged.descriptor.name}>{staged.descriptor.name}</p>
               <p className="text-xs text-text-faint">
                 {staged.descriptor.type.replace('image/', '').toUpperCase()}, {formatMiB(staged.descriptor.size)}
                 {staged.descriptor.width && staged.descriptor.height ? `, ${staged.descriptor.width} x ${staged.descriptor.height} px` : ''}
@@ -101,18 +102,18 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
             disabled={disabled || busy}
             aria-describedby={error ? errorId : hintId}
             onClick={() => inputRef.current?.click()}
-            className={cn('flex min-h-56! w-full flex-col items-center justify-center gap-3 rounded-md text-center', disabled ? 'cursor-not-allowed' : 'hover:bg-surface-hover')}
+            className={cn('flex aspect-square w-40 max-w-full flex-col items-center justify-center gap-2 rounded-md text-center', disabled ? 'cursor-not-allowed' : 'hover:bg-surface-hover')}
           >
             {busy
               ? <LoaderCircle aria-hidden="true" className="size-10 animate-spin text-text-faint" />
               : <ImagePlus aria-hidden="true" className={cn('size-10', dragOver ? 'text-accent' : 'text-text-faint')} />}
-            <span className={cn('text-md font-bold', dragOver ? 'text-accent' : 'text-text')}>{busy ? 'Loading...' : headline}</span>
+            <span className={cn('text-md font-semibold', dragOver ? 'text-accent' : 'text-text')}>{busy ? 'Loading...' : headline}</span>
             <span id={hintId} className="text-xs text-text-faint">
               {remembered
                 ? `Pick ${remembered.name} (${formatMiB(remembered.size)}) again. Images aren't kept between visits.`
                 : 'or drag and drop it here'}
             </span>
-            <span className={cn('inline-flex h-control-height-sm items-center rounded-sm px-3 text-sm font-bold', disabled ? 'bg-accent-soft-strong text-text-disabled' : 'bg-accent text-on-accent')}>Select file</span>
+            <span className={cn('inline-flex h-control-height-sm items-center rounded-sm px-3 text-sm font-semibold', disabled ? 'bg-accent-soft-strong text-text-disabled' : 'bg-accent text-on-accent')}>Select file</span>
           </button>
         )}
         {error ? (

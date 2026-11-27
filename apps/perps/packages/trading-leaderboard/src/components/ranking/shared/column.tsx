@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { ReactNode, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -189,7 +190,7 @@ export const useRankingColumns = (
           }
           return (
             <Text.numeral
-              suffix={` ${value?.currency || ""}`}
+              suffix={` ${tokenDisplayName(value?.currency || "")}`}
               rule="price"
               dp={0}
             >

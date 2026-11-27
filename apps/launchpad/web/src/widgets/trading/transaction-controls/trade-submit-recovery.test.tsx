@@ -5,6 +5,7 @@ import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { inspect } from 'node:util';
 import { expect, test } from 'vitest';
 import {
   BaseError,
@@ -26,10 +27,10 @@ import { ChainTradeProvider, type TradeDeployment } from './providers';
 import { TradeJourney, failureReason } from './runtime';
 
 const pause = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
-async function until(check: () => boolean, timeout = 5000) {
+async function until(check: () => boolean, timeout = 5000, report?: () => Promise<string>) {
   const end = Date.now() + timeout;
   while (!check()) {
-    if (Date.now() >= end) throw new Error('Trade state did not settle');
+    if (Date.now() >= end) throw new Error(report ? await report() : 'Trade state did not settle');
     await act(async () => { await pause(20); });
   }
 }
@@ -149,7 +150,7 @@ async function walletRefusalPreservesTradeAndExpiredQuoteRequestsOnePrice() {
         });
       };
       return <>
-        <div role="status"><TradeQuoteNotices priceMoved={current.priceMoved} error={transactionError ?? state.quoteError} onRefresh={refresh} /></div>
+        <div role="status"><TradeQuoteNotices priceMoved={current.priceMoved} staleQuoteCause={current.staleQuoteCause} error={transactionError ?? state.quoteError} onRefresh={refresh} /></div>
         <ActionButton state={action} side="buy" onClick={submit} />
       </>;
     }
@@ -162,7 +163,17 @@ async function walletRefusalPreservesTradeAndExpiredQuoteRequestsOnePrice() {
     };
     const start = async () => {
       await act(async () => { button('Place trade').click(); });
-      await until(() => !!pendingWallet);
+      await until(() => !!pendingWallet, 5000, async () => {
+        const state = journey.state;
+        const block = await client.getBlock({ blockTag: 'latest' });
+        const chainAheadSeconds = block.timestamp - BigInt(Math.floor(Date.now() / 1000));
+        return `No wallet request arrived: ${inspect({
+          transactionError,
+          relayErrors,
+          journey: state,
+          chainAheadSeconds: chainAheadSeconds.toString(),
+        }, { depth: null })}`;
+      });
       expect(journey.state.signing).toBe(true);
     };
     await act(async () => { root.render(<Surface />); journey.setContext(context); });
@@ -209,7 +220,7 @@ async function walletRefusalPreservesTradeAndExpiredQuoteRequestsOnePrice() {
     expect(journey.state.quote).toBeUndefined();
     expect(journey.state.quoteStatus).toBe('requesting');
     expect(button('Getting price...').disabled).toBe(true);
-    expect(host.textContent).toContain('The price moved. Refresh to see the new price.');
+    expect(host.textContent).toContain('The price is out of date. Refresh to see the current price.');
     await until(() => !!journey.state.quote);
     await act(async () => { await pause(550); });
     expect(quoteRequests).toBe(3);

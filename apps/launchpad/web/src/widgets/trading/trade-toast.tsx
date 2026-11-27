@@ -1,5 +1,7 @@
 'use client';
 
+import { formatUnits } from 'viem';
+import type { TradeFeeAsset } from './transaction-controls/providers';
 import { launchpadMotion } from '@/app/presentation-tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Share2, X } from 'lucide-react';
@@ -19,6 +21,7 @@ export interface TradeToastData {
   tokenName: string;
   txHash: string;
   feeRaw?: string;
+  feeAsset?: TradeFeeAsset & { symbol?: string };
   receiptHeight?: string;
   historyUpdating?: boolean;
   balanceObservedAt?: number;
@@ -26,6 +29,7 @@ export interface TradeToastData {
 
 interface TradeToastProps {
   data: TradeToastData;
+  tokenAsset?: { address: string; symbol?: string | null };
   onDismiss: () => void;
   /** If provided, renders a Share PnL button at the bottom of the toast. */
   onShare?: () => void;
@@ -37,7 +41,7 @@ interface TradeToastProps {
 
 const AUTO_DISMISS_MS = launchpadMotion.toastLifetime;
 
-export default function TradeToast({ data, onDismiss, onShare, sharing = false, shareError }: TradeToastProps) {
+export default function TradeToast({ data, tokenAsset, onDismiss, onShare, sharing = false, shareError }: TradeToastProps) {
   const [visible, setVisible] = useState(false);
   const [exiting, setExiting] = useState(false);
   const [paused, setPaused] = useState(false);
@@ -66,6 +70,12 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
     emitBrowserObservation({ kind: 'toast_confirmed', txHash: data.txHash, receiptHeight: data.receiptHeight });
   }, [data.txHash, data.receiptHeight]);
 
+  const feeSymbol = data.feeAsset?.symbol?.trim() || (
+    data.feeAsset?.address.toLowerCase() === tokenAsset?.address.toLowerCase() ? tokenAsset?.symbol?.trim() : undefined
+  );
+  const feeAmount = data.feeRaw !== undefined && data.feeAsset && feeSymbol
+    ? `${formatUnits(BigInt(data.feeRaw), data.feeAsset.decimals)} ${feeSymbol}`
+    : undefined;
   const isBuy = data.type === 'buy';
   const truncatedHash = data.txHash ? `${data.txHash.slice(0, 6)}...${data.txHash.slice(-4)}` : '';
   const explorerHref = data.txHash ? safeExternalDestination(`https://paxscan.paxeer.app/tx/${data.txHash}`) : null;
@@ -80,7 +90,7 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
       onFocus={() => setPaused(true)}
       onBlur={() => setPaused(false)}
       className={cn(
-        'fixed bottom-24 left-3 right-3 z-[var(--sl-z-toast)] w-auto transition-all duration-slow ease-sl sm:bottom-5 sm:left-auto sm:right-5 sm:w-90',
+        'fixed bottom-[calc(var(--sl-space)*24+var(--sl-cookie-banner-height,0px))] left-3 right-3 z-[var(--sl-z-toast)] w-auto transition-all duration-slow ease-sl sm:bottom-[calc(var(--sl-space)*5+var(--sl-cookie-banner-height,0px))] sm:left-auto sm:right-5 sm:w-90',
         visible && !exiting ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0',
       )}
     >
@@ -103,10 +113,10 @@ export default function TradeToast({ data, onDismiss, onShare, sharing = false, 
               <dt className="text-text-muted">{isBuy ? 'Received' : 'Returned'}</dt>
               <dd className={cn('min-w-0 truncate font-bold tabular-nums', tone)} title={`${data.outputAmount} ${data.outputSymbol}`}>{data.outputAmount} {data.outputSymbol}</dd>
             </div>
-            {data.feeRaw ? (
+            {feeAmount ? (
               <div className="flex items-center justify-between gap-3 text-xs">
                 <dt className="text-text-faint">Fee paid</dt>
-                <dd className="text-text-muted tabular-nums">{data.feeRaw} raw</dd>
+                <dd className="text-text-muted tabular-nums">{feeAmount}</dd>
               </div>
             ) : null}
           </dl>

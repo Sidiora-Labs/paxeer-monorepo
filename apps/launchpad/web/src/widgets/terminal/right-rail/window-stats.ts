@@ -124,7 +124,7 @@ export function useWindowCandles(poolAddress: string, now: number): Record<Stats
   const q24 = useCandles(poolAddress, windowSpecs['24h'].interval, { ...r24, limit: windowSpecs['24h'].buckets + 1 });
   const series = (window: StatsWindow, from: number, query: typeof q5): WindowSeries => {
     const state = loadable(query, 'IF_CANDLES');
-    return { window, from, candles: state.state === 'ready' ? { state: 'ready', data: state.data.data.items } : state };
+    return { window, from, candles: state.state === 'ready' ? { state: 'ready', data: state.data.data.items, stale: state.stale } : state };
   };
   return { '5m': series('5m', r5.from, q5), '1h': series('1h', r1.from, q1), '6h': series('6h', r6.from, q6), '24h': series('24h', r24.from, q24) };
 }

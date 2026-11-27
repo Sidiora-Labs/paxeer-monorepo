@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting/sourcebootstrap"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -183,33 +184,44 @@ func (s *AccountingReadModel) vector(ctx context.Context, tx pgx.Tx, pool, consu
 	}
 	return v, nil
 }
+func (s *AccountingReadModel) head(ctx context.Context, tx pgx.Tx, pool, consumer string, charts bool, deliverySchema string) (int64, error) {
+	q := pgx.Identifier{deliverySchema}.Sanitize()
+	var checkpoint *string
+	var next, sequence *int64
+	var raw []byte
+	var quarantined bool
+	err := tx.QueryRow(ctx, `SELECT o.checkpoint_digest,o.next_sequence,c.sequence,c.position,EXISTS(SELECT 1 FROM `+q+`.delivery_ordered_quarantine_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND $3=ANY(affected_pools)) FROM (SELECT 1) seed LEFT JOIN `+q+`.delivery_partition_offsets_v1 o ON o.consumer_id=$1 AND o.projection_generation=$2 AND o.partition_kind='market' AND o.partition_key=$4 LEFT JOIN `+q+`.delivery_partition_commits_v1 c ON c.consumer_id=o.consumer_id AND c.projection_generation=o.projection_generation AND c.partition_kind=o.partition_kind AND c.partition_key=o.partition_key AND c.sequence=o.next_sequence-1 AND c.effect_identity=o.previous_effect_identity`, consumer, s.config.ProjectionGeneration, pool, "125:"+pool).Scan(&checkpoint, &next, &sequence, &raw, &quarantined)
+	if err != nil {
+		return 0, err
+	}
+	if quarantined {
+		return 0, ErrDataIntegrity
+	}
+	if checkpoint == nil {
+		return 0, nil
+	}
+	if err = s.verifyCheckpoint(ctx, tx, charts, consumer, deliverySchema, pool, *checkpoint); err != nil {
+		return 0, err
+	}
+	if sequence == nil {
+		if next == nil || *next != 1 {
+			return 0, ErrAccountingNotReady
+		}
+		return 0, nil
+	}
+	var position accounting.PartitionPosition
+	if len(raw) > accounting.MaxWireBytes || json.Unmarshal(raw, &position) != nil || accounting.ValidatePartitionPosition(position) != nil || position.Sequence != strconv.FormatInt(*sequence, 10) || position.ProjectionVersion != s.config.ProjectionVersion || position.PartitionKind != "market" || position.PartitionKey != "125:"+pool {
+		return 0, ErrDataIntegrity
+	}
+	return *sequence, nil
+}
 func (s *AccountingReadModel) untradedPage(ctx context.Context, tx pgx.Tx, pool string) (AccountingPage, error) {
 	out := AccountingPage{Items: []json.RawMessage{}, SeriesModelVersion: s.config.ProjectionVersion}
-	if _, err := sourcebootstrap.FirstMarketPosition(ctx, tx, s.config.SourcePartitionSchema, s.config.ProjectionVersion, pool); !errors.Is(err, pgx.ErrNoRows) {
-		if err != nil {
-			return out, err
-		}
-		return out, ErrAccountingNotReady
-	}
 	if _, err := sourcebootstrap.CanonicalCreation(ctx, tx, s.config.SourceStream, pool); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return out, ErrAccountingNotReady
 		}
 		return out, err
-	}
-	for i, deliverySchema := range []string{s.config.ChartsDeliverySchema, s.config.StatsDeliverySchema} {
-		consumer := s.config.ChartsConsumerID
-		if i == 1 {
-			consumer = s.config.StatsConsumerID
-		}
-		var exists bool
-		err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM `+pgx.Identifier{deliverySchema}.Sanitize()+`.delivery_partition_offsets_v1 WHERE consumer_id=$1 AND projection_generation=$2 AND partition_kind='market' AND partition_key=$3)`, consumer, s.config.ProjectionGeneration, "125:"+pool).Scan(&exists)
-		if err != nil {
-			return out, err
-		}
-		if exists {
-			return out, ErrAccountingNotReady
-		}
 	}
 	var observed time.Time
 	if err := tx.QueryRow(ctx, `SELECT transaction_timestamp()`).Scan(&observed); err != nil {
@@ -223,36 +235,60 @@ func (s *AccountingReadModel) untradedPage(ctx context.Context, tx pgx.Tx, pool 
 }
 func (s *AccountingReadModel) snapshot(ctx context.Context, tx pgx.Tx, r AccountingPageRequest) (AccountingPage, accountingVector, error) {
 	out := AccountingPage{Items: []json.RawMessage{}, SeriesModelVersion: s.config.ProjectionVersion}
-	v, err := s.vector(ctx, tx, r.Pool, s.config.ChartsConsumerID, true, s.config.ChartsDeliverySchema, r.SnapshotSequence)
-	if err != nil {
-		if errors.Is(err, ErrAccountingNotReady) && r.ExpectedSnapshot == "" && r.SnapshotSequence == nil && r.AfterStart == nil && r.AfterSequence == nil && r.AfterOrder == nil && r.AfterEventID == "" {
-			out, err = s.untradedPage(ctx, tx, r.Pool)
+	initial := r.ExpectedSnapshot == "" && r.SnapshotSequence == nil && r.AfterStart == nil && r.AfterSequence == nil && r.AfterOrder == nil && r.AfterEventID == "" && r.CursorExpires == 0
+	sequence := r.SnapshotSequence
+	pending := false
+	if initial {
+		chartsHead, err := s.head(ctx, tx, r.Pool, s.config.ChartsConsumerID, true, s.config.ChartsDeliverySchema)
+		if err != nil {
+			return out, accountingVector{}, err
 		}
-		return out, v, err
+		statsHead, err := s.head(ctx, tx, r.Pool, s.config.StatsConsumerID, false, s.config.StatsDeliverySchema)
+		if err != nil {
+			return out, accountingVector{}, err
+		}
+		common := min(chartsHead, statsHead)
+		pending = common == 0
+		sequence = &common
 	}
-	stats, err := s.vector(ctx, tx, r.Pool, s.config.StatsConsumerID, false, s.config.StatsDeliverySchema, r.SnapshotSequence)
-	if err != nil {
-		return out, v, err
-	}
-	a, _ := json.Marshal(v.position)
-	b, _ := json.Marshal(stats.position)
-	if v.sequence != stats.sequence || string(a) != string(b) {
-		return out, v, ErrAccountingNotReady
+	var v, stats accountingVector
+	var err error
+	if !pending {
+		v, err = s.vector(ctx, tx, r.Pool, s.config.ChartsConsumerID, true, s.config.ChartsDeliverySchema, sequence)
+		if err != nil {
+			return out, v, err
+		}
+		stats, err = s.vector(ctx, tx, r.Pool, s.config.StatsConsumerID, false, s.config.StatsDeliverySchema, sequence)
+		if err != nil {
+			return out, v, err
+		}
+		a, _ := json.Marshal(v.position)
+		b, _ := json.Marshal(stats.position)
+		if v.sequence != stats.sequence || string(a) != string(b) {
+			if initial {
+				return out, v, ErrDataIntegrity
+			}
+			return out, v, ErrAccountingNotReady
+		}
 	}
 	var frozen bool
 	err = tx.QueryRow(ctx, `SELECT frozen FROM `+pgx.Identifier{s.config.ChartsSchema}.Sanitize()+`.chart_pool_fences_v1 WHERE chain_id='125' AND pool=$1`, r.Pool).Scan(&frozen)
-	if err != nil {
+	if err != nil && (!pending || !errors.Is(err, pgx.ErrNoRows)) {
 		return out, v, err
 	}
 	if frozen {
 		return out, v, ErrDataIntegrity
 	}
 	err = tx.QueryRow(ctx, `SELECT frozen FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_pool_fences_v1 WHERE pool=$1`, r.Pool).Scan(&frozen)
-	if err != nil {
+	if err != nil && (!pending || !errors.Is(err, pgx.ErrNoRows)) {
 		return out, v, err
 	}
 	if frozen {
 		return out, v, ErrDataIntegrity
+	}
+	if pending {
+		out, err = s.untradedPage(ctx, tx, r.Pool)
+		return out, v, err
 	}
 	fills, err := s.sourceFills(ctx, tx, r.Pool, []string{v.position.SourceEventID}, v.sequence)
 	if err != nil {
@@ -369,6 +405,7 @@ type accountingPriceSource struct {
 	Provenance    accounting.Provenance     `json:"provenance"`
 }
 type accountingCandle struct {
+	raw               json.RawMessage
 	PoolAddress       string                `json:"poolAddress"`
 	Interval          string                `json:"interval"`
 	Start             int64                 `json:"start"`
@@ -438,6 +475,7 @@ func (s *AccountingReadModel) Candles(ctx context.Context, r AccountingPageReque
 		return AccountingPage{}, err
 	}
 	out, vector, err := s.snapshot(ctx, tx, r)
+	out.SeriesModelVersion = candlewire.SeriesModelVersion
 	if err != nil {
 		return out, err
 	}
@@ -469,6 +507,7 @@ func (s *AccountingReadModel) Candles(ctx context.Context, r AccountingPageReque
 			rows.Close()
 			return out, ErrDataIntegrity
 		}
+		c.raw = raw
 		candles = append(candles, c)
 	}
 	rows.Close()
@@ -493,25 +532,14 @@ func (s *AccountingReadModel) Candles(ctx context.Context, r AccountingPageReque
 		return out, err
 	}
 	for _, c := range candles {
-		prices := make([]map[string]any, 4)
-		sources := []accountingPriceSource{c.OpenSource, c.HighSource, c.LowSource, c.CloseSource}
-		for i, p := range []accountingRational{c.Open, c.High, c.Low, c.Close} {
-			f, ok := fills[sources[i].SourceFillID]
-			if !ok || f.Token != c.Token || f.Settlement != c.Settlement {
-				return out, ErrDataIntegrity
-			}
-			prices[i], err = canonicalPrice(p, sources[i], f)
-			if err != nil {
-				return out, err
-			}
+		item, err := candlewire.FromStoredBar(c.raw, fills)
+		if err != nil {
+			return out, ErrDataIntegrity
 		}
-		item := map[string]any{literalPoolAddress: c.PoolAddress, "interval": c.Interval, "start": time.Unix(c.Start, 0).UTC().Format("2006-01-02T15:04:05.000Z"), "open": prices[0], "high": prices[1], "low": prices[2], "close": prices[3], "volumeUsdlRaw": c.VolumeUSDLRaw, "volumeTokenRaw": c.VolumeTokenRaw, "buyVolumeUsdlRaw": c.BuyVolumeUSDLRaw, "sellVolumeUsdlRaw": c.SellVolumeUSDLRaw, "trades": strconv.FormatUint(c.Trades, 10), "revision": strconv.FormatUint(c.Revision, 10), "synthetic": false, "coverage": literalPartial, "firstPosition": c.OpenSource.Position, "lastPosition": c.CloseSource.Position, "seriesModelVersion": out.SeriesModelVersion, "snapshotId": out.SnapshotID, "uniqueTraderCount": nil, "largeTradeCount": nil, "largeTradePolicyId": nil, "largeTradeThresholdUsdlRaw": nil}
+		item.SnapshotId = out.SnapshotID
 		raw, err := json.Marshal(item)
 		if err != nil {
 			return out, err
-		}
-		if err = interfaces.ValidateJSON("Candle", raw); err != nil {
-			return out, ErrDataIntegrity
 		}
 		out.Items = append(out.Items, raw)
 	}

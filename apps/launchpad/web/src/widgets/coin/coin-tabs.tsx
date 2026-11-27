@@ -8,7 +8,7 @@ import { usePoolCallouts } from '@/core/market/use-feed';
 import { CalloutCard, CalloutCardSkeleton } from '@/widgets/social/callout-card';
 import { useCalloutStats } from '@/widgets/social/hot-callouts-panel';
 import { poolCalloutView } from '@/widgets/social/callout-model';
-import HoldersTable from './holders-table';
+import HoldersTable, { HolderStatsContext } from './holders-table';
 import TradesTable, { type MarketLive } from './trades-table';
 import AboutTab from './about-tab';
 import { userFacingMessage } from '@/core/user-facing-error';
@@ -27,7 +27,7 @@ function CalloutsTab({ pool }: { pool: string }) {
   const views = useMemo(() => (callouts.state === 'ready' ? callouts.data.data.items.map(poolCalloutView) : []), [callouts]);
   const statsFor = useCalloutStats(views);
   if (callouts.state === 'loading') return <div aria-busy="true" className="flex flex-col gap-2"><span className="sr-only">Loading callouts</span><CalloutCardSkeleton /><CalloutCardSkeleton /></div>;
-  if (callouts.state === 'unsupported') return <UnavailableState title="Callouts for this coin" plural operation={callouts.operation} status={callouts.status} message="Callouts are coming soon. Check back later." />;
+  if (callouts.state === 'unsupported') return <UnavailableState title="Callouts for this coin" plural operation={callouts.operation} status={callouts.status} notServed={callouts.notServed} message="Callouts are coming soon. Check back later." />;
   if (callouts.state === 'error') return <ErrorState title="Callouts can't load right now" message={userFacingMessage(callouts.error)} onRetry={callouts.retry} />;
   if (views.length === 0) return <EmptyState icon={Megaphone} title="No callouts yet" body="Be the first to post a callout for this coin." />;
   return <section className="flex flex-col gap-2" aria-label="Callouts">
@@ -60,10 +60,10 @@ export default function CoinTabs({ poolAddress, live, price = null, ariaLabel = 
     { id: 'about' as const, label: 'About' },
     { id: 'callouts' as const, label: 'Callouts' },
   ];
-  return <section aria-label={ariaLabel} className="flex min-w-0 max-w-full flex-col gap-4 rounded-md bg-surface-1 p-3 sm:p-4">
+  return <section aria-label={ariaLabel} className="flex min-w-0 max-w-full flex-col gap-4 bg-canvas p-3 sm:p-4">
     <TabStrip tabs={tabs} active={tab} onChange={select} label="Coin details" manual idPrefix={idPrefix} />
     <div role="tabpanel" id={`${idPrefix}-panel-${tab}`} aria-labelledby={`${idPrefix}-tab-${tab}`} tabIndex={0} className="min-w-0 outline-none focus-visible:outline-2 focus-visible:outline-focus">
-      {tab === 'holders' ? <HoldersTable poolAddress={poolAddress} price={price} /> : null}
+      {tab === 'holders' ? <HolderStatsContext.Provider value={live.state.stats}><HoldersTable poolAddress={poolAddress} price={price} /></HolderStatsContext.Provider> : null}
       {tab === 'trades' ? <TradesTable poolAddress={poolAddress} live={live} /> : null}
       {tab === 'about' ? <AboutTab poolAddress={poolAddress} /> : null}
       {tab === 'callouts' ? (pool ? <CalloutsTab pool={pool} /> : snapshot.isError ? <TabUnavailable title="Callouts for this coin" error={snapshot.error} onRetry={() => { void snapshot.refetch(); }} /> : <Skeleton variant="rows" rows={4} label="callouts" />) : null}

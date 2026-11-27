@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, ReactNode, useMemo } from "react";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import { usePositionStream } from "@paxeer-network/hooks";
@@ -53,7 +54,10 @@ export const OrderConfirmDialog = (props: OrderConfirmDialogProps) => {
   );
   const positionQty = position?.position_qty;
 
-  const [_, setNeedConfirm] = useLocalStorage("paxeerNetwork_order_confirm", true);
+  const [_, setNeedConfirm] = useLocalStorage(
+    "paxeerNetwork_order_confirm",
+    true,
+  );
 
   const renderPositionType = () => {
     if (order.position_type === PositionType.FULL) {
@@ -88,7 +92,7 @@ export const OrderConfirmDialog = (props: OrderConfirmDialogProps) => {
 
     return (
       <Text.numeral
-        unit={quote}
+        unit={tokenDisplayName(quote)}
         rule="price"
         className="oui-text-base-contrast"
         unitClassName="oui-text-base-contrast-36 oui-ms-1"
@@ -112,7 +116,7 @@ export const OrderConfirmDialog = (props: OrderConfirmDialogProps) => {
     colorType: "TP" | "SL";
   }) => {
     if (!isEnable) {
-      return <Text className="oui-text-base-contrast-36">-- USDC</Text>;
+      return <Text className="oui-text-base-contrast-36">-- USDL</Text>;
     }
     if (!price) {
       if (isOrderPrice) {
@@ -125,7 +129,7 @@ export const OrderConfirmDialog = (props: OrderConfirmDialogProps) => {
     }
     return (
       <Text.numeral
-        unit={"USDC"}
+        unit={"USDL"}
         rule={"price"}
         className={cn(
           "oui-text-base-contrast",
@@ -181,7 +185,7 @@ export const OrderConfirmDialog = (props: OrderConfirmDialogProps) => {
         <OrderItem
           title={t("orderEntry.trailingValue")}
           value={callback_value!}
-          unit={quote}
+          unit={tokenDisplayName(quote)}
           dp={quote_dp}
         />
       );
@@ -191,7 +195,7 @@ export const OrderConfirmDialog = (props: OrderConfirmDialogProps) => {
             <OrderItem
               title={t("common.triggerPrice")}
               value={activated_price!}
-              unit={quote}
+              unit={tokenDisplayName(quote)}
               dp={quote_dp}
             />
           )}
@@ -209,7 +213,7 @@ export const OrderConfirmDialog = (props: OrderConfirmDialogProps) => {
         <OrderItem
           title={t("common.estTotal")}
           value={order.total}
-          unit={quote}
+          unit={tokenDisplayName(quote)}
           dp={quote_dp}
         />
       </>
@@ -270,7 +274,7 @@ export const OrderConfirmDialog = (props: OrderConfirmDialogProps) => {
     <OrderItem
       title={t("common.trigger")}
       value={order.trigger_price}
-      unit={quote}
+      unit={tokenDisplayName(quote)}
       dp={quote_dp}
     />
   );

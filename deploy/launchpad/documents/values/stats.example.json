@@ -15,7 +15,7 @@
   ],
   "epoch": 1,
   "generation": "g1",
-  "maxReplayBlocks": 128,
+  "maxReplayBlocks": 2000,
   "maxReplayFills": 256,
   "owner": "stats-1",
   "phase2": {
@@ -81,6 +81,51 @@
           "Stream": "SOCIAL_EVENTS",
           "Subject": "social.policy"
         }
+      },
+      {
+        "kind": "account_profile",
+        "eventType": "profile.updated",
+        "consumer": {
+          "AckWait": 30000000000,
+          "Batch": 16,
+          "Durable": "stats_search_profile_updated",
+          "FetchWait": 250000000,
+          "MaxAckPending": 64,
+          "MaxDeliver": 100,
+          "MaxWaiting": 4,
+          "Stream": "USERS",
+          "Subject": "paxeer.125.users.profile.updated"
+        }
+      },
+      {
+        "kind": "account_profile",
+        "eventType": "account.deletion.requested",
+        "consumer": {
+          "AckWait": 30000000000,
+          "Batch": 16,
+          "Durable": "stats_search_account_deletion_requested",
+          "FetchWait": 250000000,
+          "MaxAckPending": 64,
+          "MaxDeliver": 100,
+          "MaxWaiting": 4,
+          "Stream": "USERS",
+          "Subject": "paxeer.125.users.account.deletion.requested"
+        }
+      },
+      {
+        "kind": "account_profile",
+        "eventType": "account.backfill.completed",
+        "consumer": {
+          "AckWait": 30000000000,
+          "Batch": 16,
+          "Durable": "stats_search_account_backfill_completed",
+          "FetchWait": 250000000,
+          "MaxAckPending": 64,
+          "MaxDeliver": 100,
+          "MaxWaiting": 4,
+          "Stream": "USERS",
+          "Subject": "paxeer.125.users.account.backfill.completed"
+        }
       }
     ],
     "searchGeneration": "g1",
@@ -101,14 +146,20 @@
       "canonical_creation": true,
       "search.invalidation.v2": true,
       "stats.minute.v2": true,
-      "social.policy.changed.v2": true
+      "social.policy.changed.v2": true,
+      "profile.updated": true,
+      "account.deletion.requested": true,
+      "account.backfill.completed": true
     },
     "Subjects": {
       "accounting.market.v1": true,
       "canonical.creation.v1": true,
       "search.invalidation.v2": true,
       "stats.minute.v2": true,
-      "social.policy": true
+      "social.policy": true,
+      "paxeer.125.users.profile.updated": true,
+      "paxeer.125.users.account.deletion.requested": true,
+      "paxeer.125.users.account.backfill.completed": true
     }
   },
   "projectionVersion": "accounting-market-v1",

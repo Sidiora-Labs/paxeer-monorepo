@@ -1,111 +1,121 @@
 /* Shared application roles, scales and platform states. */
 :root {
-  color-scheme: light dark;
+  --sl-feed-preview-width: 85%;
+  --sl-activity-identity-width: 38%;
+  --sl-skeleton-width-short: 20%;
+  --sl-skeleton-width-label: 40%;
+  --sl-skeleton-width-half: 50%;
+  --sl-skeleton-width-medium: 60%;
+  --sl-skeleton-width-heading: 70%;
+  --sl-skeleton-width-long: 80%;
+  --sl-skeleton-width-line: 92%;
+
+  color-scheme: dark;
   --sl-surface-inverse-light: #101c29;
-  --sl-surface-inverse-dark: #f4f5f9;
-  --sl-surface-inverse: var(--sl-surface-inverse-light);
+  --sl-surface-inverse-dark: #f5f5f7;
+  --sl-surface-inverse: var(--sl-surface-inverse-dark);
   --sl-text-light: #101c29;
-  --sl-text-dark: #f4f5f9;
-  --sl-text: var(--sl-text-light);
+  --sl-text-dark: #f5f5f7;
+  --sl-text: var(--sl-text-dark);
   --sl-canvas-light: #f7f9fc;
-  --sl-canvas-dark: #07090d;
-  --sl-canvas: var(--sl-canvas-light);
+  --sl-canvas-dark: #0b0b0e;
+  --sl-canvas: var(--sl-canvas-dark);
   --sl-surface-1-light: #ffffff;
-  --sl-surface-1-dark: #10141c;
-  --sl-surface-1: var(--sl-surface-1-light);
+  --sl-surface-1-dark: #121216;
+  --sl-surface-1: var(--sl-surface-1-dark);
   --sl-surface-2-light: #eaf0f5;
-  --sl-surface-2-dark: #171d28;
-  --sl-surface-2: var(--sl-surface-2-light);
+  --sl-surface-2-dark: #19191f;
+  --sl-surface-2: var(--sl-surface-2-dark);
   --sl-surface-3-light: #dfe7ee;
-  --sl-surface-3-dark: #1f2733;
-  --sl-surface-3: var(--sl-surface-3-light);
+  --sl-surface-3-dark: #23232b;
+  --sl-surface-3: var(--sl-surface-3-dark);
   --sl-surface-hover-light: #d3dee8;
-  --sl-surface-hover-dark: #28313f;
-  --sl-surface-hover: var(--sl-surface-hover-light);
+  --sl-surface-hover-dark: #2a2a33;
+  --sl-surface-hover: var(--sl-surface-hover-dark);
   --sl-surface-active-light: #c7d6e2;
-  --sl-surface-active-dark: #323d4d;
-  --sl-surface-active: var(--sl-surface-active-light);
+  --sl-surface-active-dark: #34343f;
+  --sl-surface-active: var(--sl-surface-active-dark);
   --sl-text-muted-light: #34495e;
-  --sl-text-muted-dark: #a9b2c4;
-  --sl-text-muted: var(--sl-text-muted-light);
+  --sl-text-muted-dark: #a6a6b0;
+  --sl-text-muted: var(--sl-text-muted-dark);
   --sl-text-faint-light: #435568;
-  --sl-text-faint-dark: #b0bacb;
-  --sl-text-faint: var(--sl-text-faint-light);
+  --sl-text-faint-dark: #9f9faa;
+  --sl-text-faint: var(--sl-text-faint-dark);
   --sl-text-disabled-light: #657587;
-  --sl-text-disabled-dark: #5f6577;
-  --sl-text-disabled: var(--sl-text-disabled-light);
+  --sl-text-disabled-dark: #5c5c66;
+  --sl-text-disabled: var(--sl-text-disabled-dark);
   --sl-accent-light: #006852;
   --sl-accent-dark: #44e8c8;
-  --sl-accent: var(--sl-accent-light);
+  --sl-accent: var(--sl-accent-dark);
   --sl-accent-hover-light: #005844;
   --sl-accent-hover-dark: #6bedd5;
-  --sl-accent-hover: var(--sl-accent-hover-light);
+  --sl-accent-hover: var(--sl-accent-hover-dark);
   --sl-accent-active-light: #004735;
   --sl-accent-active-dark: #2bb89e;
-  --sl-accent-active: var(--sl-accent-active-light);
+  --sl-accent-active: var(--sl-accent-active-dark);
   --sl-on-accent-light: #ffffff;
   --sl-on-accent-dark: #06201b;
-  --sl-on-accent: var(--sl-on-accent-light);
+  --sl-on-accent: var(--sl-on-accent-dark);
   --sl-accent-soft-light: #d7f4e9;
-  --sl-accent-soft-dark: #173234;
-  --sl-accent-soft: var(--sl-accent-soft-light);
+  --sl-accent-soft-dark: #11302b;
+  --sl-accent-soft: var(--sl-accent-soft-dark);
   --sl-accent-soft-strong-light: #b9e7d8;
-  --sl-accent-soft-strong-dark: #1f4f4c;
-  --sl-accent-soft-strong: var(--sl-accent-soft-strong-light);
+  --sl-accent-soft-strong-dark: #1a4a42;
+  --sl-accent-soft-strong: var(--sl-accent-soft-strong-dark);
   --sl-danger-light: #ac1826;
-  --sl-danger-dark: #ff9296;
-  --sl-danger: var(--sl-danger-light);
+  --sl-danger-dark: #ff6f73;
+  --sl-danger: var(--sl-danger-dark);
   --sl-danger-strong-light: #a11422;
-  --sl-danger-strong-dark: #ff7e84;
-  --sl-danger-strong: var(--sl-danger-strong-light);
+  --sl-danger-strong-dark: #ff8d90;
+  --sl-danger-strong: var(--sl-danger-strong-dark);
   --sl-on-danger-light: #ffffff;
-  --sl-on-danger-dark: #1f0809;
-  --sl-on-danger: var(--sl-on-danger-light);
+  --sl-on-danger-dark: #240708;
+  --sl-on-danger: var(--sl-on-danger-dark);
   --sl-danger-soft-light: #ffe5e7;
-  --sl-danger-soft-dark: #362128;
-  --sl-danger-soft: var(--sl-danger-soft-light);
+  --sl-danger-soft-dark: #381a1d;
+  --sl-danger-soft: var(--sl-danger-soft-dark);
   --sl-warning-light: #795400;
-  --sl-warning-dark: #ffda44;
-  --sl-warning: var(--sl-warning-light);
+  --sl-warning-dark: #ffd24a;
+  --sl-warning: var(--sl-warning-dark);
   --sl-warning-strong-light: #794800;
   --sl-warning-strong-dark: #ffb25b;
-  --sl-warning-strong: var(--sl-warning-strong-light);
+  --sl-warning-strong: var(--sl-warning-strong-dark);
   --sl-on-warning-light: #ffffff;
   --sl-on-warning-dark: #201a00;
-  --sl-on-warning: var(--sl-on-warning-light);
+  --sl-on-warning: var(--sl-on-warning-dark);
   --sl-warning-soft-light: #fff0c2;
-  --sl-warning-soft-dark: #313022;
-  --sl-warning-soft: var(--sl-warning-soft-light);
+  --sl-warning-soft-dark: #2e2a18;
+  --sl-warning-soft: var(--sl-warning-soft-dark);
   --sl-info-light: #2d49a9;
   --sl-info-dark: #a6baff;
-  --sl-info: var(--sl-info-light);
+  --sl-info: var(--sl-info-dark);
   --sl-on-info-light: #ffffff;
   --sl-on-info-dark: #0b1030;
-  --sl-on-info: var(--sl-on-info-light);
+  --sl-on-info: var(--sl-on-info-dark);
   --sl-info-soft-light: #e6ebff;
-  --sl-info-soft-dark: #222a40;
-  --sl-info-soft: var(--sl-info-soft-light);
+  --sl-info-soft-dark: #1f2438;
+  --sl-info-soft: var(--sl-info-soft-dark);
   --sl-focus-light: #005a48;
   --sl-focus-dark: #8bffc5;
-  --sl-focus: var(--sl-focus-light);
-  --sl-volume-up-light: #267a67;
-  --sl-volume-up-dark: #277369;
-  --sl-volume-up: var(--sl-volume-up-light);
-  --sl-volume-down-light: #ad4250;
-  --sl-volume-down-dark: #7c383e;
-  --sl-volume-down: var(--sl-volume-down-light);
+  --sl-focus: var(--sl-focus-dark);
+  --sl-volume-up-light: #006852;
+  --sl-volume-up-dark: #44e8c8;
+  --sl-volume-up: var(--sl-candle-up);
+  --sl-volume-down-light: #ac1826;
+  --sl-volume-down-dark: #ff6f73;
+  --sl-volume-down: var(--sl-candle-down);
   --sl-rank-2-light: #435568;
   --sl-rank-2-dark: #c9d1e0;
-  --sl-rank-2: var(--sl-rank-2-light);
+  --sl-rank-2: var(--sl-rank-2-dark);
   --sl-rank-3-light: #884500;
   --sl-rank-3-dark: #ffa861;
-  --sl-rank-3: var(--sl-rank-3-light);
+  --sl-rank-3: var(--sl-rank-3-dark);
   --sl-rank-1-soft-light: #fff0c2;
   --sl-rank-1-soft-dark: #282820;
-  --sl-rank-1-soft: var(--sl-rank-1-soft-light);
+  --sl-rank-1-soft: var(--sl-rank-1-soft-dark);
   --sl-text-inverse-light: #ffffff;
-  --sl-text-inverse-dark: #07090d;
-  --sl-text-inverse: var(--sl-text-inverse-light);
+  --sl-text-inverse-dark: #0b0b0e;
+  --sl-text-inverse: var(--sl-text-inverse-dark);
   --sl-success: var(--sl-accent);
   --sl-on-success: var(--sl-on-accent);
   --sl-success-soft: var(--sl-accent-soft);
@@ -146,8 +156,8 @@
   --sl-skeleton-shine: var(--sl-surface-hover);
   --sl-scrim: #000000;
   --sl-tint-scrim: rgb(0 0 0 / 0.72);
-  --sl-tint-media-overlay: rgb(7 9 13 / 0.88);
-  --sl-on-media: #f4f5f9;
+  --sl-tint-media-overlay: rgb(11 11 14 / 0.88);
+  --sl-on-media: #f5f5f7;
   --sl-on-media-success: var(--sl-accent-dark);
   --sl-brand-metamask-highlight: #e17726;
   --sl-brand-metamask: #e27625;
@@ -157,8 +167,8 @@
   --sl-brand-mark: #ffffff;
   --sl-tint-accent-fill-chart: color-mix(in srgb, var(--sl-accent) 18%, transparent);
   --sl-tint-danger-fill-chart: color-mix(in srgb, var(--sl-danger) 18%, transparent);
-  --sl-tint-accent-row-wash: color-mix(in srgb, var(--sl-accent) 7%, transparent);
-  --sl-tint-danger-row-wash: color-mix(in srgb, var(--sl-danger) 7%, transparent);
+  --sl-tint-accent-row-wash: color-mix(in srgb, var(--sl-accent) 10%, transparent);
+  --sl-tint-danger-row-wash: color-mix(in srgb, var(--sl-danger) 10%, transparent);
   --sl-tint-marquee-fade: transparent;
   --sl-skeleton-text-height: 1em;
   --sl-panel-max-height: 70dvh;
@@ -169,6 +179,9 @@
   --sl-chat-max-height: 26.25rem;
   --sl-trade-cta-clearance: calc(
     var(--sl-bottom-nav-height) + var(--sl-control-height-lg) + var(--sl-space-12)
+  );
+  --sl-create-action-clearance: calc(
+    var(--sl-bottom-nav-height) + var(--sl-space-12) * 4 + env(safe-area-inset-bottom, 0rem)
   );
   --sl-weight-normal: 400;
   --sl-tracking-wide: 0.025em;
@@ -185,50 +198,58 @@
   --sl-weight-2xs: 600;
   --sl-text-xs: 12px;
   --sl-leading-xs: 16px;
-  --sl-weight-xs: 600;
+  --sl-weight-xs: 500;
   --sl-text-sm: 13px;
   --sl-leading-sm: 18px;
-  --sl-weight-sm: 600;
+  --sl-weight-sm: 500;
   --sl-text-base: 14px;
   --sl-leading-base: 20px;
-  --sl-weight-base: 600;
+  --sl-weight-base: 500;
   --sl-text-md: 16px;
   --sl-leading-md: 24px;
-  --sl-weight-md: 700;
+  --sl-weight-md: 600;
   --sl-text-lg: 20px;
   --sl-leading-lg: 28px;
   --sl-weight-lg: 700;
   --sl-text-xl: 24px;
   --sl-leading-xl: 32px;
-  --sl-weight-xl: 800;
+  --sl-weight-xl: 700;
   --sl-text-2xl: 32px;
   --sl-leading-2xl: 40px;
-  --sl-weight-2xl: 800;
+  --sl-weight-2xl: 700;
   --sl-text-display: 48px;
   --sl-leading-display: 52px;
-  --sl-weight-display: 800;
+  --sl-weight-display: 700;
   --sl-text-num-sm: 13px;
   --sl-leading-num-sm: 18px;
-  --sl-weight-num-sm: 700;
+  --sl-weight-num-sm: 600;
   --sl-text-num-md: 14px;
   --sl-leading-num-md: 20px;
-  --sl-weight-num-md: 700;
+  --sl-weight-num-md: 600;
 
   /* radius */
-  --sl-radius-xs: 0.25rem;
-  --sl-radius-sm: 0.375rem;
-  --sl-radius-md: 0.5rem;
-  --sl-radius-lg: 0.75rem;
-  --sl-radius-xl: 1rem;
+  --sl-radius-xs: 0.5rem;
+  --sl-radius-sm: 0.75rem;
+  --sl-radius-md: 1rem;
+  --sl-radius-lg: 1rem;
+  --sl-radius-xl: 1.25rem;
   --sl-radius-pill: 62.4375rem;
+
+  --sl-radius-direction: 0.375rem;
+  --sl-radius-coin: 22%;
+  --sl-radius-sheet: 1.25rem;
+  --sl-progress-height: 0.375rem;
+  --sl-floating-blur: 1rem;
+  --sl-floating-background: color-mix(in srgb, var(--sl-surface-2) 82%, transparent);
+  --sl-floating-layer-background: var(--sl-surface-2);
 
   /* shadow: floating layers only */
   --sl-shadow-none: none;
   --sl-shadow-pop: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.45);
-  --sl-shadow-modal: 0 1rem 3rem rgba(0, 0, 0, 0.55);
+  --sl-shadow-modal: var(--sl-shadow-pop);
 
   /* motion */
-  --sl-duration-instant: 80ms;
+  --sl-duration-instant: 120ms;
   --sl-duration-fast: 120ms;
   --sl-duration-base: 180ms;
   --sl-duration-slow: 260ms;
@@ -301,8 +322,8 @@
   --sl-toast-width: 22.25rem;
   --sl-edge-width: 0.0625rem;
   --sl-control-edge-light: #657587;
-  --sl-control-edge-dark: #8293aa;
-  --sl-control-edge: var(--sl-control-edge-light);
+  --sl-control-edge-dark: #81818e;
+  --sl-control-edge: var(--sl-control-edge-dark);
   --sl-list-max-height: 31.25rem;
   --sl-skeleton-card-height: 10rem;
   --sl-social-min-width: 5rem;
@@ -323,7 +344,7 @@
   --sl-weight-medium: 500;
   --sl-weight-semibold: 600;
   --sl-weight-bold: 700;
-  --sl-weight-extrabold: 800;
+  --sl-weight-extrabold: 700;
   --sl-leading-prose: 1.7;
   --sl-leading-tight: 1.25;
   --sl-leading-none: 1;
@@ -367,7 +388,7 @@
   --sl-duration-shimmer: 1.6s;
   --sl-duration-flash: 600ms;
   --sl-duration-spinner: 1s;
-  --sl-duration-tooltip: 300ms;
+  --sl-duration-tooltip: 180ms;
   --sl-duration-feedback: 1500ms;
   --sl-zero-duration: 0s;
   --sl-address-saturation: 55%;
@@ -380,9 +401,48 @@
   --sl-chart-mini-height: 1.5rem;
 }
 
+:root[data-color-mode='light'],
+:root[data-color-mode='device'] {
+  color-scheme: light;
+  --sl-surface-inverse: var(--sl-surface-inverse-light);
+  --sl-text: var(--sl-text-light);
+  --sl-canvas: var(--sl-canvas-light);
+  --sl-surface-1: var(--sl-surface-1-light);
+  --sl-surface-2: var(--sl-surface-2-light);
+  --sl-surface-3: var(--sl-surface-3-light);
+  --sl-surface-hover: var(--sl-surface-hover-light);
+  --sl-surface-active: var(--sl-surface-active-light);
+  --sl-text-muted: var(--sl-text-muted-light);
+  --sl-text-faint: var(--sl-text-faint-light);
+  --sl-text-disabled: var(--sl-text-disabled-light);
+  --sl-accent: var(--sl-accent-light);
+  --sl-accent-hover: var(--sl-accent-hover-light);
+  --sl-accent-active: var(--sl-accent-active-light);
+  --sl-on-accent: var(--sl-on-accent-light);
+  --sl-accent-soft: var(--sl-accent-soft-light);
+  --sl-accent-soft-strong: var(--sl-accent-soft-strong-light);
+  --sl-danger: var(--sl-danger-light);
+  --sl-danger-strong: var(--sl-danger-strong-light);
+  --sl-on-danger: var(--sl-on-danger-light);
+  --sl-danger-soft: var(--sl-danger-soft-light);
+  --sl-warning: var(--sl-warning-light);
+  --sl-warning-strong: var(--sl-warning-strong-light);
+  --sl-on-warning: var(--sl-on-warning-light);
+  --sl-warning-soft: var(--sl-warning-soft-light);
+  --sl-info: var(--sl-info-light);
+  --sl-on-info: var(--sl-on-info-light);
+  --sl-info-soft: var(--sl-info-soft-light);
+  --sl-focus: var(--sl-focus-light);
+  --sl-rank-2: var(--sl-rank-2-light);
+  --sl-rank-3: var(--sl-rank-3-light);
+  --sl-rank-1-soft: var(--sl-rank-1-soft-light);
+  --sl-text-inverse: var(--sl-text-inverse-light);
+  --sl-control-edge: var(--sl-control-edge-light);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --sl-control-edge: var(--sl-control-edge-dark);
+  :root[data-color-mode='device'] {
+    color-scheme: dark;
     --sl-surface-inverse: var(--sl-surface-inverse-dark);
     --sl-text: var(--sl-text-dark);
     --sl-canvas: var(--sl-canvas-dark);
@@ -412,60 +472,16 @@
     --sl-on-info: var(--sl-on-info-dark);
     --sl-info-soft: var(--sl-info-soft-dark);
     --sl-focus: var(--sl-focus-dark);
-    --sl-volume-up: var(--sl-volume-up-dark);
-    --sl-volume-down: var(--sl-volume-down-dark);
+    --sl-volume-up: var(--sl-candle-up);
+    --sl-volume-down: var(--sl-candle-down);
     --sl-rank-2: var(--sl-rank-2-dark);
     --sl-rank-3: var(--sl-rank-3-dark);
     --sl-rank-1-soft: var(--sl-rank-1-soft-dark);
     --sl-text-inverse: var(--sl-text-inverse-dark);
+    --sl-control-edge: var(--sl-control-edge-dark);
   }
 }
-@supports (color: light-dark(white, black)) {
-  :root {
-    --sl-control-edge: light-dark(var(--sl-control-edge-light), var(--sl-control-edge-dark));
-    --sl-surface-inverse: light-dark(
-      var(--sl-surface-inverse-light),
-      var(--sl-surface-inverse-dark)
-    );
-    --sl-text: light-dark(var(--sl-text-light), var(--sl-text-dark));
-    --sl-canvas: light-dark(var(--sl-canvas-light), var(--sl-canvas-dark));
-    --sl-surface-1: light-dark(var(--sl-surface-1-light), var(--sl-surface-1-dark));
-    --sl-surface-2: light-dark(var(--sl-surface-2-light), var(--sl-surface-2-dark));
-    --sl-surface-3: light-dark(var(--sl-surface-3-light), var(--sl-surface-3-dark));
-    --sl-surface-hover: light-dark(var(--sl-surface-hover-light), var(--sl-surface-hover-dark));
-    --sl-surface-active: light-dark(var(--sl-surface-active-light), var(--sl-surface-active-dark));
-    --sl-text-muted: light-dark(var(--sl-text-muted-light), var(--sl-text-muted-dark));
-    --sl-text-faint: light-dark(var(--sl-text-faint-light), var(--sl-text-faint-dark));
-    --sl-text-disabled: light-dark(var(--sl-text-disabled-light), var(--sl-text-disabled-dark));
-    --sl-accent: light-dark(var(--sl-accent-light), var(--sl-accent-dark));
-    --sl-accent-hover: light-dark(var(--sl-accent-hover-light), var(--sl-accent-hover-dark));
-    --sl-accent-active: light-dark(var(--sl-accent-active-light), var(--sl-accent-active-dark));
-    --sl-on-accent: light-dark(var(--sl-on-accent-light), var(--sl-on-accent-dark));
-    --sl-accent-soft: light-dark(var(--sl-accent-soft-light), var(--sl-accent-soft-dark));
-    --sl-accent-soft-strong: light-dark(
-      var(--sl-accent-soft-strong-light),
-      var(--sl-accent-soft-strong-dark)
-    );
-    --sl-danger: light-dark(var(--sl-danger-light), var(--sl-danger-dark));
-    --sl-danger-strong: light-dark(var(--sl-danger-strong-light), var(--sl-danger-strong-dark));
-    --sl-on-danger: light-dark(var(--sl-on-danger-light), var(--sl-on-danger-dark));
-    --sl-danger-soft: light-dark(var(--sl-danger-soft-light), var(--sl-danger-soft-dark));
-    --sl-warning: light-dark(var(--sl-warning-light), var(--sl-warning-dark));
-    --sl-warning-strong: light-dark(var(--sl-warning-strong-light), var(--sl-warning-strong-dark));
-    --sl-on-warning: light-dark(var(--sl-on-warning-light), var(--sl-on-warning-dark));
-    --sl-warning-soft: light-dark(var(--sl-warning-soft-light), var(--sl-warning-soft-dark));
-    --sl-info: light-dark(var(--sl-info-light), var(--sl-info-dark));
-    --sl-on-info: light-dark(var(--sl-on-info-light), var(--sl-on-info-dark));
-    --sl-info-soft: light-dark(var(--sl-info-soft-light), var(--sl-info-soft-dark));
-    --sl-focus: light-dark(var(--sl-focus-light), var(--sl-focus-dark));
-    --sl-volume-up: light-dark(var(--sl-volume-up-light), var(--sl-volume-up-dark));
-    --sl-volume-down: light-dark(var(--sl-volume-down-light), var(--sl-volume-down-dark));
-    --sl-rank-2: light-dark(var(--sl-rank-2-light), var(--sl-rank-2-dark));
-    --sl-rank-3: light-dark(var(--sl-rank-3-light), var(--sl-rank-3-dark));
-    --sl-rank-1-soft: light-dark(var(--sl-rank-1-soft-light), var(--sl-rank-1-soft-dark));
-    --sl-text-inverse: light-dark(var(--sl-text-inverse-light), var(--sl-text-inverse-dark));
-  }
-}
+
 @theme inline {
   --container-xs: var(--sl-token-card-min-width);
   --container-sm: var(--sl-modal-width-sm);
@@ -585,6 +601,8 @@
   --color-skeleton-shine: var(--sl-skeleton-shine);
 
   /* radius -> rounded-xs .. rounded-pill */
+  --radius-coin: var(--sl-radius-coin);
+  --radius-direction: var(--sl-radius-direction);
   --radius-xs: var(--sl-radius-xs);
   --radius-sm: var(--sl-radius-sm);
   --radius-md: var(--sl-radius-md);
@@ -708,7 +726,7 @@
     border: 0;
     background: transparent;
   }
-  :where([data-numeric], time, progress) {
+  :where([data-numeric], time, progress, .tabular-nums) {
     font-variant-numeric: tabular-nums;
   }
   :where(button, input, select, textarea) {
@@ -749,6 +767,55 @@
 }
 
 @layer components {
+  .sl-hairline {
+    border-block-end: var(--sl-edge-width) solid var(--sl-surface-3);
+  }
+  .sl-badge-outline {
+    border: var(--sl-edge-width) solid currentColor;
+  }
+  .sl-floating,
+  .sl-native-dialog.sl-floating {
+    background: var(--sl-surface-2);
+    border: var(--sl-edge-width) solid var(--sl-surface-3);
+    box-shadow: var(--sl-shadow-pop);
+  }
+  @supports (backdrop-filter: blur(1rem)) {
+    :root {
+      --sl-floating-layer-background: var(--sl-floating-background);
+    }
+    .sl-floating,
+    .sl-native-dialog.sl-floating {
+      background: var(--sl-floating-background);
+      backdrop-filter: blur(var(--sl-floating-blur));
+    }
+  }
+  .sl-floating-opaque {
+    background: var(--sl-surface-2);
+    backdrop-filter: none;
+  }
+  .sl-row-wash-up {
+    background-image: linear-gradient(to right, transparent 50%, var(--sl-tint-accent-row-wash));
+  }
+  .sl-row-wash-down {
+    background-image: linear-gradient(to right, transparent 50%, var(--sl-tint-danger-row-wash));
+  }
+  .sl-sheet {
+    animation: sl-sheet-in var(--sl-duration-slow) var(--sl-ease);
+  }
+  @media (width < 48rem) {
+    .sl-native-dialog.sl-sheet {
+      inset: auto 0 0;
+      margin: 0;
+      width: 100%;
+      max-width: 100%;
+      max-height: var(--sl-drawer-max-height);
+      border-radius: var(--sl-radius-sheet) var(--sl-radius-sheet) 0 0;
+    }
+  }
+  @keyframes sl-sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
   .sl-address-mark {
     background-color: hsl(
       var(--sl-address-hue) var(--sl-address-saturation) var(--sl-address-lightness) /
@@ -880,7 +947,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --sl-duration-instant: var(--sl-zero-duration);
+    --sl-duration-instant: 120ms;
     --sl-duration-fast: var(--sl-zero-duration);
     --sl-duration-base: var(--sl-zero-duration);
     --sl-duration-slow: var(--sl-zero-duration);
@@ -902,6 +969,15 @@
   }
   .foundation-shell[data-shell-route-id='coin'] main :focus-visible {
     scroll-margin-block-end: var(--sl-trade-cta-clearance);
+  }
+}
+
+@media (width < 48rem) {
+  .foundation-shell[data-shell-route-id='create'] [data-shell-main] {
+    padding-block-end: calc(var(--sl-create-action-clearance) + var(--sl-cookie-banner-height, 0px));
+  }
+  .foundation-shell[data-shell-route-id='create'] main :focus-visible {
+    scroll-margin-block-end: var(--sl-create-action-clearance);
   }
 }
 
@@ -929,7 +1005,7 @@
     nav a,
     section[aria-label='Market ticker'] a,
     a[href]:not(p a),
-    [tabindex='0']
+    [tabindex='0']:not([data-keeps-size])
   ) {
     min-block-size: var(--sl-touch-target-min);
     min-inline-size: var(--sl-touch-target-min);

@@ -966,7 +966,7 @@ describe('semantics', () => {
     expect(out).toContain(`href="/coin/${addr}"`);
     expect(out).toContain('aria-pressed="false"');
     expect(out).toContain('Add Name to watchlist');
-    expect(out).toContain('143K USDL');
+    expect(out).toContain('$143K');
   });
 
   it('Sparkline computes direction and a spoken label', () => {
@@ -1216,6 +1216,7 @@ describe('shared states: plural titles, raw-error suppression, panel and chip va
         title="Live streams"
         plural="auto"
         message="Failed to fetch"
+        error={new TypeError('Failed to fetch')}
         onRetry={() => {
           retried += 1;
         }}

@@ -85,10 +85,13 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
 
     steps = job["steps"]
     conditional_packages = {
+        "Install pinned Foundry for web fixtures": {
+            "apps/launchpad/web", "sdk/launchpad/packages/agent-kit",
+        },
         "Set up Go for launchpad services": {
             "apps/launchpad/web",
             *(f"sdk/launchpad/packages/{name}" for name in (
-                "candles-sdk", "indexer-sdk", "metadata-sdk", "ranking-algo-sdk",
+                "agent-kit", "candles-sdk", "indexer-sdk", "metadata-sdk", "ranking-algo-sdk",
                 "sdk", "stats-sdk", "users-sdk",
             )),
         },
@@ -103,6 +106,14 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
         "Install the users scanner": {"sdk/launchpad/packages/users-sdk"},
         "Install PostgreSQL for the candles producer": {
             "sdk/launchpad/packages/candles-sdk",
+        },
+        **{
+            name: {"sdk/launchpad/packages/agent-kit"}
+            for name in (
+                "Install PostgreSQL fixture binaries for the agent kit",
+                "Install agent SDK dependencies", "Build agent SDK",
+                "Install wallet SDK dependencies", "Install wallet workspace dependencies",
+            )
         },
     }
     for step in steps:
@@ -186,6 +197,17 @@ def test_launchpad_workflow_covers_every_package_with_a_test_script():
             assert package["packageManager"] == manager_version, directory
 
 
+@pytest.mark.parametrize(
+    "job_name", ("launchpad-test", "launchpad-go-test", "launchpad-go-ci"),
+)
+def test_launchpad_jobs_use_the_registry_postgres_major(job_name):
+    registry = json.loads((ROOT / "migrations/registry.json").read_text())
+    job = launchpad_workflow()["jobs"][job_name]
+    assert job["services"]["postgres"]["image"] == (
+        f"postgres:{registry['server_major_version']}"
+    )
+
+
 def test_launchpad_service_health_commands_use_container_option_quoting():
     workflow = launchpad_workflow()
     health_commands = {
@@ -222,7 +244,7 @@ def test_launchpad_web_fixtures_use_the_go_jobs_version():
     expected_packages = {
         "apps/launchpad/web",
         *(f"sdk/launchpad/packages/{name}" for name in (
-            "candles-sdk", "indexer-sdk", "metadata-sdk", "ranking-algo-sdk",
+            "agent-kit", "candles-sdk", "indexer-sdk", "metadata-sdk", "ranking-algo-sdk",
             "sdk", "stats-sdk", "users-sdk",
         )),
     }

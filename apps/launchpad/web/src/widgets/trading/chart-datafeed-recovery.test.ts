@@ -1011,7 +1011,7 @@ try {
    const row = region.getByRole('row').filter({ has: page.locator('time[datetime="' + candle.start + '"]') });
    await row.waitFor();
    const cells = await row.getByRole('cell').allTextContents();
-   assert.deepEqual(cells.map(value => value.trim()), [candle.open, candle.high, candle.low, candle.close].map(price => exact(price.numerator, price.denominator)).concat([exact(candle.volumeUsdlRaw, '1000000'), candle.volumeTokenRaw, candle.revision]));
+   assert.deepEqual(cells.map(value => value.trim()), [candle.open, candle.high, candle.low, candle.close].map(price => '$' + exact(price.numerator, price.denominator)).concat(['$' + exact(candle.volumeUsdlRaw, '1000000'), candle.volumeTokenRaw, candle.revision]));
   }
   const totalValue = page.getByRole('radio', { name: 'MCap', exact: true });
   await activate(page, totalValue, touch);

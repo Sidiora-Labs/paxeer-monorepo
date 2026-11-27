@@ -17,7 +17,7 @@ describe('normalizedSearch', () => {
 describe('userSearchFailure', () => {
   it('maps the stats-workers 412 for type=profile onto an unavailable marker for the Users group', () => {
     const marker = userSearchFailure(new HttpError(412));
-    expect(marker).toEqual({ state: 'unsupported', operation: USER_SEARCH_OPERATION, status: 412, message: 'HTTP 412' });
+    expect(marker).toEqual({ state: 'unsupported', operation: USER_SEARCH_OPERATION, status: 412, notServed: true, message: 'HTTP 412' });
   });
   it('maps a missing route (404 as CapabilityUnavailableError) the same way', () => {
     const marker = userSearchFailure(new CapabilityUnavailableError('Capability unavailable', 404));

@@ -64,8 +64,8 @@ describe('holder rewards rows', () => {
     expect(rewardsText('1000000')).toBe('1 USDL');
     expect(rewardsText('0')).toBe('0 USDL');
     expect(rewardsText(null)).toBe('—');
-    expect(mcapText('1970000000000')).toBe('1.97M');
-    expect(mcapText('16400000000000')).toBe('16.4M');
+    expect(mcapText('1970000000000')).toBe('$1.97M');
+    expect(mcapText('16400000000000')).toBe('$16.4M');
     expect(coinHref(poolA.toUpperCase().replace('0X', '0x'))).toBe(`/coin/${poolA}`);
     expect(explorerHref(tokenA)).toBe(`https://paxscan.paxeer.app/address/${tokenA}`);
   });

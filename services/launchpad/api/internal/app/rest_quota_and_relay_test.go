@@ -21,6 +21,8 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/ratelimit"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store/accountingtest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/trading-charts/candlewire"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
@@ -28,7 +30,7 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func restQuotaREST(t *testing.T) (*App, *httptest.Server, string) {
+func restQuotaREST(t *testing.T, models ...*store.AccountingReadModel) (*App, *httptest.Server, string) {
 	t.Helper()
 	c := receiptEvidenceNode(t, 125)
 	hash := c.events(t)
@@ -47,8 +49,12 @@ func restQuotaREST(t *testing.T) (*App, *httptest.Server, string) {
 		authority:     &networkAuthority{rpc: rpcClient, config: networkAuthorityConfig{Manifest: deployment.Current()}},
 		privateStream: &broker.PostgresStream{},
 	}
+	model := &store.AccountingReadModel{}
+	if len(models) == 1 {
+		model = models[0]
+	}
 	router := chi.NewRouter()
-	if err := a.registerREST(context.Background(), router, store.New(nil, nil), &store.AccountingReadModel{}, nil, map[string]sharedhttp.Check{}, nil, nil); err != nil {
+	if err := a.registerREST(context.Background(), router, store.New(nil, nil), model, nil, map[string]sharedhttp.Check{}, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	// Walk the actual New registration tree: even discovery's nested routers
@@ -206,5 +212,34 @@ func TestRelayReviewedGrants(t *testing.T) {
 	cfg.StreamRelaySHA256 = strings.Repeat("0", 64)
 	if _, err := readStreamRelayDocument(cfg); err == nil {
 		t.Fatal("relay accepted a document outside its reviewed binding")
+	}
+}
+
+func TestCandleIdentityApplicationREST(t *testing.T) {
+	f := accountingtest.New(t)
+	_, server, _ := restQuotaREST(t, f.Model)
+	path := "/v2/pools/" + accountingtest.Pool + "/candles?interval=1m&from=2023-11-14T22:13:00.000Z&to=2023-11-14T22:14:00.000Z"
+	for _, committed := range []bool{false, true} {
+		if committed {
+			fill, position := f.Publish(t)
+			f.Commit(t, fill, position)
+		}
+		status, body, _ := restQuotaRequest(t, server, http.MethodGet, path, "")
+		var page interfaces.CandlesResponse
+		if status != http.StatusOK || json.Unmarshal(body, &page) != nil || interfaces.ValidateJSON("CandlesResponse", body) != nil || page.Data.SeriesModelVersion != candlewire.SeriesModelVersion {
+			t.Fatalf("application candle page: %d %s", status, body)
+		}
+		want := 0
+		if committed {
+			want = 1
+		}
+		if len(page.Data.Items) != want {
+			t.Fatalf("application candle count: %d", len(page.Data.Items))
+		}
+		for _, candle := range page.Data.Items {
+			if candle.SeriesModelVersion != page.Data.SeriesModelVersion || candle.SnapshotId != page.Data.SnapshotId || candle.Coverage != "complete" || candle.UniqueTraderCount == nil || *candle.UniqueTraderCount != "0" {
+				t.Fatal(candle)
+			}
+		}
 	}
 }

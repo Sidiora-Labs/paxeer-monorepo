@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -84,7 +85,10 @@ export const MobileClosePosition: FC<ClosePositionScriptReturn> = (props) => {
   const lastPrice = (
     <Flex width={"100%"} justify={"between"}>
       <Text intensity={54}>{t("common.lastPrice")}</Text>
-      <Text.numeral dp={quote_dp} suffix={<Text intensity={36}> {quote}</Text>}>
+      <Text.numeral
+        dp={quote_dp}
+        suffix={<Text intensity={36}> {tokenDisplayName(quote)}</Text>}
+      >
         {position.mark_price}
       </Text.numeral>
     </Flex>
@@ -95,7 +99,7 @@ export const MobileClosePosition: FC<ClosePositionScriptReturn> = (props) => {
       <Flex width={"100%"} direction={"column"} gap={2}>
         <Input.tooltip
           prefix={t("common.price")}
-          suffix={quote}
+          suffix={tokenDisplayName(quote)}
           align="right"
           fullWidth
           autoComplete="off"

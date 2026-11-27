@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -53,7 +54,23 @@ func TestRepositoryRegistryRequiresApproval(t *testing.T) {
 	if err := json.Unmarshal(raw, &registry); err != nil {
 		t.Fatal(err)
 	}
+	catalog, err := registry.ValidateOrder()
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement, ok := catalog[150012]
+	if !ok || replacement.Schema != "api_stream" || replacement.Path != "migrations/150012.sql" || !reflect.DeepEqual(replacement.PredecessorIDs, []int64{150002}) {
+		t.Fatal("portfolio append replacement requires its original function", replacement)
+	}
 	if validDigest(registry.ApprovalDigest) {
+		if registry.ServerMajorVersion != 18 {
+			t.Fatalf("registry server major version = %d, want 18", registry.ServerMajorVersion)
+		}
+		for _, migration := range registry.Registrations {
+			if migration.ApprovalManifestDigest != registry.ApprovalDigest {
+				t.Fatalf("migration %d approval differs from the registry", migration.MigrationID)
+			}
+		}
 		if _, err := loadBundle(filepath.Join(root, "migrations")); err != nil {
 			t.Fatal(err)
 		}
@@ -557,5 +574,32 @@ func TestRepositoryRegistryRequiresApprovalOnlineIndex(t *testing.T) {
 	}
 	if err = conn.QueryRow(ctx, `SELECT count(*) FROM migration_control.migration_attempts WHERE migration_id=150007`).Scan(&attempts); err != nil || attempts != 1 {
 		t.Fatalf("repeated application rebuilt the index: attempts=%d: %v", attempts, err)
+	}
+}
+
+func TestBootstrapIndexedCommitsRegistration(t *testing.T) {
+	root := coordinatortest.RepositoryRoot(t)
+	bundle, err := loadBundle(filepath.Join(root, "migrations"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	migration, ok := bundle.catalog[60009]
+	if !ok || migration.TransactionMode != "nontransactional" || migration.OnlineIndex == nil {
+		t.Fatal("source commit height index requires an online registration")
+	}
+	plan := migration.OnlineIndex
+	expected := []string{"chain_id", "stream_id", "previous_height", "last_complete_height", "block_hash", "record_count", "batch_id"}
+	if plan.Schema != "indexer" || plan.Table != "indexer_ingest_commits" || plan.Name != "indexer_ingest_commits_height" || !reflect.DeepEqual(plan.Columns, expected) || len(plan.Keys) != 0 {
+		t.Fatalf("source commit height index: %+v", plan)
+	}
+	if plan.Method != "gist" {
+		t.Fatal("source commit height index requires GiST")
+	}
+	sql, err := plan.CreateSQL()
+	if err != nil || sql != string(bundle.sql[60009]) {
+		t.Fatalf("registered index SQL: %v", err)
+	}
+	if migration.SHA256 != production.Checksum([]byte(sql)) || !reflect.DeepEqual(migration.PredecessorIDs, []int64{60008}) {
+		t.Fatal("source commit height index registration differs")
 	}
 }

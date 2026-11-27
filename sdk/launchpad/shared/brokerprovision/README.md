@@ -51,6 +51,9 @@ It keeps messages for 72 hours with explicit message, byte and consumer limits.
 account event subjects; set the user service's `ACCOUNT_NATS_STREAM` to `USERS`.
 Both use one replica, 1,000,000 messages, 1 GiB, 72 hours, 2 MiB per message,
 128 consumers, a two-minute duplicate window and discard-new, matching the
-example's bounded publisher streams. They have no durables because no launchpad
-consumer reads these outputs under a durable name. Keep deployment stream names,
-subjects and limits synchronized with the corresponding service values.
+example's bounded publisher streams. `USERS` provisions the stats search
+durables `stats_search_profile_updated`, `stats_search_account_deletion_requested`,
+and `stats_search_account_backfill_completed` on the corresponding account
+subjects. Stats search may consume only its declared durables and publish search
+invalidation. Keep deployment stream names, subjects and limits synchronized
+with the corresponding service values.

@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
-	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/consumerhealth"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/pnl-tracker/internal/production/l17"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/delivery"
@@ -326,56 +327,62 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 	t.Helper()
 	nc, err := nats.Connect(realMarketEnv(t, "PNL_TEST_NATS_URL"))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("connect to broker: %v", err)
 	}
 	defer nc.Close()
 	js, err := jetstream.New(nc)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("create JetStream client: %v", err)
 	}
 	name := fmt.Sprintf("PNL_CURRENT_%d", time.Now().UnixNano())
 	if _, err = js.CreateStream(ctx, jetstream.StreamConfig{Name: name, Subjects: []string{accounting.InventorySubject}, Storage: jetstream.FileStorage}); err != nil {
-		t.Fatal(err)
+		t.Fatalf("create stream: %v", err)
 	}
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if err := js.DeleteStream(cleanup, name); err != nil {
-			t.Error(err)
+			t.Errorf("remove stream: %v", err)
 		}
 	}()
 	cfg := natsdriver.ConsumerConfig{Stream: name, Durable: "pnl_inventory", Subject: accounting.InventorySubject, Batch: 16, MaxAckPending: 64, MaxWaiting: 4, MaxDeliver: 100, FetchWait: 250 * time.Millisecond, AckWait: 30 * time.Second}
 	broker, err := cfg.BrokerConsumerConfig()
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("configure broker consumer: %v", err)
 	}
-	if _, err = js.CreateOrUpdateConsumer(ctx, name, broker); err != nil {
-		t.Fatal(err)
+	if _, err = retryInventoryStreamRequest(ctx, func(requestCtx context.Context) (jetstream.Consumer, error) {
+		return js.CreateOrUpdateConsumer(requestCtx, name, broker)
+	}); err != nil {
+		t.Fatalf("create broker consumer: %v", err)
 	}
 	publisher, err := natsdriver.NewPublisher(nc, name)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("create publisher: %v", err)
 	}
 	for _, frame := range frames {
 		raw, e := json.Marshal(frame)
 		if e != nil {
-			t.Fatal(e)
+			t.Fatalf("encode publication: %v", e)
 		}
 		if _, e = publisher.Publish(ctx, accounting.InventorySubject, frame.EventID, raw); e != nil {
-			t.Fatal(e)
+			t.Fatalf("publish inventory frame %s: %v", frame.EventID, e)
 		}
 	}
 	transport, err := natsdriver.NewConsumer(ctx, nc, cfg)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("open transport: %v", err)
 	}
 	defer transport.Close()
 	a := service.authority
 	consumer, err := NewAccountingConsumerWithEpochGuard(a.pool, "pnl", a.consumerID, a.generation, a.owner, a.projectionVersion, a, a.epochGuard)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("create accounting consumer: %v", err)
 	}
 	if len(selected) > 0 {
+		var priorSnapshots int
+		if err = service.authority.pool.QueryRow(ctx, `SELECT count(*) FROM pnl.portfolio_snapshots`).Scan(&priorSnapshots); err != nil {
+			t.Fatalf("read prior snapshots: %v", err)
+		}
 		runCtx, stop := context.WithCancel(ctx)
 		defer stop()
 		result := make(chan error, 1)
@@ -383,43 +390,47 @@ func consumeCurrentInventoryFrames(t *testing.T, ctx context.Context, service *S
 		for {
 			var count int
 			if err = service.authority.pool.QueryRow(ctx, `SELECT count(*) FROM pnl.portfolio_snapshots`).Scan(&count); err != nil {
-				t.Fatal(err)
+				t.Fatalf("read current snapshots: %v", err)
 			}
-			if count == len(frames) {
+			if count == priorSnapshots+len(frames) {
 				break
 			}
 			select {
 			case err := <-result:
-				t.Fatal(err)
+				t.Fatalf("run accounting consumer: %v", err)
 			case <-ctx.Done():
-				t.Fatal(ctx.Err())
+				t.Fatalf("wait for accounting consumer: %v", ctx.Err())
 			case <-time.After(10 * time.Millisecond):
 			}
 		}
 		stop()
 		if err = <-result; !errors.Is(err, context.Canceled) {
-			t.Fatal(err)
+			t.Fatalf("stop accounting consumer: %v", err)
 		}
 		return
 	}
+	consumer.Progress = consumerhealth.New("inventory_consumer", 5*time.Minute, nil, time.Now)
 	count := 0
 	for count < len(frames) {
 		messages, e := transport.Fetch(ctx)
 		if e != nil {
-			t.Fatal(e)
+			t.Fatalf("fetch inventory frames: %v", e)
 		}
 		if len(messages) == 0 {
-			t.Fatal("published inventory frames unavailable")
+			t.Fatal("fetch inventory frames: published inventory frames unavailable")
 		}
 		for _, message := range messages {
 			if e = consumer.PrepareAndConsume(ctx, message.Subject, message.Wire, message); e != nil {
-				t.Fatal(e)
+				t.Fatalf("consume inventory frame: %v", e)
 			}
 			count++
 		}
 	}
+	if snapshot := consumer.Progress.Snapshot(); snapshot.LastSuccess.IsZero() || snapshot.ConsecutiveFailures != 0 || snapshot.RetryPartitions != 0 {
+		t.Fatalf("consume inventory frames: committed inventory progress: %+v", snapshot)
+	}
 	if count != len(frames) {
-		t.Fatal(count, len(frames))
+		t.Fatalf("consume inventory frames: count=%d, want %d", count, len(frames))
 	}
 }
 

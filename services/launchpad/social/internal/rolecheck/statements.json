@@ -5791,10 +5791,10 @@
     "sql": "INSERT INTO interaction_visibility_revision(scope,revision) VALUES($1,1) ON CONFLICT(scope) DO UPDATE SET revision=interaction_visibility_revision.revision+1"
   },
   {
-    "id": "interactions/outbox.go:Publisher.Record:4",
+    "id": "interactions/outbox.go:Publisher.Record:5",
     "file": "services/launchpad/social/internal/interactions/outbox.go",
     "function": "Publisher.Record",
-    "ordinal": 4,
+    "ordinal": 5,
     "role": "chat_runtime",
     "kind": "SELECT",
     "tables": [
@@ -9925,5 +9925,81 @@
     ],
     "bindings": {},
     "sql": "\n\t\tSELECT c.callout_id::text,c.author,c.pool,c.body,c.disclosure,c.revision,c.created_at,\n\t\t       chat.social_account_for_wallet(c.author)::text,\n\t\t       GREATEST(c.revision,COALESCE((SELECT max(v.revision) FROM chat.safety_visibility v\n\t\t         WHERE v.target_type='callout' AND v.target_id=c.callout_id::text),0))\n\t\tFROM chat.v2_callouts c\n\t\tJOIN LATERAL (SELECT p.pool,p.token FROM chat.social_canonical_pools() p WHERE p.pool=c.pool) canonical ON true\n\t\tWHERE c.callout_id::text=$1\n\t\t  AND NOT c.removed\n\t\t  AND chat.interaction_account_active(c.author)\n\t\t  AND NOT EXISTS (SELECT 1 FROM chat.interaction_erased_wallets e WHERE e.wallet=c.author)\n\t\t  AND NOT EXISTS (SELECT 1 FROM chat.safety_visibility v\n\t\t    WHERE v.status='removed' AND ((v.target_type='callout' AND v.target_id=c.callout_id::text)\n\t\t      OR (v.target_type='pool' AND v.target_id=canonical.pool)\n\t\t      OR (v.target_type='token' AND v.target_id=canonical.token)))"
+  },
+  {
+    "id": "interactions/outbox.go:Publisher.Record:4",
+    "file": "services/launchpad/social/internal/interactions/outbox.go",
+    "function": "Publisher.Record",
+    "ordinal": 4,
+    "role": "chat_runtime",
+    "kind": "INSERT",
+    "tables": [
+      "chat.interaction_comments",
+      "chat.interaction_visibility_revision"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "author",
+      "id",
+      "interaction_visibility_revision.revision",
+      "revision",
+      "scope"
+    ],
+    "bindings": {},
+    "sql": "INSERT INTO interaction_visibility_revision(scope,revision) SELECT 'comments:wallet:'||author,1 FROM interaction_comments WHERE id=$1 ON CONFLICT(scope) DO UPDATE SET revision=interaction_visibility_revision.revision+1"
+  },
+  {
+    "id": "interactions/wallet_comments.go:HTTP.walletCommentsSnapshot:1",
+    "file": "services/launchpad/social/internal/interactions/wallet_comments.go",
+    "function": "HTTP.walletCommentsSnapshot",
+    "ordinal": 1,
+    "role": "chat_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "chat.interaction_visibility_revision"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "revision",
+      "scope"
+    ],
+    "bindings": {},
+    "sql": "SELECT COALESCE((SELECT revision FROM interaction_visibility_revision WHERE scope=$1),0),COALESCE((SELECT revision FROM interaction_visibility_revision WHERE scope='erasure_overlay'),0)"
+  },
+  {
+    "id": "interactions/wallet_comments.go:HTTP.walletCommentsSnapshot:2",
+    "file": "services/launchpad/social/internal/interactions/wallet_comments.go",
+    "function": "HTTP.walletCommentsSnapshot",
+    "ordinal": 2,
+    "role": "chat_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "chat.interaction_comments",
+      "chat.interaction_erased_wallets",
+      "chat.interaction_reactions"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.count",
+      "pg_catalog.statement_timestamp"
+    ],
+    "columns": [
+      "c.author",
+      "c.body",
+      "c.created_at",
+      "c.edited_at",
+      "c.id",
+      "c.parent",
+      "c.pool",
+      "c.removed",
+      "c.revision",
+      "e.wallet",
+      "r.actor",
+      "r.target"
+    ],
+    "bindings": {},
+    "sql": "SELECT c.id,c.pool,c.author,c.parent,c.body,(SELECT count(*) FROM interaction_reactions r WHERE r.target=c.id AND NOT EXISTS(SELECT 1 FROM interaction_erased_wallets e WHERE e.wallet=r.actor))::text,c.revision::text,c.edited_at IS NOT NULL,statement_timestamp(),c.created_at FROM interaction_comments c WHERE c.author=$1 AND ($2::timestamptz IS NULL OR (c.created_at,c.id)<($2,cast($3 AS text))) AND NOT c.removed AND NOT EXISTS(SELECT 1 FROM interaction_erased_wallets e WHERE e.wallet=c.author) ORDER BY c.created_at DESC,c.id DESC LIMIT $4"
   }
 ]

@@ -114,15 +114,15 @@ describe('coin page units for production pool 0xce20…6263', () => {
   it('header shows the 2.2.0 market cap, price, dev share and the 24h change reason from the recorded IF_POOL_DETAIL bytes', async () => {
     const view = mount(<TokenHeader poolAddress={pool} liveStats={null} livePrice={null} now={Date.now()} />);
     await waitFor(() => /Market cap/i.test(text(view)) && /147\.28/.test(text(view)));
-    // Market cap is totalSupplyValuationUsdlRaw 10098226981 (10,098.23 USDL, price x total supply); the circulating 48.51 USDL is the hover value.
+    // Market cap is totalSupplyValuationUsdlRaw 10098226981 ($10,098.23, price x total supply); the circulating $48.51 is the hover value.
     const headline = view.container.querySelector<HTMLButtonElement>('button[aria-label^="Market cap"]');
-    expect(headline?.textContent).toBe('Market cap10.1K USDL');
-    expect(headline?.getAttribute('title')).toBe('Circulating market cap 48.51 USDL');
+    expect(headline?.textContent).toBe('Market cap$10.1K');
+    expect(headline?.getAttribute('title')).toBe('Circulating market cap $48.51');
     expect(text(view)).not.toMatch(/10\.1B|147\.28M/);
     const volume = Array.from(view.container.querySelectorAll('dd, div, span')).map(node => node.textContent ?? '');
     expect(volume.some(value => value.includes('147.28'))).toBe(true);
-    // creatorHoldingShareBps 10000.
-    expect(view.container.querySelector('[data-dev-share]')?.textContent).toBe('Creator 100%');
+    // The creator holds all circulating tokens, or 0.4803% of total supply.
+    expect(view.container.querySelector('[data-dev-share]')?.textContent).toBe('Creator 0.48%');
     // The 24h baseline is insufficient_history: no number, the reason instead.
     expect(view.container.querySelector('[data-change="24h"] [aria-label]')?.getAttribute('aria-label')).toBe('Change: Not enough trades yet for a 24h change');
     // The price headline reads spotPriceWad 10098226981692 with adaptive significant digits, never $0.00.
@@ -134,7 +134,7 @@ describe('coin page units for production pool 0xce20…6263', () => {
   it('header follows a live market.stats frame onto the same cells', async () => {
     const view = mount(<TokenHeader poolAddress={pool} liveStats={liveStatsFrame} livePrice={null} now={Date.now()} />);
     await waitFor(() => view.container.querySelector('[data-coin-header="ready"]') !== null);
-    expect(view.container.querySelector('button[aria-label^="Market cap"]')?.textContent).toBe('Market cap10.22K USDL');
+    expect(view.container.querySelector('button[aria-label^="Market cap"]')?.textContent).toBe('Market cap$10.22K');
     expect(view.container.querySelector('[data-change="24h"]')?.textContent).toBe('up+1.22%');
     act(() => view.container.querySelector<HTMLButtonElement>('button[aria-label^="Market cap"]')?.click());
     expect(view.container.querySelector('button[aria-label^="Price"]')?.textContent).toBe('Price$0.0₄1022');
@@ -148,24 +148,48 @@ describe('coin page units for production pool 0xce20…6263', () => {
     expect(row).toContain('4.8M');
     expect(row).toContain('0.48%');
     expect(row).not.toContain('48.00%');
-    // 4,803,406.95256 tokens x 0.000010098226981692 USDL (spotPriceWad) = 48.51 USDL.
-    expect(row).toContain('48.51 USDL');
-    expect(view.container.querySelector('[data-share-chip="Top 10"]')?.textContent).toBe('Top 10Top 10 holders hold 100%');
-    expect(view.container.querySelector('[data-share-chip="Creator"]')?.textContent).toBe('CreatorCreator holds 100%');
+    // 4,803,406.95256 tokens x $0.000010098226981692 (spotPriceWad) = $48.51.
+    expect(row).toContain('$48.51');
+    expect(view.container.querySelector('[data-share-chip="Top 10"]')?.textContent).toBe('Top 10Top 10 holders hold 0.48%');
+    expect(view.container.querySelector('[data-share-chip="Creator"]')?.textContent).toBe('CreatorCreator holds 0.48%');
     // The holder is not the registry creator, so no dev badge on its row.
     expect(view.container.querySelector('tbody [data-dev-badge]')).toBeNull();
     unmount(view);
   });
 
-  it('stats panel shows the 24h volume as 147.28 USDL, traders and transactions, and the change reason', async () => {
+  it('stats panel shows the 24h volume as $147.28, traders and transactions, and the change reason', async () => {
     const view = mount(<StatsAuditPanel poolAddress={pool} liveStats={null} />);
     await waitFor(() => /Volume/.test(text(view)) && /147\.28/.test(text(view)));
     expect(text(view)).not.toMatch(/147\.28M|147\.3M/);
+    expect(text(view)).toContain('$147.28');
+    expect(view.container.querySelector('[data-split-frame="buyers"]')).toBeNull();
+    expect(view.container.querySelector('[data-split-frame="buys"]')).toBeNull();
+    expect(view.container.querySelector('[role="img"][aria-label*="Buys"]')).not.toBeNull();
     expect(text(view)).toContain('Traders1');
     expect(text(view)).toContain('Txns2');
     expect(view.container.querySelector('[aria-label^="Change:"]')?.getAttribute('aria-label')).toBe('Change: Not enough trades yet for a 24h change');
+    const hour = view.container.querySelector<HTMLButtonElement>('[role="radio"][aria-label="1h"]') ?? [...view.container.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(button => button.textContent === '1h');
+    expect(hour).toBeDefined();
+    act(() => hour!.click());
+    expect(view.container.querySelector('[data-split-frame="buys"]')).toBeNull();
+    expect(view.container.querySelector('[data-split-frame="buyers"]')).toBeNull();
+    expect(view.container.querySelector('[role="img"][aria-label*="Buys"]')).toBeNull();
     unmount(view);
   });
+  async function dailyStatsWithoutDisplayableSplitCountsKeepTheAggregate() {
+    const stats = { ...liveStatsFrame, buys24h: '9007199254740992', sells24h: '9007199254740992' };
+    const view = mount(<StatsAuditPanel poolAddress={pool} liveStats={stats} />);
+    await waitFor(() => /Volume/.test(text(view)) && /Txns/.test(text(view)));
+    expect(view.container.querySelector('[data-split-frame="buys"]')).toBeNull();
+    expect(view.container.querySelector('[data-split-frame="buyers"]')).toBeNull();
+    expect(view.container.querySelector('[role="img"][aria-label*="Buys"]')).toBeNull();
+    expect(text(view)).toContain(`Txns${stats.txCount24h}`);
+    expect(text(view)).toContain('Volume');
+    unmount(view);
+  }
+
+  it(dailyStatsWithoutDisplayableSplitCountsKeepTheAggregate.name, dailyStatsWithoutDisplayableSplitCountsKeepTheAggregate);
+
 });
 
 afterAll(closeBrowserSurface);

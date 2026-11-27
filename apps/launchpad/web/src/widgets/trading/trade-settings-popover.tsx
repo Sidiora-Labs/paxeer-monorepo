@@ -105,7 +105,7 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
           aria-labelledby={titleId}
           onKeyDown={onKeyDown}
           style={{ top: position?.top ?? 0, left: position?.left ?? 0, visibility: position ? 'visible' : 'hidden' }}
-          className="sl-popover fixed m-0 w-max border-0 text-text z-[var(--sl-z-dropdown)] max-w-[min(var(--sl-modal-width-sm),calc(100dvw-var(--sl-space-6)))] rounded-md bg-surface-3 p-3 shadow-pop"
+          className="sl-popover fixed m-0 w-max border-0 text-text z-[var(--sl-z-dropdown)] max-w-[min(var(--sl-modal-width-sm),calc(100dvw-var(--sl-space-6)))] rounded-md sl-floating p-3"
         >
           <div className="flex items-center justify-between">
             <h3 id={titleId} className="text-sm font-bold text-text">Settings</h3>
@@ -172,7 +172,7 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
               </div>
             ) : null}
           </dl>
-          <p className="mt-2 text-2xs text-text-faint">Saved on this device.</p>
+          <p className="mt-2 text-2xs text-text">Saved on this device.</p>
         </dialog>,
         document.body
       ) : null}

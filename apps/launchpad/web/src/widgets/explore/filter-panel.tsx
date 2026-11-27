@@ -7,9 +7,9 @@ type FilterField = keyof ExploreFilters;
 
 const fields: ReadonlyArray<{ id: FilterField; label: string; helper: string; unit: string }> = Object.freeze([
   { id: 'maxAgeHours', label: 'Max age', helper: 'Hours since launch', unit: 'h' },
-  { id: 'minMcap', label: 'Min market cap', helper: 'USDL', unit: 'USDL' },
-  { id: 'maxMcap', label: 'Max market cap', helper: 'USDL', unit: 'USDL' },
-  { id: 'minVolume24h', label: 'Min 24h volume', helper: 'USDL traded in the last 24 hours', unit: 'USDL' },
+  { id: 'minMcap', label: 'Min market cap', helper: 'Dollars', unit: '$' },
+  { id: 'maxMcap', label: 'Max market cap', helper: 'Dollars', unit: '$' },
+  { id: 'minVolume24h', label: 'Min 24h volume', helper: 'Dollars traded in the last 24 hours', unit: '$' },
   { id: 'minHolders', label: 'Min holders', helper: 'Number of holders', unit: 'holders' },
 ]);
 
@@ -50,7 +50,7 @@ export function FilterPanel({ id, filters, onChange, loadedCount, matchCount, on
     <section id={id} aria-labelledby={headingId} className="flex flex-col gap-4 rounded-md bg-surface-2 p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1 basis-40">
-          <h2 id={headingId} className="text-md font-bold text-text">Filter</h2>
+          <h2 id={headingId} className="text-md font-semibold text-text">Filter</h2>
           <p role="status" className="text-xs text-text-faint">
             {active === 0
               ? `Filters apply to the ${loadedCount} coins shown`

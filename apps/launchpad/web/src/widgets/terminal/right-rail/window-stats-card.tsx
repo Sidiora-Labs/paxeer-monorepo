@@ -2,7 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { ErrorState, NoticeBar, PercentPill, SegmentedControl, Skeleton, Tooltip, UnavailableState } from '@/ui/primitives';
 import type { PoolStats } from '@/core/market/use-stats-batch';
-import { formatCount, formatUsdl } from '@/utils/format';
+import { formatCount, formatCompactUsd } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import type { Trade } from '../../../../../../../sdk/launchpad/packages/production-contracts/src/types.gen';
 import { deriveWindowStats, statsWindows, useWindowCandles, type StatsWindow, type WindowStats } from './window-stats';
@@ -24,7 +24,7 @@ function clockTime(iso: string): string {
 }
 
 function money(raw: bigint, signed = false): string {
-  return formatUsdl(raw, { compact: true, unit: false, signed });
+  return formatCompactUsd(raw, { raw: true, compact: true, signed });
 }
 
 function Figure({ label, children, tone }: { label: string; children: ReactNode; tone?: 'buy' | 'sell' }) {
@@ -100,8 +100,9 @@ export function WindowStatsCard({ poolAddress, fills, stats }: { poolAddress: st
   });
 
   return (
-    <section aria-label="Window stats" className="flex flex-col gap-2 rounded-md bg-surface-1 p-2">
+    <section aria-label="Window stats" className="sl-hairline flex flex-col gap-2 bg-surface-1 p-2">
       <SegmentedControl<StatsWindow> options={options} value={selected} onChange={setSelected} label="Stats window" size="md" shape="sm" fullWidth />
+      {active.candles.state === 'ready' && active.candles.stale ? <p role="status" className="text-xs text-text-faint">Prices may be out of date</p> : null}
       {current ? (
         <>
           <Figures stats={current} />
@@ -120,7 +121,7 @@ export function WindowStatsCard({ poolAddress, fills, stats }: { poolAddress: st
           <dl className="grid grid-cols-4 gap-1 rounded-sm bg-surface-2 px-1 py-2">
             {['Volume', 'Buys', 'Sells', 'Net vol.'].map(label => <Figure key={label} label={label}><Dash reason="Not available yet" /></Figure>)}
           </dl>
-          <UnavailableState variant="inline" title="These stats" operation={marker.operation} status={marker.status} />
+          <UnavailableState variant="inline" title="These stats" operation={marker.operation} status={marker.status} notServed={marker.notServed} error={marker.error} onRetry={marker.retry} />
         </div>
       ) : active.candles.state === 'error' ? (
         <ErrorState variant="inline" message={`Stats can't load right now. ${userFacingMessage(active.candles.error)}`} onRetry={active.candles.retry} />

@@ -42,7 +42,10 @@ export abstract class BaseOrderCreator<T> implements OrderCreator<T> {
    * Template method for order validation
    * Defines the algorithm structure with hooks for subclasses
    */
-  validate(values: any, config: ValuesDepConfig): Promise<OrderValidationResult> {
+  validate(
+    values: any,
+    config: ValuesDepConfig,
+  ): Promise<OrderValidationResult> {
     this.beforeValidate(values, config);
     const errors = this.runValidations(values, config);
     return Promise.resolve(this.afterValidate(errors, values, config));
@@ -173,10 +176,7 @@ export abstract class BaseOrderCreator<T> implements OrderCreator<T> {
    * @param configs - Configuration
    * @returns Validation result (synchronous, not a Promise)
    */
-  baseValidate(
-    values: any,
-    configs: ValuesDepConfig,
-  ): OrderValidationResult {
+  baseValidate(values: any, configs: ValuesDepConfig): OrderValidationResult {
     const errors: {
       [P in keyof OrderEntity]?: OrderValidationItem;
     } = {};
@@ -263,7 +263,7 @@ export abstract class BaseOrderCreator<T> implements OrderCreator<T> {
     if (minNotional !== undefined && !reduce_only) {
       errors.total = {
         type: "min",
-        message: `The order value should be greater or equal to ${minNotional} USDC`,
+        message: `The order value should be greater or equal to ${minNotional} USDL`,
         value: minNotional,
       };
     }

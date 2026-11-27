@@ -251,9 +251,9 @@ func (s *Store) DevelopmentPriceMovers(ctx context.Context, gainers bool, limit 
 	}
 	defer cancel()
 	defer rollbackRead(tx)
-	order, filter := "change DESC", "change > 0"
+	order, filter := "s.change DESC", "change > 0"
 	if !gainers {
-		order, filter = "change ASC", "change < 0"
+		order, filter = "s.change ASC", "change < 0"
 	}
 	rows, err := tx.Query(ctx, `SELECT pool, change::text, count(*) OVER () FROM (SELECT lower(pool_address) AS pool, CASE WHEN price_change_24h ~ '^-?[0-9]{1,77}$' THEN price_change_24h::numeric END AS change FROM stats.pool_stats) s WHERE `+filter+` ORDER BY `+order+`, pool LIMIT $1`, limit)
 	if err != nil {

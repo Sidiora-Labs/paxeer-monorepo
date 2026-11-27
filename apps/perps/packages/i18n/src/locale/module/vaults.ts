@@ -2,7 +2,7 @@ export const vaults = {
   "vaults.availableOn": "Available on",
   "vaults.header.title": "Earn passive yield with vault strategies",
   "vaults.header.description":
-    "Put your idle or extra assets to work effortlessly. Deposit into curated vault strategies directly from {{brokerName}} - using USDC from any supported blockchain or your {{brokerName}} account, with no gas fees.",
+    "Put your idle or extra assets to work effortlessly. Deposit into curated vault strategies directly from {{brokerName}} - using USDL from any supported blockchain or your {{brokerName}} account, with no gas fees.",
   "vaults.introduction.tvl": "Vault TVL",
   "vaults.introduction.depositors": "Depositors",
   "vaults.allVaults": "All vaults",
@@ -39,7 +39,7 @@ export const vaults = {
   "vaults.withdraw.dialog.withdrawalAmount": "Withdrawal amount",
   "vaults.withdraw.dialog.estimatedReceiving": "Estimated receiving",
   "vaults.withdraw.dialog.note":
-    "Please note that the estimated USDC is based on the current price per share, and the final amount you receive will be determined at the end of the vault period.",
+    "Please note that the estimated USDL is based on the current price per share, and the final amount you receive will be determined at the end of the vault period.",
   "vaults.withdraw.dialog.initiateWithdrawal": "Initiate withdrawal",
   "vaults.withdraw.process.withdrawProcess": "Withdraw process",
   "vaults.withdraw.process.vaultProcess": "Vault process",
@@ -49,9 +49,9 @@ export const vaults = {
   "vaults.operation.error.switchAccount":
     "Please switch to your main account to continue.",
   "vaults.operation.error.minDeposit":
-    "Deposit amount is less than the minimum {{amount}} USDC.",
+    "Deposit amount is less than the minimum {{amount}} USDL.",
   "vaults.operation.error.minWithdrawal":
-    "Withdraw amount is less than the minimum {{amount}} USDC.",
+    "Withdraw amount is less than the minimum {{amount}} USDL.",
 };
 
 export type Vaults = typeof vaults;

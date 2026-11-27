@@ -65,7 +65,7 @@ export default function AccountPreferences({ section = 'all', className }: Accou
       ? <div className={cn('flex flex-col gap-2', className)}><UnavailableState variant="inline" title="Saving your language" operation={preferencesOperation} status={status} className="text-xs" /></div>
       : (
         <section aria-labelledby="account-preferences-title" className={cn('flex flex-col gap-3', className)}>
-          <h2 id="account-preferences-title" className="text-md font-bold text-text">Settings</h2>
+          <h2 id="account-preferences-title" className="text-md font-semibold text-text">Settings</h2>
           <UnavailableState variant="panel" title="Saving settings" operation={preferencesOperation} status={status} message="Check back soon" onRetry={() => { void query.refetch(); }} className="rounded-md bg-surface-2 p-4" />
         </section>
       );
@@ -74,7 +74,7 @@ export default function AccountPreferences({ section = 'all', className }: Accou
   const language = (
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <p id="preferences-locale-label" className="text-sm font-bold text-text">Language</p>
+        <p id="preferences-locale-label" className="text-sm font-semibold text-text">Language</p>
         <p className="text-xs text-text-faint">Applies on every device you sign in on.</p>
       </div>
       <SelectPill
@@ -101,12 +101,12 @@ export default function AccountPreferences({ section = 'all', className }: Accou
 
   return (
     <section aria-labelledby="account-preferences-title" className={cn('flex flex-col gap-3', className)}>
-      <h2 id="account-preferences-title" className="text-md font-bold text-text">Settings</h2>
+      <h2 id="account-preferences-title" className="text-md font-semibold text-text">Settings</h2>
       {preferences ? <p className="text-xs text-text-faint">Timezone {preferences.timezone} · currency {preferences.currency}</p> : null}
       <div className="rounded-md bg-surface-2 p-4">{language}</div>
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-surface-2 p-4">
         <div>
-          <p id="preferences-private-activity" className="text-sm font-bold text-text">Private activity</p>
+          <p id="preferences-private-activity" className="text-sm font-semibold text-text">Private activity</p>
           <p className="max-w-prose text-xs text-text-faint">Hides your activity on your profile. Onchain trades are always public.</p>
         </div>
         <Toggle

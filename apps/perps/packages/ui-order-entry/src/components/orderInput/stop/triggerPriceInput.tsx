@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, memo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { inputFormatter } from "@paxeer-network/ui";
@@ -27,7 +28,7 @@ export const TriggerPriceInput: FC<TriggerPriceInputProps> = memo((props) => {
         id="order_trigger_price_input"
         name="order_trigger_price_input"
         label={t("common.trigger")}
-        suffix={symbolInfo.quote}
+        suffix={tokenDisplayName(symbolInfo.quote)}
         value={props.trigger_price}
         className="oui-orderEntry-triggerPriceInput"
         onChange={(e) => {

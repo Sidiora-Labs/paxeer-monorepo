@@ -116,7 +116,7 @@ describe('social components render honest states without border utilities', () =
   it('renders a callout card with declared position, live MC and the follow and report controls', () => {
     const html = render(<CalloutCard callout={feedCardView(feedCard)} stats={{ state: 'ready', stats }} />);
     expect(html).toContain('Holding 1,200 tokens');
-    expect(html).toContain('143K USDL');
+    expect(html).toContain('$143K');
     expect(html).toContain('Position verified');
     expect(html).toContain('aria-label="Follow 0xabcd...ef01"');
     expect(html).toContain('More actions for callout by');

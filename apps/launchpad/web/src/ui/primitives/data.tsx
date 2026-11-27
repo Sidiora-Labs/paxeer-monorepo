@@ -55,7 +55,7 @@ export function StatTile({
   const empty = value === null || value === undefined;
   const valueClass =
     size === 'bar'
-      ? 'text-2xl font-extrabold'
+      ? 'text-2xl font-bold'
       : size === 'inline'
         ? 'text-lg font-bold'
         : 'text-md font-bold';
@@ -69,7 +69,7 @@ export function StatTile({
         className
       )}
     >
-      <dt className="text-2xs font-bold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
+      <dt className="text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">
         {label}
       </dt>
       <dd
@@ -131,6 +131,7 @@ export function CompactNumber({
 
 export interface MoneyValueProps extends FormatUsdlOptions {
   raw: string | bigint | null | undefined;
+  kind?: 'market' | 'amount';
   /** auto colours positive success / negative danger; neutral keeps text. */
   tone?: 'auto' | 'neutral' | 'accent';
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -142,13 +143,14 @@ const moneySize = { sm: 'text-num-sm', md: 'text-num-md', lg: 'text-lg', xl: 'te
 
 export function MoneyValue({
   raw,
+  kind = 'amount',
   tone = 'neutral',
   size = 'md',
   masked = false,
   className,
   ...opts
 }: MoneyValueProps) {
-  const text = formatUsdl(raw, opts);
+  const text = kind === 'market' ? formatCompactUsd(raw, { ...opts, raw: true }) : formatUsdl(raw, opts);
   const negative =
     typeof raw === 'bigint' ? raw < 0n : typeof raw === 'string' && raw.trim().startsWith('-');
   const zero =
@@ -317,7 +319,7 @@ export function ProgressBar({
   value,
   label,
   size = 6,
-  tone = 'auto',
+  tone = 'accent',
   showValue = false,
   completeLabel,
   flash = false,
@@ -531,7 +533,7 @@ export function KeyValueRow({
 }: KeyValueRowProps) {
   const empty = value === null || value === undefined;
   return (
-    <div className={cn('flex min-h-10 flex-wrap items-center justify-between gap-3 py-1', className)}>
+    <div className={cn('sl-hairline flex min-h-10 flex-wrap items-center justify-between gap-3 py-1', className)}>
       <dt className="min-w-0 max-w-full break-words text-sm text-text-faint">{label}</dt>
       <dd
         data-numeric

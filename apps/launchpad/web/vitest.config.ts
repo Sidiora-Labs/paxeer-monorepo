@@ -1,5 +1,6 @@
 import { configDefaults, defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
+import { ChainClockSequencer } from './src/widgets/trading/chain-clock-sequencer';
 
 export default defineConfig({
   esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
@@ -12,6 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    sequence: { sequencer: ChainClockSequencer },
     // Wallet suites share one private EVM and exercise chain/account changes.
     fileParallelism: false,
     maxWorkers: 1,

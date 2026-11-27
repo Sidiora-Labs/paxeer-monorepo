@@ -1,0 +1,101 @@
+[explore]
+sections = ["1", "2", "4", "5", "7"]
+composition = "One row of neutral preset chips, quiet icon controls, canvas column heads and coin rows separated by hairlines."
+rows = "Rounded coin images or initials, name and badges, ticker and age, right-aligned market value and direction."
+cards = "Coin cards show available creator and description text alongside market figures."
+states = "Waiting rows reserve the table shape; empty and failed forms sit below the column heads at their content height."
+
+[search]
+sections = ["1", "2", "4", "5", "7"]
+composition = "Coin results share the ranking coin identity, hairlines and market value emphasis while retaining combobox navigation."
+states = "Waiting coin rows, a neutral empty form and a failed-read form with recovery; unserved search kinds retain their explanatory text."
+
+[watchlist]
+sections = ["1", "2", "4", "5", "7"]
+composition = "Starred coins share the explore rows, cards, toolbar and table states."
+states = "The empty watchlist offers a secondary action to browse coins."
+
+[coverage]
+part = "explore"
+views = 16
+named_states = 3
+render_cases = 646
+findings = 0
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+
+[coverage.findings]
+load = 0
+sideways = 0
+cut = 0
+contrast = 0
+touch = 0
+focus = 0
+shift = 0
+motion = 0
+scale = 0
+geometry = 0
+
+[view.explore]
+sections = ["1", "2", "4", "5", "7"]
+form = "Neutral preset chips, quiet icon controls and coin rows or cards."
+
+[view.explore_breakout]
+sections = ["1", "2", "4", "5", "7"]
+form = "Breakout uses the shared ranking table and coin states."
+
+[view.explore_empty]
+sections = ["1", "2", "4", "5", "7"]
+form = "A neutral empty ranking stands under the table heads with one secondary action."
+
+[view.explore_error]
+sections = ["1", "2", "4", "5", "7"]
+form = "An unavailable ranking keeps the table heads and its recovery action."
+
+[view.explore_loading]
+sections = ["1", "2", "4", "5", "7"]
+form = "Waiting rows reserve the table shape under the heads."
+
+[view.explore_mcap]
+sections = ["1", "2", "4", "5", "7"]
+form = "Market cap uses right-aligned values and the selected sort arrow."
+
+[view.explore_new]
+sections = ["1", "2", "4", "5", "7"]
+form = "New uses the shared ranking table and coin states."
+
+[view.explore_trending]
+sections = ["1", "2", "4", "5", "7"]
+form = "Trending uses the shared ranking table and coin states."
+
+[view.explore_unusual]
+sections = ["1", "2", "4", "5", "7"]
+form = "Unusual uses the shared ranking table and coin states."
+
+[view.explore_volume]
+sections = ["1", "2", "4", "5", "7"]
+form = "Volume uses the shared ranking table and coin states."
+
+[view.search]
+sections = ["1", "2", "4", "5", "7"]
+form = "Coin identities use rounded images or initials and secondary ticker text."
+
+[view.search_empty]
+sections = ["1", "2", "4", "5", "7"]
+form = "An empty search offers a neutral explanation without a retry."
+
+[view.search_error]
+sections = ["1", "2", "4", "5", "7"]
+form = "A failed search offers one recovery action."
+
+[view.search_loading]
+sections = ["1", "2", "4", "5", "7"]
+form = "Waiting coin rows reserve the result shape."
+
+[view.watchlist]
+sections = ["1", "2", "4", "5", "7"]
+form = "Starred coins use the ranking rows, cards and table states."
+
+[view.search_results]
+sections = ["1", "2", "4", "5", "7"]
+form = "Coin results retain combobox navigation and emphasize market value and direction; a pool and its token share one result, while distinct coins remain separate."

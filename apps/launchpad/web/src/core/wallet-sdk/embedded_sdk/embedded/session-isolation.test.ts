@@ -144,6 +144,22 @@ beforeAll(async () => {
       res.end(JSON.stringify(body));
     };
     try {
+      if (req.url === "/" && req.method === "POST") {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) chunks.push(Buffer.from(chunk));
+        const request = JSON.parse(Buffer.concat(chunks).toString());
+        if (
+          request.method !== "eth_getTransactionCount" ||
+          request.params[1] !== "latest" ||
+          !signers.some(
+            (signer) =>
+              signer.address.toLowerCase() === request.params[0].toLowerCase(),
+          )
+        )
+          throw new Error("unexpected count request");
+        send(200, { jsonrpc: "2.0", id: request.id, result: "0x0" });
+        return;
+      }
       const {
         session,
         wallet: publicWallet,
@@ -623,7 +639,9 @@ async function embedded_quantity_validation() {
         ...(input.value === undefined
           ? {}
           : { value: BigInt(input.value).toString() }),
-        ...(input.nonce === undefined ? {} : { nonce: Number(input.nonce) }),
+        ...(input.nonce === undefined && method === "eth_signTransaction"
+          ? {}
+          : { nonce: Number(input.nonce ?? 0) }),
         gas: BigInt(
           input.gas ?? ("gasLimit" in input ? input.gasLimit : tx.gas)!,
         ).toString(),

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC } from "react";
 import { Trans, useTranslation } from "@paxeer-network/i18n";
 import { Box, Button, Flex, textVariants, Text, cn } from "@paxeer-network/ui";
@@ -130,7 +131,7 @@ export const TransferForm: FC<TransferFormProps> = (props) => {
             <Text.numeral
               size="2xs"
               intensity={54}
-              unit={` ${token.symbol}`}
+              unit={` ${tokenDisplayName(token.symbol)}`}
               dp={token?.precision}
               padding={false}
             >

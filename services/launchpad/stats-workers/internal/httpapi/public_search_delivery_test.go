@@ -152,8 +152,8 @@ func newPublicSearchPath(t *testing.T) *publicSearchPath {
 	if _, err = js.CreateStream(ctx, jetstream.StreamConfig{Name: "REPAIR69", Subjects: []string{"repair69.>"}, Storage: jetstream.FileStorage, MaxBytes: 10485760}); err != nil {
 		t.Fatal(err)
 	}
-	for _, kind := range []string{"creation", "metadata", "visibility"} {
-		config := natsdriver.ConsumerConfig{Stream: "REPAIR69", Durable: kind, Subject: "repair69." + kind, Batch: 1, MaxAckPending: 1, MaxWaiting: 1, MaxDeliver: 3, FetchWait: time.Second, AckWait: time.Second}
+	for _, kind := range []string{"creation", "metadata", "visibility", "profile.updated", "account.deletion.requested"} {
+		config := natsdriver.ConsumerConfig{Stream: "REPAIR69", Durable: strings.ReplaceAll(kind, ".", "_"), Subject: "repair69." + kind, Batch: 1, MaxAckPending: 1, MaxWaiting: 1, MaxDeliver: 3, FetchWait: time.Second, AckWait: time.Second}
 		native, err := config.BrokerConsumerConfig()
 		if err != nil {
 			t.Fatal(err)
@@ -178,7 +178,7 @@ func newPublicSearchPath(t *testing.T) *publicSearchPath {
 
 func (p *publicSearchPath) open() {
 	p.t.Helper()
-	policy := delivery.Policy{Subjects: map[string]bool{"repair69.creation": true, "repair69.metadata": true, "repair69.visibility": true, "repair69.invalidation": true}, EventTypes: map[string]bool{"creation": true, "metadata": true, "visibility": true, "invalidation": true}}
+	policy := delivery.Policy{Subjects: map[string]bool{"repair69.creation": true, "repair69.metadata": true, "repair69.visibility": true, "repair69.invalidation": true, "repair69.profile.updated": true, "repair69.account.deletion.requested": true}, EventTypes: map[string]bool{"creation": true, "metadata": true, "visibility": true, "invalidation": true, "profile.updated": true, "account.deletion.requested": true}}
 	var err error
 	p.source, err = delivery.NewStore(p.pool, "repair_source_delivery", policy)
 	if err != nil {
@@ -212,12 +212,17 @@ func (p *publicSearchPath) deliver(kind string, payload any, effect func(context
 	p.sequence++
 	raw := publicSearchJSON(p.t, payload)
 	event := delivery.Envelope{EventID: fmt.Sprintf("repair69_%d", p.sequence), EventType: kind, SchemaVersion: 1, ChainID: 125, SourceOrder: delivery.SourceOrder{Height: "1", TransactionIndex: "0", LogIndex: "0"}, EmittedAt: time.Now().UTC(), TraceID: "repair69", Payload: raw, PayloadHash: delivery.Hash(raw)}
+	p.deliverEnvelope(kind, event, effect)
+}
+
+func (p *publicSearchPath) deliverEnvelope(kind string, event delivery.Envelope, effect func(context.Context, pgx.Tx) error) *natsdriver.Message {
+	p.t.Helper()
 	subject := "repair69." + kind
 	if err := p.source.Produce(p.ctx, []delivery.Pending{{Subject: subject, Envelope: event}}, func(ctx context.Context, tx pgx.Tx) error {
 		if effect != nil {
 			return effect(ctx, tx)
 		}
-		_, err := tx.Exec(ctx, "INSERT INTO "+pgx.Identifier{"repair_source", kind + "_v2"}.Sanitize()+" VALUES($1,$2)", event.EventID, raw)
+		_, err := tx.Exec(ctx, "INSERT INTO "+pgx.Identifier{"repair_source", kind + "_v2"}.Sanitize()+" VALUES($1,$2)", event.EventID, []byte(event.Payload))
 		return err
 	}); err != nil {
 		p.t.Fatal(err)
@@ -232,12 +237,15 @@ func (p *publicSearchPath) deliver(kind string, payload any, effect func(context
 	message := messages[0]
 	if kind == "creation" {
 		err = p.projection.ConsumeCanonicalCreation(p.ctx, message.Subject, message.Wire, message)
+	} else if kind == "profile.updated" || kind == "account.deletion.requested" {
+		err = p.projection.ConsumeAccountProfile(p.ctx, message.Subject, message.Wire, message)
 	} else {
 		err = p.projection.Consume(p.ctx, message.Subject, message.Wire, message)
 	}
 	if err != nil {
 		p.t.Fatal(err)
 	}
+	return message
 }
 
 func publicSearchAddress(number int) string { return fmt.Sprintf("0x%040x", number) }
@@ -414,15 +422,18 @@ func TestPublicSearchDeliveryPublicSearchSourceDeliveryAndRestart(t *testing.T) 
 }
 
 func TestPublicSearchDeliveryFrozenQueriesAndCursorBounds(t *testing.T) {
-	router := chi.NewRouter()
-	httpapi.RegisterCanonicalSearch(router, search.Store{})
+	p := newPublicSearchPath(t)
+	p.accountViews()
+	account := p.account(501, "Coin Profile", "public_optin")
+	p.accountEvent(account, "profile.updated", 1, false)
+	router := p.router
 	for _, test := range []struct {
 		query  url.Values
 		status int
 		code   string
 	}{
 		{url.Values{"q": {"coin", "other"}, "type": {"pool"}}, 400, "QUERY_INVALID"},
-		{publicSearchQuery("coin", "profile", 25), 412, "PRECONDITION_FAILED"},
+		{publicSearchQuery("coin", "profile", 25), 200, ""},
 		{publicSearchQuery("coin", "wallet", 25), 422, "FIELD_INVALID"},
 		{publicSearchQuery("coin", "pool", 26), 422, "FIELD_INVALID"},
 		{url.Values{"q": {"coin"}, "type": {"pool"}, "sort": {"address"}}, 400, "QUERY_INVALID"},
@@ -433,6 +444,15 @@ func TestPublicSearchDeliveryFrozenQueriesAndCursorBounds(t *testing.T) {
 		response := serve(t, router, http.MethodGet, "/v2/search?"+test.query.Encode(), nil, nil)
 		if response.Code != test.status || !strings.Contains(response.Body.String(), test.code) {
 			t.Fatal(test.query, response.Code, response.Body.String())
+		}
+		if test.status == 200 {
+			if err := v2.ValidateJSON("SearchResponse", response.Body.Bytes()); err != nil {
+				t.Fatal(err)
+			}
+			var body publicSearchEnvelope
+			decode(t, response, &body)
+			assertPublicProfile(t, body, account, "Coin Profile", "text")
+			continue
 		}
 		if err := v2.ValidateJSON("Error", response.Body.Bytes()); err != nil {
 			t.Fatal(err)

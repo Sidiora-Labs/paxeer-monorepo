@@ -120,7 +120,7 @@ export async function createOrGetAction(args: {
   return withTransaction(async (client) => {
     const existing = await client.query<ActionRow>(
       `select ${COLS} from agent_actions where did = $1 and idempotency_key = $2 limit 1`,
-      [args.did, args.idempotencyKey]
+      [args.did, args.idempotencyKey],
     );
     if (existing.rows[0]) return { row: existing.rows[0], created: false };
 
@@ -138,13 +138,13 @@ export async function createOrGetAction(args: {
         args.kind,
         args.idempotencyKey,
         JSON.stringify(args.request),
-      ]
+      ],
     );
     // A racing insert won the conflict — pick up their row.
     if (!rows[0]) {
       const racer = await client.query<ActionRow>(
         `select ${COLS} from agent_actions where did = $1 and idempotency_key = $2 limit 1`,
-        [args.did, args.idempotencyKey]
+        [args.did, args.idempotencyKey],
       );
       return { row: racer.rows[0]!, created: false };
     }
@@ -161,7 +161,7 @@ export async function getAction(id: string): Promise<ActionRow | null> {
 export async function getActionForDid(id: string, did: string): Promise<ActionRow | null> {
   const { rows } = await query<ActionRow>(
     `select ${COLS} from agent_actions where id = $1 and did = $2`,
-    [id, did]
+    [id, did],
   );
   return rows[0] ?? null;
 }
@@ -199,7 +199,7 @@ const TERMINAL_SET = new Set<ActionStatus>([
 export async function updateAction(
   id: string,
   patch: ActionPatch,
-  leaseEpoch?: number
+  leaseEpoch?: number,
 ): Promise<ActionRow> {
   const cols: string[] = [];
   const vals: unknown[] = [id];
@@ -235,7 +235,7 @@ export async function updateAction(
   const { rows } = await query<ActionRow>(
     `update agent_actions set ${cols.join(', ')}, updated_at = now()${terminalClause}
       where id = $1 and terminal_at is null and ${leasePredicate(`$${vals.length}`)} returning ${COLS}`,
-    vals
+    vals,
   );
   if (!rows[0]) throw new ActionLeaseLostError();
   return rows[0];
@@ -272,7 +272,7 @@ export async function claimNextAction(leaseMs: number): Promise<ActionRow | null
         order by updated_at asc
         for update skip locked
         limit 1`,
-      [NON_TERMINAL, String(INTAKE_GRACE_SECONDS)]
+      [NON_TERMINAL, String(INTAKE_GRACE_SECONDS)],
     );
     const id = rows[0]?.id;
     if (!id) return null;
@@ -283,7 +283,7 @@ export async function claimNextAction(leaseMs: number): Promise<ActionRow | null
               updated_at = now()
         where id = $1
         returning ${COLS}`,
-      [id, String(leaseMs)]
+      [id, String(leaseMs)],
     );
     return claimed.rows[0]!;
   });
@@ -295,7 +295,7 @@ export async function releaseLease(id: string, leaseEpoch?: number): Promise<voi
   const released = await query(
     `update agent_actions set worker_locked_until = null, updated_at = now()
       where id = $1 and ${leasePredicate('$2')}`,
-    [id, leaseEpoch]
+    [id, leaseEpoch],
   );
   if (released.rowCount !== 1) throw new ActionLeaseLostError();
 }
@@ -309,7 +309,7 @@ export async function listStalledActions(limit = 50): Promise<ActionRow[]> {
         and (worker_locked_until is null or worker_locked_until < now())
       order by updated_at asc
       limit $1`,
-    [limit]
+    [limit],
   );
   return rows;
 }
@@ -318,12 +318,12 @@ export async function listStalledActions(limit = 50): Promise<ActionRow[]> {
 export async function markCreditVerified(
   id: string,
   credit: Record<string, unknown>,
-  leaseEpoch?: number
+  leaseEpoch?: number,
 ): Promise<void> {
   const updated = await query(
     `update agent_actions set credit_verified = true, credit = $2, updated_at = now()
       where id = $1 and ${leasePredicate('$3')}`,
-    [id, JSON.stringify(credit), leaseEpoch ?? null]
+    [id, JSON.stringify(credit), leaseEpoch ?? null],
   );
   if (updated.rowCount !== 1) throw new ActionLeaseLostError();
 }
@@ -331,13 +331,13 @@ export async function markCreditVerified(
 export async function retainActionCustodyAuthorization(
   id: string,
   did: string,
-  custody: { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization }
+  custody: { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization },
 ): Promise<ActionRow> {
   return withTransaction(async (client) => {
     const selected = await client.query<ActionRow>(
       `select ${COLS} from agent_actions where id = $1 and did = $2
         and (worker_locked_until is null or worker_locked_until <= clock_timestamp()) for update`,
-      [id, did]
+      [id, did],
     );
     const row = selected.rows[0];
     if (
@@ -378,7 +378,7 @@ export async function retainActionCustodyAuthorization(
     const updated = await client.query<ActionRow>(
       `update agent_actions set request = jsonb_set(request, '{_custody}', $3::jsonb), error_code = null, error = null, updated_at = now()
         where id = $1 and did = $2 returning ${COLS}`,
-      [id, did, JSON.stringify(custody)]
+      [id, did, JSON.stringify(custody)],
     );
     if (!updated.rows[0]) throw new Error('action authority update failed');
     return updated.rows[0];
@@ -421,12 +421,12 @@ export function actionLegExecution(row: ActionRow, leg: ActionLeg): ActionLegExe
 async function lockedAction(
   client: PoolClient,
   id: string,
-  leaseEpoch?: number
+  leaseEpoch?: number,
 ): Promise<ActionRow> {
   const selected = await client.query<ActionRow>(
     `select ${COLS} from agent_actions
       where id = $1 and ${leasePredicate('$2')} for update`,
-    [id, leaseEpoch ?? null]
+    [id, leaseEpoch ?? null],
   );
   const row = selected.rows[0];
   if (!row) throw new ActionLeaseLostError();
@@ -438,7 +438,7 @@ export async function retainActionTransactionDraft(
   id: string,
   leg: ActionLeg,
   draft: ActionTransactionDraft,
-  leaseEpoch?: number
+  leaseEpoch?: number,
 ): Promise<ActionTransactionDraft> {
   return withTransaction(async (client) => {
     const row = await lockedAction(client, id, leaseEpoch);
@@ -451,11 +451,11 @@ export async function retainActionTransactionDraft(
     await client.query(
       `insert into custody_signing_reservations (address, chain_id, action_id, nonce) values ($1, $2, $3, $4)
        on conflict (address, chain_id) do nothing`,
-      [row.wallet_address.toLowerCase(), draft.chainId, id, draft.nonce]
+      [row.wallet_address.toLowerCase(), draft.chainId, id, draft.nonce],
     );
     const reservation = await client.query<{ action_id: string; nonce: string }>(
       'select action_id, nonce::text from custody_signing_reservations where address = $1 and chain_id = $2',
-      [row.wallet_address.toLowerCase(), draft.chainId]
+      [row.wallet_address.toLowerCase(), draft.chainId],
     );
     if (
       reservation.rows[0]?.action_id !== id ||
@@ -468,7 +468,7 @@ export async function retainActionTransactionDraft(
       `update agent_actions set request = jsonb_set(request, '{_execution}',
         coalesce(request->'_execution', '{}'::jsonb) || jsonb_build_object($2::text, $3::jsonb)), updated_at = now()
         where id = $1`,
-      [id, leg, JSON.stringify(next)]
+      [id, leg, JSON.stringify(next)],
     );
     return draft;
   });
@@ -478,7 +478,7 @@ export async function retainActionSignedTransaction(
   id: string,
   leg: ActionLeg,
   signed: ActionSignedTransaction,
-  leaseEpoch?: number
+  leaseEpoch?: number,
 ): Promise<ActionSignedTransaction> {
   return withTransaction(async (client) => {
     const row = await lockedAction(client, id, leaseEpoch);
@@ -492,7 +492,7 @@ export async function retainActionSignedTransaction(
       throw new Error('action transaction changed before signature retention');
     const reserved = await client.query(
       'update custody_signing_reservations set signed_hash = $3 where action_id = $1 and nonce = $2 and signed_hash is null',
-      [id, signed.draft.nonce, signed.hash]
+      [id, signed.draft.nonce, signed.hash],
     );
     if (reserved.rowCount !== 1)
       throw new Error('signed transaction lost its durable nonce reservation');
@@ -500,21 +500,30 @@ export async function retainActionSignedTransaction(
       current: signed,
       history: [...(state.history ?? []), ...(state.current ? [state.current] : [])],
     };
-    await client.query(
-      `insert into wallet_signatures
-        (user_id, wallet_id, address, kind, to_address, value_wei, chain_id, request_hash, tx_hash, principal_did)
-        select w.user_id, w.id, w.address, 'transaction', $1, $2, $3, $4, $5, $6
-        from wallets w where w.id = $7`,
-      [
-        signed.draft.to,
-        signed.draft.value,
-        signed.draft.chainId,
-        `action:${id}:${leg}:${signed.hash}`,
-        signed.hash,
-        row.did,
-        row.wallet_id,
-      ]
-    );
+    if (row.wallet_id !== null) {
+      const accounted = await client.query(
+        `select s.id from wallet_signatures s
+         join wallet_signature_reservations r on r.signature_id = s.id and r.wallet_id = s.wallet_id
+         join wallets w on w.id = s.wallet_id and w.user_id = s.user_id
+         where s.wallet_id = $1 and s.kind = 'transaction' and r.kind = s.kind
+           and s.tx_hash = $2 and r.tx_hash = $2 and r.signed_evidence = $3
+           and s.principal_did = $4 and lower(s.address) = lower(w.address)
+           and lower(s.to_address) = lower($5) and s.value_wei = $6 and s.chain_id = $7
+         for update of s`,
+        [
+          row.wallet_id,
+          signed.hash,
+          signed.raw,
+          row.did,
+          signed.draft.to,
+          signed.draft.value,
+          signed.draft.chainId,
+        ],
+      );
+      if (accounted.rows.length !== 1)
+        throw new Error('action signature has no matching durable accounting');
+      await client.query('update wallets set last_used_at = now() where id = $1', [row.wallet_id]);
+    }
     await client.query(
       `update agent_actions set request = jsonb_set(request, '{_execution}',
         coalesce(request->'_execution', '{}'::jsonb) || jsonb_build_object($2::text, $3::jsonb)) #- '{_custody,reauthorization}',
@@ -528,7 +537,7 @@ export async function retainActionSignedTransaction(
         signed.draft.nonce,
         `${leg}_pending`,
         `${leg}_confirmation`,
-      ]
+      ],
     );
     return signed;
   });
@@ -546,11 +555,11 @@ export async function releaseActionBudget(id: string, leaseEpoch?: number): Prom
       return;
     await client.query(
       'update agent_budgets set spent_wei = greatest(0, spent_wei - $2) where id = $1',
-      [row.reserved_budget_id, row.reserved_value_wei]
+      [row.reserved_budget_id, row.reserved_value_wei],
     );
     await client.query(
       'update agent_actions set reserved_budget_id = null, reserved_value_wei = 0 where id = $1',
-      [id]
+      [id],
     );
   });
 }
@@ -558,13 +567,13 @@ export async function releaseActionBudget(id: string, leaseEpoch?: number): Prom
 export async function releaseActionNonce(
   id: string,
   nonce: number,
-  leaseEpoch?: number
+  leaseEpoch?: number,
 ): Promise<void> {
   await withTransaction(async (client) => {
     await lockedAction(client, id, leaseEpoch);
     await client.query(
       'delete from custody_signing_reservations where action_id = $1 and nonce = $2',
-      [id, nonce]
+      [id, nonce],
     );
   });
 }
@@ -572,7 +581,7 @@ export async function releaseActionNonce(
 export async function reserveActionBudget(
   id: string,
   args: Parameters<typeof reserveBudget>[0],
-  leaseEpoch?: number
+  leaseEpoch?: number,
 ): Promise<string | null> {
   return withTransaction(async (client) => {
     const row = await lockedAction(client, id, leaseEpoch);
@@ -588,7 +597,7 @@ export async function reserveActionBudget(
     await client.query(
       `update agent_actions set reserved_budget_id = $2, reserved_value_wei = $3,
         request = jsonb_set(request, '{_budget}', $4::jsonb), updated_at = now() where id = $1`,
-      [id, budgetId, args.valueWei.toString(), JSON.stringify(budgetRequest)]
+      [id, budgetId, args.valueWei.toString(), JSON.stringify(budgetRequest)],
     );
     return budgetId;
   });
@@ -599,7 +608,7 @@ export async function releaseUnsignedActionNonce(id: string, leaseEpoch?: number
     await lockedAction(client, id, leaseEpoch);
     await client.query(
       'delete from custody_signing_reservations where action_id = $1 and signed_hash is null',
-      [id]
+      [id],
     );
   });
 }

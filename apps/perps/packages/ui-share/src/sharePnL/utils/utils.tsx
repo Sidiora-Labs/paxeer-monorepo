@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 /*
 {
       message: "I am the paxeer-network KING.",
@@ -49,7 +50,7 @@ export function getPnLPosterData(
   const { symbol, currency } = processSymbol(position.symbol);
   const positionData: any = {
     symbol,
-    currency,
+    currency: tokenDisplayName(currency),
     side: position.side,
     marginMode: position.marginMode,
   };

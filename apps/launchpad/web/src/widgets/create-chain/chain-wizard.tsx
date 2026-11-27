@@ -16,8 +16,13 @@ import { ChainLaunchAdapter, type ChainLaunchResult, type ChainLaunchStep, type 
 import { SIZE_TIERS, chainCost, validateChainDraft, validateChainName, type ChainDraft, type ChainsParams, type SizeTier } from './chain-domain';
 import { ChainDraftStorage } from './chain-storage';
 import { ChainFeeAdapter, type ChainFeeApproval, type ChainFeeFunding } from './chain-fees';
-import { StrategyPicker, feeStrategyLabel } from '../create/strategy-picker';
-import { InlineCounter, NAME_MAX_BYTES, SYMBOL_MAX_BYTES, byteLength } from '../create/create-form-fields';
+import { feeStrategyLabel } from '../create/strategy-picker';
+import { CreatorRewardsOptions, InlineCounter, NAME_MAX_BYTES, SYMBOL_MAX_BYTES, byteLength } from '../create/create-form-fields';
+
+import { formatUsdl } from '@/utils/format';
+import { OptionRow } from '@/ui/primitives';
+import { QuotePairIndicator } from '../create/quote-pair-indicator';
+import { CoinPreviewCard } from '../create/coin-preview-card';
 
 const marketFeeAbi = parseAbi(['function creationFee() view returns (uint256)']);
 
@@ -34,6 +39,7 @@ export function ChainLaunchSummary({
   return (
     <section role="region" aria-labelledby="chain-summary-title" className="flex min-w-0 flex-col gap-3">
       <h2 id="chain-summary-title" className="text-md font-semibold text-text">Launch summary</h2>
+      <CoinPreviewCard name={tokenName} symbol={tokenSymbol} description="" image={null} strategy={feeStrategy} socialLinks={[]} />
       <dl className="flex flex-col gap-4 rounded-lg bg-surface-1 p-4 text-sm text-text [overflow-wrap:anywhere]">
         <div className="flex flex-col gap-1">
           <dt className="text-xs text-text-muted">Chain name</dt>
@@ -54,7 +60,7 @@ export function ChainLaunchSummary({
         <div className="flex flex-col gap-1">
           <dt className="text-xs text-text-muted">Launch cost</dt>
           <dd>{params ? <>{formatEther(params[1] + params[2])} PAX</> : <span className="text-text-muted">Awaiting chain costs</span>}</dd>
-          <dd>{marketFee !== null ? <>{formatUnits(marketFee, 6)} USDL</> : <span className="text-text-muted">Awaiting market fee</span>}</dd>
+          <dd>{marketFee !== null ? formatUsdl(marketFee, { fractionDigits: 6, group: false, trimFraction: true }) : <span className="text-text-muted">Awaiting market fee</span>}</dd>
           <dd className="text-xs text-text-muted">Plus network gas shown in your wallet.</dd>
         </div>
       </dl>
@@ -316,7 +322,7 @@ export default function ChainWizard() {
   ];
 
   return (
-    <div className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
+    <div data-create-text className="@container/create mx-auto w-full max-w-content-narrow-max-width px-4 py-4 pb-[var(--sl-create-action-clearance)] md:pb-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
           <h1 className="text-md font-semibold text-text">Launch a chain and token</h1>
@@ -331,8 +337,7 @@ export default function ChainWizard() {
               </li>
             ))}
           </ol>
-          {!address ? <Button type="button" onClick={() => openModal('Connect your wallet to launch a chain')}>Connect wallet</Button>
-            : chainId !== 125 ? <Button type="button" onClick={() => void switchChainAsync({ chainId: 125 }).catch(() => setError('Switch to Paxeer in your wallet to continue.'))}>Switch to Paxeer</Button> : null}
+
           <section className="flex min-w-0 flex-col gap-4 rounded-lg bg-surface-1 p-4 [overflow-wrap:anywhere]">
             {step === 0 ? <>
               <h2 className="text-base font-semibold text-text">Name your chain</h2>
@@ -369,7 +374,16 @@ export default function ChainWizard() {
                   inputProps={{ name: 'tokenSymbol', autoComplete: 'off', value: tokenSymbol, maxLength: SYMBOL_MAX_BYTES, disabled: locked, autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, placeholder: 'Add a coin ticker (e.g. PAXE)', onChange: event => setTokenSymbol(event.target.value) }}
                 />
               </div>
-              <StrategyPicker value={feeStrategy} onChange={setFeeStrategy} disabled={locked} />
+              <p className="text-xs text-text-muted">Add an image, description and social links from the coin page after launch.</p>
+              <OptionRow id="chain-social-links" label="Add social links" choice="None">
+                <p className="text-xs text-text-muted">Add social links from the coin page after launch.</p>
+              </OptionRow>
+              <OptionRow id="chain-pair" label="Pair" choice="USDL"><QuotePairIndicator /></OptionRow>
+              <CreatorRewardsOptions id="chain-rewards" value={feeStrategy} onChange={setFeeStrategy} disabled={locked} error={Number.isInteger(feeStrategy) && feeStrategy >= 0 && feeStrategy <= 3 ? undefined : 'Pick where creator rewards go.'} />
+              <OptionRow id="chain-rules" label="Trading rules" choice="Standard">
+                <p className="text-sm text-text">Standard</p>
+                <p className="text-xs text-text-muted">No taxes, cooldowns, wallet limits or anti-snipe rules.</p>
+              </OptionRow>
             </> : step === 1 ? <>
               <h2 className="text-base font-semibold text-text">Pick a size</h2>
               <div role="radiogroup" aria-label="Chain size" className="grid gap-3 sm:grid-cols-3">
@@ -436,13 +450,16 @@ export default function ChainWizard() {
               <p>Bond: {formatEther(params[1])} PAX</p>
               <p>Creation fee: {formatEther(params[2])} PAX</p>
               <p>Total: {formatEther(params[1] + params[2])} PAX, plus network gas shown in your wallet.</p>
-              {marketFee !== null ? <p>Market creation charge: {formatUnits(marketFee, 6)} USDL from your approved balance.</p> : null}
+              {marketFee !== null ? <p>Market creation charge: {formatUsdl(marketFee, { fractionDigits: 6, group: false, trimFraction: true })} from your approved balance.</p> : null}
             </div> : <p role="status">{paramsError || (!connected ? 'Connect your wallet on Paxeer to read chain costs.' : 'Loading chain costs…')}</p> : null}
             {step === 0 && paramsError ? <p role="alert">{paramsError}</p> : null}
             {paramsError && !result ? <Button disabled={busy || !connected} onClick={() => setValidation(value => value + 1)}>Retry chain costs</Button> : null}
             {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
             {notice ? <p role="status" className="text-sm text-text-muted">{notice}</p> : null}
-            <div className="flex flex-col gap-2">
+            <div data-chain-action className="sl-floating sl-floating-opaque fixed inset-x-4 bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom)+var(--sl-space-2))] z-[var(--sl-z-sticky)] flex flex-col gap-2 rounded-lg p-3 md:static md:bg-transparent md:p-0">
+              {!result ? <p className="flex flex-wrap justify-between gap-2 text-xs text-text-muted md:hidden"><span>{params ? `Total: ${formatEther(params[1] + params[2])} PAX` : 'Awaiting chain costs'}</span><span>{marketFee !== null ? `${formatUsdl(marketFee, { fractionDigits: 6, group: false, trimFraction: true })}, plus gas` : 'Awaiting market fee'}</span></p> : null}
+              {!address ? <Button variant="inverse" type="button" onClick={() => openModal('Connect your wallet to launch a chain')}>Connect wallet</Button>
+            : chainId !== 125 ? <Button type="button" onClick={() => void switchChainAsync({ chainId: 125 }).catch(() => setError('Switch to Paxeer in your wallet to continue.'))}>Switch to Paxeer</Button> : null}
               {step === 0 ? <Button variant="primary" size="lg" disabled={!nameAvailable || !launchFieldsValid || !connected || locked} onClick={() => setStep(1)}>Next</Button>
                 : step === 1 ? <Button variant="primary" size="lg" disabled={!tierAvailable(tier) || locked} onClick={() => setStep(2)}>Next</Button>
                   : !result ? <Button variant="primary" size="lg" disabled={!connected || !launchFieldsValid || !nameAvailable || !tierAvailable(tier) || marketFee === null || !feeFunding || feeFunding.balance < feeFunding.fee || feeFunding.allowance < feeFunding.fee || locked} onClick={() => void launch()}>Launch chain and token</Button> : null}

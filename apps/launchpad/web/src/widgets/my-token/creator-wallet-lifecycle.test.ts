@@ -105,7 +105,7 @@ async function creator_wallet_lifecycle_cancels_obsolete_metadata_and_selects_cu
         [...container.querySelectorAll('button')].find(
           (button) => button.textContent === coin.Symbol,
         )?.className,
-      ).toContain('bg-info-soft');
+      ).toContain('bg-surface-3');
     }
     async function changePools(wallet: Address, list: readonly Address[]) {
       fixture.pools.set(wallet.toLowerCase(), list);

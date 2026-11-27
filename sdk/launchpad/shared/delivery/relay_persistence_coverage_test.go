@@ -63,7 +63,7 @@ func TestRelayPublishesOnlyValidatedDurableEnvelopes(t *testing.T) {
 			}
 			attempts := 0
 			if mode == "attempt limit" {
-				attempts = 3
+				attempts = relayBudgetMaxAttempts
 			}
 			if mode != "empty" {
 				if _, err := pool.Exec(ctx, "INSERT INTO "+store.table("delivery_outbox")+"(event_id,schema_version,subject,payload_hash,envelope,attempts) VALUES($1,$2,$3,$4,$5,$6)", envelope.EventID, envelope.SchemaVersion, subject, envelope.PayloadHash, wire, attempts); err != nil {

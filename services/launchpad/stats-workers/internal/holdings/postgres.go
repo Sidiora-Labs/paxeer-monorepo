@@ -39,9 +39,10 @@ CREATE TABLE %[1]s.checkpoints(token text NOT NULL,projection_version text NOT N
 }
 
 type Repository struct {
-	pool     *pgxpool.Pool
-	schema   string
-	observer *Observer
+	pool                  *pgxpool.Pool
+	schema                string
+	observer              *Observer
+	canonicalBeforeCommit func(context.Context, pgx.Tx) error
 }
 
 func NewRepository(pool *pgxpool.Pool, schema string) (*Repository, error) {

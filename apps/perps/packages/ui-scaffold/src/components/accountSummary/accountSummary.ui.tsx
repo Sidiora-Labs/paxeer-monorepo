@@ -74,7 +74,7 @@ const TotalValue: FC<{
       <Text.numeral
         intensity={98}
         visible={props.visible}
-        unit="USDC"
+        unit="USDL"
         unitClassName="oui-text-base-contrast-20 oui-ms-1"
         as="div"
       >
@@ -135,7 +135,7 @@ const FreeCollateral: FC<{
       </Box> */}
       <Text.numeral
         intensity={98}
-        unit="USDC"
+        unit="USDL"
         unitClassName="oui-text-base-contrast-20 oui-ms-1"
         visible={visible}
         as="div"
@@ -270,7 +270,7 @@ const AccountInfoPopover = (props: {
             <Text.numeral
               intensity={98}
               visible={props.visible}
-              unit="USDC"
+              unit="USDL"
               className="oui-transition-transform group-hover:-oui-translate-x-5"
               unitClassName={"oui-text-base-contrast-36 oui-ms-1"}
             >
@@ -290,7 +290,7 @@ const AccountInfoPopover = (props: {
             </Flex>
             <Text.numeral
               intensity={98}
-              unit="USDC"
+              unit="USDL"
               visible={props.visible}
               className="oui-transition-transform group-hover:-oui-translate-x-5"
               unitClassName={"oui-text-base-contrast-36 oui-ms-1"}

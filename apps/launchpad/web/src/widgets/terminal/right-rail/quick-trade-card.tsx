@@ -13,7 +13,7 @@ import { TransactionStatus } from '@/widgets/trading/transaction-controls/transa
 import { TradeSettingsPopover } from '@/widgets/trading/trade-settings-popover';
 import { useTradePanel } from '@/widgets/trading/use-trade-panel';
 import { plainTradeError } from '@/widgets/trading/trade-copy';
-import { ActionButton, actionLabel, AmountInput, BalanceRow, FeeFooter, PresetChip, TradePreview, TradeTabs, ApprovalCheckbox, presetAmountText, type TradeActionState, type TradeSide } from '@/widgets/trading/trade-panel-parts';
+import { ActionButton, TradeQuoteNotices, actionLabel, AmountInput, BalanceRow, FeeFooter, PresetChip, TradePreview, TradeTabs, ApprovalCheckbox, presetAmountText, type TradeActionState, type TradeSide } from '@/widgets/trading/trade-panel-parts';
 import type { TradePreset } from '../presets-store';
 import { instantTradeEvent, readInstantTrade } from '../activity-tabs/instant-trade';
 
@@ -37,6 +37,10 @@ export function useInstantTrade(): boolean {
 /** Terminal quick button: the shared single-line preset chip at the card's tighter xs size. */
 function QuickButton({ active, disabled, onClick, label, children }: { active: boolean; disabled?: boolean; onClick: () => void; label: string; children: string }) {
   return <PresetChip active={active} disabled={disabled} onClick={onClick} label={label} size="xs">{children}</PresetChip>;
+}
+
+export function QuickTradeQuoteNotice({ stale, cause, onRefresh }: { stale: boolean; cause?: 'aged' | 'moved'; onRefresh: () => void }) {
+  return <TradeQuoteNotices priceMoved={stale} staleQuoteCause={cause} error={undefined} onRefresh={onRefresh} />;
 }
 
 interface Armed { side: TradeSide; amount: string; at: number }
@@ -134,7 +138,7 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
 
   return (
     <>
-      <form aria-label="Quick trade" aria-busy={t.isPending || undefined} onSubmit={event => event.preventDefault()} className="flex flex-col gap-2 rounded-md bg-surface-1 p-2">
+      <form aria-label="Quick trade" aria-busy={t.isPending || undefined} onSubmit={event => event.preventDefault()} className="flex flex-col gap-2 rounded-none bg-surface-1 p-2">
         <TradeTabs
           side={side}
           onSwitch={next => { setArmed(null); t.switchMode(next === 'buy'); }}
@@ -176,9 +180,7 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
           {tradeReady && t.balanceError ? (
             <NoticeBar tone="warning" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.refreshBalances}>Retry</Button>}>Your balance can&apos;t load right now.{t.balanceTimestamp !== undefined ? ` Showing your balance from ${new Date(t.balanceTimestamp).toLocaleTimeString()}.` : ''}</NoticeBar>
           ) : null}
-          {t.staleQuote && !t.quote ? (
-            <NoticeBar tone="warning" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote}>Refresh</Button>}>The price moved. Refresh to see the new price.</NoticeBar>
-          ) : null}
+          <QuickTradeQuoteNotice stale={!!t.staleQuote && !t.quote} cause={t.staleQuoteCause} onRefresh={t.retryQuote} />
           {t.approvalError ? (
             <NoticeBar tone="danger" surface={1} wrap action={<Button size="sm" variant="secondary" onClick={t.retryQuote}>Refresh</Button>}>{plainTradeError(t.approvalError)}</NoticeBar>
           ) : t.poolInspectionPending ? (
@@ -186,13 +188,16 @@ export function QuickTradeCard({ poolAddress, preset, onSlippageChange }: { pool
           ) : null}
         </div>
 
-        <ActionButton state={action} side={side} onClick={onAction} />
+        {action.kind === 'connect' || action.kind === 'sign-in'
+          ? <Button variant="inverse" size="lg" fullWidth onClick={onAction}>{actionLabel(action)}</Button>
+          : <ActionButton state={action} side={side} onClick={onAction} />}
         <FeeFooter feePercent={t.feePercent} slippageBps={t.slippageBps} feeComponentsRaw={t.feeAmt} />
         <TransactionStatus journey={t.journey} state={t.journeyState} />
       </form>
 
       {t.toastData ? (
         <TradeToast
+          tokenAsset={{ address: snapshot.data?.pool.tokenAddress ?? '', symbol: snapshot.data?.token?.symbol }}
           data={{ ...t.toastData, tokenName: tokenSymbol, inputSymbol: t.toastData.type === 'buy' ? 'USDL' : tokenSymbol, outputSymbol: t.toastData.type === 'buy' ? tokenSymbol : 'USDL' }}
           onDismiss={() => t.setToastData(null)}
         />

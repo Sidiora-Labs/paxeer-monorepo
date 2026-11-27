@@ -15,9 +15,9 @@ the signed-in wallet and selected pool. Each row displays the saved threshold's
 numerator/denominator ratio with a USDL label and the returned alert state.
 The list contains alerts created during the current visit.
 
-The [squad rankings panel](../../../../apps/launchpad/web/src/widgets/leaderboard/squads-tab.tsx)
-displays an unavailable state. The SDK's squad operations cover creation,
-reading and membership changes.
+The [leaderboard](../../../../apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx)
+renders no squad rankings until a service ranks squads. The SDK's squad
+operations cover creation, reading and membership changes.
 
 <a id="launchpad-sdk-sdk"></a>
 

@@ -3,7 +3,7 @@ import { displayCoinText } from '@/utils/coin-text';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useAccount } from 'wagmi';
 import { Megaphone, Zap } from 'lucide-react';
-import { Chip, ErrorState, Skeleton, TabStrip, Toggle, Tooltip, UnavailableState, type TabItem } from '@/ui/primitives';
+import { Chip, EmptyState, ErrorState, Skeleton, TabStrip, Toggle, Tooltip, UnavailableState, type TabItem } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import { priceNumber } from '@/page-modules/token/market-presentation';
@@ -13,7 +13,8 @@ import { useTerminalLive } from '../live-context';
 import { fillFilterOptions, type FillFilter, type FillFilterWallets } from './fills';
 import { useInstantTrade } from './instant-trade';
 import { OrdersPanel } from './orders-panel';
-import { PositionsPanel } from './positions-panel';
+import { PositionsPanel, SignedOutPositions } from './positions-panel';
+import { useAccountSession } from '@/widgets/profile/use-account-session';
 import { TradesPanel, type FillsToken } from './trades-panel';
 import { userFacingMessage } from '@/core/user-facing-error';
 
@@ -62,6 +63,7 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
   const live = useTerminalLive(pool);
   const snapshot = usePoolSnapshot(pool);
   const account = useAccount();
+  const { session: accountSession } = useAccountSession();
   const [tab, setTab] = useState<ActivityTab>('trades');
   const [filter, setFilter] = useState<FillFilter>('all');
   const [instant, setInstant] = useInstantTrade();
@@ -88,10 +90,11 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
   ];
 
   function panel() {
-    if (tab === 'top-traders') return <UnavailableState title="Top traders" plural operation="GET /v2/pools/{poolAddress}/top-traders" status={null} message="Top traders are coming soon." />;
-    if (tab === 'dev-tokens') return <UnavailableState title="Creator coins" plural operation="IF_POOL_LIST GET /v2/pools (creator filter)" status={null} message="Other coins by this creator are coming soon." />;
+    if (tab === 'top-traders') return <EmptyState title="Top traders are coming soon" body="Traders will appear here when rankings are available." />;
+    if (tab === 'dev-tokens') return <EmptyState title="Other coins by this creator are coming soon" body="Creator coins will appear here when available." />;
     if (tab === 'holders') return <div className="p-2"><HoldersTable poolAddress={pool} price={priceNumber(live.state.price)} /></div>;
     if (tab === 'orders') return <OrdersPanel poolAddress={pool} />;
+    if (tab === 'positions' && !accountSession) return <SignedOutPositions />;
     if (snapshot.isPending) return <Skeleton variant="rows" rows={5} label={tab} />;
     if (snapshot.isError) return <ErrorState variant="inline" title="This coin can't load right now" message={userFacingMessage(snapshot.error)} onRetry={() => { void snapshot.refetch(); }} />;
     if (tab === 'positions') return tokenAddress ? <PositionsPanel tokenAddress={tokenAddress} token={token} symbol={symbol} /> : null;
@@ -99,9 +102,9 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
   }
 
   return (
-    <section aria-label="Pair activity" className="flex min-h-0 shrink-0 flex-col rounded-md bg-surface-1">
+    <section aria-label="Pair activity" className="sl-hairline flex min-h-0 shrink-0 flex-col bg-surface-1">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 py-1">
-        <TabStrip idPrefix={idPrefix} variant="filled" manual label="Pair activity" tabs={tabs} active={tab} onChange={setTab} className="min-w-0 flex-1 basis-64 min-[835px]:basis-0" />
+        <TabStrip idPrefix={idPrefix} variant="underline" manual label="Pair activity" tabs={tabs} active={tab} onChange={setTab} className="min-w-0 flex-1 basis-64 min-[835px]:basis-0 [&_[role=tab]]:min-h-control-height-md [&_[role=tab]]:py-1 [&_[role=tab]]:text-sm" />
         <div className="flex flex-wrap items-center gap-2">
           {tab === 'trades' ? <FillFilterChips value={activeFilter} onChange={setFilter} wallets={wallets} /> : null}
           <SwitchRow id={`${idPrefix}-instant`} label="Instant trade" icon={<Zap />} checked={instant} onChange={setInstant} />
@@ -114,7 +117,7 @@ export default function TerminalActivityTabs({ poolAddress }: { poolAddress: str
         </div>
         {callouts
           ? (
-            <aside aria-label="Callouts" className="flex w-85 max-w-[50%] shrink-0 flex-col overflow-auto bg-surface-2">
+            <aside aria-label="Callouts" className="flex w-85 max-w-1/2 shrink-0 flex-col overflow-auto bg-surface-2">
               <HotCalloutsPanel poolAddress={pool} initialFeed="coin" />
             </aside>
           )

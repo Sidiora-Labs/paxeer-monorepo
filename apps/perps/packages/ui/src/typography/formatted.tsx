@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { useMemo, useState } from "react";
 import { format as formatDate, isValid } from "date-fns";
 import { SizeType } from "../helpers/sizeType";
@@ -170,7 +171,7 @@ export const FormattedText = React.forwardRef<TextElement, FormattedTextProps>(
         return (formatString ?? DEFAULT_SYMBOL_FORMAT)
           .replace("type", type)
           .replace("base", base)
-          .replace("quote", quote);
+          .replace("quote", tokenDisplayName(quote));
       }
 
       // if (rule === "status") {

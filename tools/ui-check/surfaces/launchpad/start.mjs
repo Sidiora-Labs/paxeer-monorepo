@@ -1,19 +1,27 @@
 import { spawn } from 'node:child_process';
-import { cp, readFile, readdir, realpath } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { cp, mkdir, readFile, readdir, realpath, rename, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve, relative, extname } from 'node:path';
 import { createServer } from 'node:https';
 import { request } from 'node:http';
 import { createRequire } from 'node:module';
-import { gzipSync } from 'node:zlib';
+import { parseArgs, promisify } from 'node:util';
+import { deserialize, serialize } from 'node:v8';
+import { gzip } from 'node:zlib';
 import { origin, applicationEnvironment } from './environment.mjs';
 import { certificate, privateKey } from './prepare.mjs';
 
 const require = createRequire(new URL('../../../../apps/launchpad/web/package.json', import.meta.url));
+const compress = promisify(gzip);
 const { WebSocketServer } = require('ws');
 const directory = new URL('./answers/', import.meta.url);
+const { values: options } = parseArgs({ options: { surface: { type: 'string' } } });
+const surfaceFile = options.surface ? resolve(options.surface) : new URL('../launchpad.json', import.meta.url);
+const surface = JSON.parse(await readFile(surfaceFile, 'utf8'));
 const answerNames = [
   'pool', 'coin-pool', 'pools', 'terminal-pools', 'stats', 'pool-stats', 'holder-rewards-stats', 'holder-rewards-stats-empty', 'holder-rewards-pools', 'items-empty', 'feed-empty',
-  'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'profile',
+  'streams-empty', 'platform', 'metadata', 'metadata-batch', 'metadata-batch-search', 'metadata-batch-empty', 'metadata-v2', 'metadata-media', 'legacy-holders-empty', 'candles-empty', 'holders-empty', 'holders-populated', 'profiles-holders', 'profile',
   'profile-empty', 'follow-stats', 'follow-stats-empty', 'portfolio', 'portfolio-empty', 'bounties', 'bounty', 'bounties-stats', 'unavailable',
   'rpc-unavailable', 'chart-config', 'chart-symbol', 'chart-time', 'chart-history-empty', 'not-found', 'explorer-empty', 'snapshot', 'stream-control', 'search', 'search-token', 'authority', 'public-share', 'cup-current-empty', 'comments-empty',
   ...['trending', 'new', 'volume', 'marketcap', 'gainers', 'losers', 'graduating', 'graduated', 'movers', 'breakout', 'unusual']
@@ -27,7 +35,7 @@ const answers = new Map(await Promise.all(answerNames.map(async name =>
   [name, await readFile(new URL(`${name}.json`, directory))])));
 const returning = await readFile(new URL('returning.js', directory));
 const loading = await readFile(new URL('loading.js', directory));
-const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community'].map(async part => {
+const loadingSurfaces = await Promise.all(['explore', 'rewards', 'community', 'terminal'].map(async part => {
   return JSON.parse(await readFile(new URL(`./parts/${part}.json`, import.meta.url), 'utf8'));
 }));
 const loadingPaths = new Set(loadingSurfaces.flatMap(surface => surface.views).filter(view => {
@@ -49,13 +57,13 @@ const app = spawn(process.execPath, [resolve(standaloneDirectory, 'server.js')],
 function scenario(incoming) {
   const referrer = new URL(incoming.headers.referer ?? '/', origin);
   const value = referrer.searchParams.get('render');
-  return ['empty', 'loading', 'error'].includes(value) ? value : 'filled';
+  return ['empty', 'loading', 'error', 'holders'].includes(value) ? value : 'filled';
 }
 
 function answerFor(url, state, pagePath) {
   const path = url.pathname;
   const empty = state === 'empty';
-  if (/^\/v1\/pools\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: 'holders-empty' };
+  if (/^\/v1\/pools\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: state === 'holders' ? 'holders-populated' : 'holders-empty' };
   if (/^\/stats\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: 'legacy-holders-empty' };
   if (path === '/v2/network/authority') return { name: 'authority' };
   if (path === '/v3/portfolio/shares/7f3b2a10-5c4d-4e8f-9a1b-2c3d4e5f6a7b') return { name: 'public-share' };
@@ -66,6 +74,7 @@ function answerFor(url, state, pagePath) {
     return { name: 'unavailable', status: 503 };
   if (/^\/users\/0x[0-9a-f]{40}\/comments$/.test(path)) return { name: 'comments-empty' };
   if (state === 'error' && !path.startsWith('/v2/udf/') && !path.endsWith('/candles') && path !== '/v2/snapshots') return { name: 'unavailable', status: 503 };
+  if (/^\/v2\/social\/users\/0x[0-9a-f]{40}\/comments$/.test(path)) return { name: 'items-empty' };
   if (path === '/v2/cups/current') return { name: 'cup-current-empty' };
   const ranking = /^\/v2\/rankings\/([a-z]+)$/.exec(path);
   if (ranking) return { name: `rankings-${ranking[1]}${empty ? '-empty' : ''}` };
@@ -81,7 +90,7 @@ function answerFor(url, state, pagePath) {
   if (path === '/v2/pools/0x1111111111111111111111111111111111111111') return { name: /^\/(coin|token)\/0x[0-9a-f]{40}$/i.test(pagePath) ? 'coin-pool' : 'pool' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/stats$/.test(path)) return { name: 'pool-stats' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/candles$/.test(path)) return { name: 'candles-empty' };
-  if (/^\/v2\/pools\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: 'holders-empty' };
+  if (/^\/v2\/pools\/0x[0-9a-f]{40}\/holders$/.test(path)) return { name: state === 'holders' ? 'holders-populated' : 'holders-empty' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/callouts$/.test(path)) return { name: 'items-empty' };
   if (/^\/v2\/pools\/0x[0-9a-f]{40}\/trades$/.test(path)) return { name: 'items-empty' };
   if (path === '/v2/tokens/0x3333333333333333333333333333333333333333/media') return { name: 'metadata-media' };
@@ -94,7 +103,7 @@ function answerFor(url, state, pagePath) {
   if (path === '/v2/bounties') return { name: empty || url.searchParams.has('state') && url.searchParams.get('state') !== 'open' ? 'items-empty' : 'bounties' };
   if (path === '/v2/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0') return { name: 'bounty' };
   if (path === '/v2/bounties/8e894db0-87e7-4d2a-9f1c-3a192a239ba0/submissions') return { name: 'items-empty' };
-  if (path === '/metadata/batch') return { name: empty ? 'metadata-batch-empty' : 'metadata-batch' };
+  if (path === '/metadata/batch') return { name: empty ? 'metadata-batch-empty' : url.searchParams.get('addresses')?.split(',').includes('0x2222222222222222222222222222222222222222') ? 'metadata-batch-search' : 'metadata-batch' };
   if (path === '/metadata/0x3333333333333333333333333333333333333333') return { name: 'metadata' };
   if (/^\/v2\/profiles\/0x[0-9a-f]{40}\/follow-stats$/.test(path)) return { name: empty ? 'follow-stats-empty' : 'follow-stats' };
   if (/^\/v3\/wallets\/0x[0-9a-f]{40}\/portfolio$/.test(path)) return { name: empty ? 'portfolio-empty' : 'portfolio' };
@@ -102,7 +111,7 @@ function answerFor(url, state, pagePath) {
   if (path === '/v2/search') return { name: empty || url.searchParams.get('type') === 'profile' ? 'items-empty' : url.searchParams.get('type') === 'token' ? 'search-token' : 'search' };
   if (path === '/v2/holder-rewards/stats') return { name: empty ? 'holder-rewards-stats-empty' : 'holder-rewards-stats' };
   if (path === '/v2/holder-rewards/pools') return { name: empty ? 'items-empty' : 'holder-rewards-pools' };
-  if (path === '/v2/profiles:batch') return { name: 'items-empty' };
+  if (path === '/v2/profiles:batch') return { name: state === 'holders' ? 'profiles-holders' : 'items-empty' };
   if (path.startsWith('/explorer/api/v2/')) return { name: 'explorer-empty' };
   return { name: 'unavailable', status: 503 };
 }
@@ -111,15 +120,25 @@ const chartAssets = await realpath('apps/launchpad/web/public/charting_library')
 const nextAssets = await realpath('apps/launchpad/web/.next/static');
 const fontAssets = await realpath('apps/launchpad/web/public/fonts');
 const compressedAssets = new Map();
+const assetCache = resolve(tmpdir(), 'launchpad-presentation-assets');
+await mkdir(assetCache, { recursive: true, mode: 0o700 });
+const assetVersion = createHash('sha256').update(await readFile(new URL(import.meta.url))).update(scriptDecoder).update(process.versions.v8).digest('hex');
 let pagesReady = false;
 const assetTypes = { '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff': 'font/woff', '.woff2': 'font/woff2', '.otf': 'font/otf', '.ttf': 'font/ttf', '.png': 'image/png', '.html': 'text/html' };
 
 function cacheAsset(file) {
   if (!compressedAssets.has(file)) {
-    compressedAssets.set(file, readFile(file).then(original => {
+    compressedAssets.set(file, readFile(file).then(async original => {
+      const key = createHash('sha256').update(assetVersion).update(original).update(extname(file)).update(file.startsWith(`${nextAssets}/`) ? 'next' : 'static').digest('hex');
+      const cached = resolve(assetCache, key);
+      try {
+        return deserialize(await readFile(cached));
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+      }
       let body = original;
       if (file.startsWith(`${nextAssets}/`) && extname(file) === '.js' && original.length > 1024 * 1024) {
-        const packed = gzipSync(original, { level: 9 }).toString('base64');
+        const packed = (await compress(original, { level: 9 })).toString('base64');
         body = Buffer.from(`(() => {
           const nonce = document.currentScript.nonce;
           var module = { exports: {} }, exports = module.exports;
@@ -133,7 +152,11 @@ function cacheAsset(file) {
           script.remove();
         })();`);
       }
-      return { body, gzip: gzipSync(body, { level: 1 }) };
+      const asset = { body, gzip: await compress(body, { level: 1 }) };
+      const temporary = `${cached}.${randomUUID()}.tmp`;
+      await writeFile(temporary, serialize(asset), { mode: 0o600 });
+      await rename(temporary, cached);
+      return asset;
     }));
   }
   return compressedAssets.get(file);
@@ -223,10 +246,20 @@ const server = createServer({ cert: await readFile(certificate), key: await read
     const answer = answerFor(url, state, pagePath);
     if (pagePath === '/swap' && answer.name === 'pools') answer.name = 'terminal-pools';
     let body = answers.get(answer.name);
+    if (answer.name === 'profiles-holders') {
+      const profiles = JSON.parse(body);
+      const requested = new Set((url.searchParams.get('wallets') ?? '').split(','));
+      profiles.data.items = profiles.data.items.filter(profile => requested.has(profile.wallet));
+      body = Buffer.from(JSON.stringify(profiles));
+    }
     if (answer.name === 'snapshot') {
       const snapshot = JSON.parse(body);
       const requested = new Set((url.searchParams.get('topics') ?? '').split(','));
       snapshot.data.snapshot.topics = snapshot.data.snapshot.topics.filter(entry => requested.has(entry.topic));
+      if (state === 'empty' && /^\/(coin|token)\/0x[0-9a-f]{40}$/i.test(pagePath)) {
+        snapshot.data.snapshot.topics = snapshot.data.snapshot.topics.filter(entry =>
+          !/^market\.(candles|price|trades)\./.test(entry.topic));
+      }
       if (state !== 'error' && state !== 'loading') {
         for (const topic of requested) {
           if (!topic.startsWith('market.rankings.')) continue;
@@ -347,26 +380,20 @@ async function warmPage(path) {
 server.keepAliveTimeoutBuffer = 5000;
 
 server.listen(4173, '203.0.113.1');
-const warmPaths = [
-  '/holder-rewards',
-  '/leaderboard',
-  '/meta-ag/orders',
-  '/meta-ag/swap',
-  '/swap',
-  '/terminal',
-  '/terminal/0x1111111111111111111111111111111111111111',
-  '/terminal/portfolio',
-  '/terminal/rewards',
-  '/terminal/track',
-  '/terminal/trenches',
-  '/terminal/trending',
-];
-const warmDirectory = new URL('./warm/', import.meta.url);
-for (const file of (await readdir(warmDirectory)).sort()) {
-  warmPaths.push(...JSON.parse(await readFile(new URL(file, warmDirectory), 'utf8')));
+const pageDirectory = resolve('apps/launchpad/web/src/app');
+const pageRoutes = (await readdir(pageDirectory, { recursive: true, withFileTypes: true }))
+  .filter(entry => entry.isFile() && entry.name === 'page.tsx')
+  .map(entry => relative(pageDirectory, entry.parentPath).split('/').filter(Boolean));
+const warmRoutes = new Map();
+for (const view of surface.views) {
+  const segments = new URL(view.path, origin).pathname.split('/').filter(Boolean);
+  const route = pageRoutes.find(route => route.length === segments.length && route.every((segment, index) =>
+    /^\[[^\]]+\]$/.test(segment) ? segments[index].length > 0 : segment === segments[index]));
+  if (route && !warmRoutes.has(route.join('/'))) warmRoutes.set(route.join('/'), view.path);
 }
+const warmPaths = [surface.readyPath, ...warmRoutes.values()];
 const pendingWarmPaths = [...new Set(warmPaths)];
-await Promise.all(Array.from({ length: 4 }, async () => {
+await Promise.all(Array.from({ length: 8 }, async () => {
   while (pendingWarmPaths.length > 0) await warmPage(pendingWarmPaths.shift());
 }));
 pagesReady = true;

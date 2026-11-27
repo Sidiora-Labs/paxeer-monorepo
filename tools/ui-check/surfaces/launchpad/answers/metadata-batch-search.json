@@ -1,0 +1,21 @@
+{
+  "0x3333333333333333333333333333333333333333": {
+    "token_address": "0x3333333333333333333333333333333333333333",
+    "name": "Science Inu",
+    "symbol": "SCINU",
+    "description": "A community coin.",
+    "decimals": 18,
+    "images": {
+      "logo": null
+    },
+    "tags": []
+  },
+  "0x2222222222222222222222222222222222222222": {
+    "token_address": "0x2222222222222222222222222222222222222222",
+    "name": "Science Orbit",
+    "symbol": "SCIORB",
+    "images": {
+      "logo": null
+    }
+  }
+}

@@ -224,7 +224,7 @@ export async function loadRuntimeAuthority(signal: AbortSignal, privateFixturePr
       return { number: BigInt(fresh.committedHead.number), hash: fresh.committedHead.hash };
     },
   };
-  return { revision: Object.freeze(revision), expiresAt: Math.min(Date.parse(initial.attestation.observedAt), Date.parse(initial.attestation.blockTime)) + 60_000, network: wallet, tradeDeployment: { revision: revision.revisionSha256, router: getAddress(network.addresses.Router!), spender: fixture ? getAddress(network.addresses.Router!) : CORE_DEPLOYMENT.launchpadPrecompile, quoter: getAddress(network.addresses.Quoter!), registry: getAddress(network.addresses.PoolRegistry!), emitter: getAddress(network.addresses.EventEmitter!), usdl: getAddress(network.addresses.USDL!), pins },
+  return { revision: Object.freeze(revision), expiresAt: Math.min(Date.parse(initial.attestation.observedAt), Date.parse(initial.attestation.blockTime)) + 60_000, network: wallet, tradeDeployment: { revision: revision.revisionSha256, router: getAddress(network.addresses.Router!), spender: fixture ? getAddress(network.addresses.Router!) : CORE_DEPLOYMENT.launchpadPrecompile, quoter: getAddress(network.addresses.Quoter!), registry: getAddress(network.addresses.PoolRegistry!), emitter: getAddress(network.addresses.EventEmitter!), swapRecordWriter: fixture ? getAddress(network.addresses.EventEmitter!) : CORE_DEPLOYMENT.launchpadPrecompile, usdl: getAddress(network.addresses.USDL!), pins },
     async preflight(family, request, requestSignal) {
       if (fixture) assertFixtureOrigin(fixture);
       const paths = { creation: 'create', plain_quote: 'quote', trading: 'trade', nft_fees: 'claim' } as const;

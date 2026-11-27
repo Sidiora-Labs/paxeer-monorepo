@@ -97,7 +97,7 @@ class DatabaseFixture {
         connection: socket.remotePort,
         sql: q,
         args,
-      })
+      }),
     );
     const [a, b, c, d, e, f, g, h, i] = args;
     const leaseMatches = () => {
@@ -272,6 +272,34 @@ class DatabaseFixture {
         ],
       };
     if (q.includes('from agent_policy_rules')) return { rows: [] };
+    if (q.startsWith('select s.id from wallet_signatures s')) {
+      const rows = this.signatures.filter((signature) => {
+        const reservation = this.accounting.find(
+          (entry) => entry.signature_id === signature.id && entry.wallet_id === signature.wallet_id,
+        );
+        return (
+          signature.wallet_id === a &&
+          signature.kind === 'transaction' &&
+          reservation?.kind === signature.kind &&
+          signature.tx_hash === b &&
+          reservation.tx_hash === b &&
+          reservation.signed_evidence === c &&
+          signature.principal_did === d &&
+          signature.wallet_id === this.wallet.id &&
+          signature.user_id === this.wallet.user_id &&
+          signature.address.toLowerCase() === this.wallet.address.toLowerCase() &&
+          signature.to_address?.toLowerCase() === e?.toLowerCase() &&
+          signature.value_wei === f &&
+          signature.chain_id === Number(g)
+        );
+      });
+      return { rows: rows.map(({ id }) => ({ id })) };
+    }
+    if (q === 'update wallets set last_used_at = now() where id = $1') {
+      if (this.wallet.id !== a) return { rows: [], count: 0 };
+      this.wallet.last_used_at = new Date().toISOString();
+      return { rows: [], count: 1 };
+    }
     if (q.includes('from wallets')) {
       if (q.includes('for share')) {
         this.signingEntered.resolve();
@@ -345,7 +373,7 @@ class DatabaseFixture {
         rows: this.accounting
           .filter(
             (r) =>
-              r.wallet_id === a && r.kind === b && (r.request_hash === c || r.operation_hash === d)
+              r.wallet_id === a && r.kind === b && (r.request_hash === c || r.operation_hash === d),
           )
           .map((r) => ({
             ...this.signatures.find((s) => s.id === r.signature_id),
@@ -386,7 +414,7 @@ class DatabaseFixture {
     if (q.startsWith('delete from nonce_outstanding')) {
       this.outstanding = this.outstanding.filter(
         (r) =>
-          r.address !== a || (q.includes('nonce <') ? Number(r.nonce) >= Number(b) : r.nonce !== b)
+          r.address !== a || (q.includes('nonce <') ? Number(r.nonce) >= Number(b) : r.nonce !== b),
       );
       return { rows: [], count: 1 };
     }
@@ -444,8 +472,8 @@ class DatabaseFixture {
                     int(0, 2),
                   ]);
                 }),
-              ])
-            )
+              ]),
+            ),
           );
         else if (description) socket.write(packet('n'));
         if (!description) {
@@ -465,12 +493,12 @@ class DatabaseFixture {
                           ? value
                             ? 't'
                             : 'f'
-                          : String(value)
+                          : String(value),
                     );
                     return Buffer.concat([int(bytes.length), bytes]);
                   }),
-                ])
-              )
+                ]),
+              ),
             );
           socket.write(packet('C', str(`SELECT ${answer.count ?? answer.rows.length}`)));
         }
@@ -528,8 +556,8 @@ class DatabaseFixture {
           socket.write(
             packet(
               'E',
-              Buffer.concat([str('SERROR'), str('CXX000'), str(`M${message}`), Buffer.from([0])])
-            )
+              Buffer.concat([str('SERROR'), str('CXX000'), str(`M${message}`), Buffer.from([0])]),
+            ),
           );
           if (tag === 'Q') {
             failed = false;
@@ -591,6 +619,9 @@ const workers: WorkerHandle[] = [];
 const warnings: string[] = [];
 const broadcasts: Hex[] = [];
 const rpcErrors: string[] = [];
+let receiptReads = 0;
+let recoveryReceiptEntered = deferred();
+let recoveryReceiptGate: ReturnType<typeof deferred> | null = null;
 let receiptEntered = deferred();
 let rpcServer: HttpServer;
 let database: typeof import('../src/db/pool.js');
@@ -610,7 +641,7 @@ async function within(promise: Promise<unknown>, ms = 4000): Promise<void> {
       new Promise<never>((_, reject) => {
         timer = setTimeout(
           () => reject(new Error(`fixture event did not settle within ${ms}ms`)),
-          ms
+          ms,
         );
       }),
     ]);
@@ -626,7 +657,7 @@ beforeAll(async () => {
     for await (const chunk of req) chunks.push(Buffer.from(chunk));
     try {
       const wire = JSON.parse(Buffer.concat(chunks).toString());
-      const answer = (call: { id: number; method: string; params: any[] }) => {
+      const answer = async (call: { id: number; method: string; params: any[] }) => {
         let result: unknown;
         switch (call.method) {
           case 'eth_chainId':
@@ -710,7 +741,13 @@ beforeAll(async () => {
             result = null;
             break;
           case 'pax_sequencerReceipt':
-            receiptEntered.resolve();
+            receiptReads++;
+            if (receiptReads === 1) {
+              recoveryReceiptEntered.resolve();
+              await recoveryReceiptGate?.promise;
+            } else {
+              receiptEntered.resolve();
+            }
             result = null;
             break;
           default:
@@ -719,7 +756,9 @@ beforeAll(async () => {
         return { jsonrpc: '2.0', id: call.id, result };
       };
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify(Array.isArray(wire) ? wire.map(answer) : answer(wire)));
+      res.end(
+        JSON.stringify(Array.isArray(wire) ? await Promise.all(wire.map(answer)) : await answer(wire)),
+      );
     } catch (err) {
       rpcErrors.push(String(err));
       res.writeHead(500);
@@ -749,6 +788,7 @@ beforeAll(async () => {
 afterEach(async () => {
   db.signingGate.resolve();
   db.renewalGate?.resolve();
+  recoveryReceiptGate?.resolve();
   await Promise.all(workers.splice(0).map((handle) => handle.stop()));
   if (db.signatures.length) await within(db.signingFinished.promise);
   expect(db.errors).toEqual([]);
@@ -768,12 +808,15 @@ async function prepareAction(): Promise<ActionRow> {
   warnings.length = 0;
   broadcasts.length = 0;
   rpcErrors.length = 0;
+  receiptReads = 0;
+  recoveryReceiptEntered = deferred();
+  recoveryReceiptGate = null;
   receiptEntered = deferred();
   const did = `did:key:z${'1'.repeat(46)}`;
   const { ciphertext } = crypto.encrypt(
     Buffer.from('12'.repeat(32), 'hex'),
     crypto.loadMasterKey(env.WALLET_MASTER_KEY),
-    env.WALLET_MASTER_KEY_VERSION
+    env.WALLET_MASTER_KEY_VERSION,
   );
   db.wallet = {
     id: randomUUID(),
@@ -858,7 +901,7 @@ async function actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWor
   expect(broadcasts).toEqual([retained.raw]);
   expect(retained.hash).toBe(keccak256(retained.raw));
   expect(await recoverTransactionAddress({ serializedTransaction: retained.raw })).toBe(
-    key.address
+    key.address,
   );
   expect(parseTransaction(retained.raw).nonce).toBe(0);
   expect(db.row!.approval_tx_hash).toBe(retained.hash);
@@ -904,6 +947,7 @@ async function actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome() {
   db.signingGate.resolve();
   const handle = startWorker();
   await within(receiptEntered.promise);
+  expect(receiptReads).toBe(2);
   db.row!.worker_locked_until = new Date(Date.now() - 1).toISOString();
   const competitor = await actions.claimNextAction(leaseMs * 10);
   expect(competitor).not.toBeNull();
@@ -916,6 +960,39 @@ async function actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome() {
   expect(db.row!.error_code).toBeNull();
   expect(db.row!.worker_locked_until).toBe(ownedUntil);
   expect(broadcasts).toHaveLength(1);
+  await leases.releaseActionLease(competitor!);
+}
+
+async function actionLeaseLossBeforeRecoveryStopsAdvancement() {
+  await prepareAction();
+  db.signingGate.resolve();
+  recoveryReceiptGate = deferred();
+  const handle = startWorker();
+  await within(recoveryReceiptEntered.promise);
+  expect(receiptReads).toBe(1);
+  const attempts = db.row!.attempts;
+  const execution = structuredClone(db.row!.request._execution);
+  const hash = db.row!.approval_tx_hash;
+  const nonce = db.row!.approval_nonce;
+  expect(broadcasts).toEqual([execution.approval.current.raw]);
+  db.row!.worker_locked_until = new Date(Date.now() - 1).toISOString();
+  const competitor = await actions.claimNextAction(leaseMs * 10);
+  expect(competitor).not.toBeNull();
+  expect(competitor!.attempts).toBe(attempts + 1);
+  const ownedUntil = db.row!.worker_locked_until;
+  const mutations = db.mutations.length;
+  recoveryReceiptGate.resolve();
+  await within(handle.stop());
+  expect(warnings).toEqual([new actions.ActionLeaseLostError().message]);
+  expect(receiptReads).toBe(1);
+  expect(db.mutations).toHaveLength(mutations);
+  expect(db.row!.error_code).toBeNull();
+  expect(db.row!.worker_locked_until).toBe(ownedUntil);
+  expect(db.row!.attempts).toBe(competitor!.attempts);
+  expect(db.row!.approval_tx_hash).toBe(hash);
+  expect(db.row!.approval_nonce).toBe(nonce);
+  expect(db.row!.request._execution).toEqual(execution);
+  expect(broadcasts).toEqual([execution.approval.current.raw]);
   await leases.releaseActionLease(competitor!);
 }
 
@@ -981,22 +1058,27 @@ async function actionOperationDeadlineBoundsDelayedSigning() {
 test(
   actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers.name,
   actionLeaseDurationCoversSigningAndReceiptTimeoutWithCompetingWorkers,
-  10000
+  10000,
 );
 test(
   actionLeaseLossStopsDelayedSigningAndFencesRelease.name,
   actionLeaseLossStopsDelayedSigningAndFencesRelease,
-  10000
+  10000,
 );
 test(actionLeaseRenewalErrorStopsAdvancement.name, actionLeaseRenewalErrorStopsAdvancement, 10000);
 test(
   actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome.name,
   actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome,
-  10000
+  10000,
+);
+test(
+  actionLeaseLossBeforeRecoveryStopsAdvancement.name,
+  actionLeaseLossBeforeRecoveryStopsAdvancement,
+  10000,
 );
 test(actionLeaseExpiryDrainsPendingRenewal.name, actionLeaseExpiryDrainsPendingRenewal, 10000);
 test(
   actionOperationDeadlineBoundsDelayedSigning.name,
   actionOperationDeadlineBoundsDelayedSigning,
-  10000
+  10000,
 );

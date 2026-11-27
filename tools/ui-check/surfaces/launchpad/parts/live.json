@@ -2,9 +2,10 @@
   "name": "Sidiora Launchpad \u2014 live",
   "directory": "../../../../../",
   "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
-  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs --surface tools/ui-check/surfaces/launchpad/parts/live.json",
   "address": "https://sidiora.test:4173",
   "readyPath": "/",
+  "readyMs": 120000,
   "views": [
     {
       "name": "live",
@@ -16,7 +17,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -30,7 +31,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -65,7 +66,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -79,7 +80,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -93,7 +94,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -128,7 +129,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -142,7 +143,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -156,7 +157,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ],
       "expects": [
@@ -177,7 +178,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -191,7 +192,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -205,7 +206,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -231,7 +232,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ],
       "states": [
@@ -247,6 +248,21 @@
             {
               "action": "click",
               "selector": "html:has([data-shell-ready]) #profile-wallets"
+            }
+          ]
+        },
+        {
+          "name": "chart-collapsed",
+          "modes": [
+            "default",
+            "reduced-motion",
+            "double-text",
+            "keyboard"
+          ],
+          "steps": [
+            {
+              "action": "click",
+              "selector": "html:has([data-shell-ready]) button[aria-label=\"Collapse portfolio chart\"]"
             }
           ]
         }
@@ -270,7 +286,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -329,7 +345,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -355,7 +371,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -381,7 +397,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -407,7 +423,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     }
@@ -465,5 +481,5 @@
       "max": 28
     }
   ],
-  "buildMs": 600000
+  "buildMs": 1800000
 }

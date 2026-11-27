@@ -1120,11 +1120,10 @@ type marketStateLoader struct {
 	err  error
 }
 
-const marketStateSQL = `SELECT m.id, mp.index_price::text, floor(extract(epoch FROM mp.block_time))::bigint, mp.block, mp.block_time,
+var marketStateSQL = `SELECT m.id, mp.index_price::text, floor(extract(epoch FROM mp.block_time))::bigint, mp.block, mp.block_time,
     fr.row_id, fr.new_rate_per_second::text, fr.funding_rate24h::text, fr.block, ` + "'0x' || encode(fr.tx_hash, 'hex')" + `, fr.block_time
 FROM unnest($1::bigint[]) AS m(id)
-LEFT JOIN LATERAL (SELECT index_price, block, block_time FROM (` + indexPriceRowsSQL + `) prices
-    WHERE market_id = m.id::numeric ORDER BY ` + newest + ` LIMIT 1) mp ON true
+LEFT JOIN LATERAL (` + newestIndexObservationSQL("m.id::numeric", "", "") + `) mp ON true
 LEFT JOIN LATERAL (SELECT row_id, new_rate_per_second, funding_rate24h, block, tx_hash, block_time FROM perps.funding_rates
     WHERE market_id = m.id::numeric ORDER BY ` + newest + ` LIMIT 1) fr ON true`
 
@@ -1183,21 +1182,73 @@ func (l *marketStateLoader) load(ctx context.Context) (result0 map[int32]*market
 // mark events and successful aggregates, ordered by their source position.
 // The observation time is block_time; timestamp_ms remains pricefeed history.
 // Mark prices retain their separate MarkPriceUpdated event semantics.
+// This union is for reads of all observations; no newest-row read uses it.
 const indexPriceRowsSQL = `SELECT market_id, index_price, block, block_time, tx_index, log_index, sub
 FROM perps.mark_prices
 UNION ALL
 SELECT market_id, index_price, block, block_time, tx_index, log_index, sub
 FROM perps.index_prices WHERE kind = 'aggregate' AND index_price IS NOT NULL`
 
-const latestIndexSQL = `SELECT DISTINCT ON (market_id) market_id, index_price::text, floor(extract(epoch FROM block_time))::bigint,
-    block, block_time FROM (` + indexPriceRowsSQL + `) prices `
+// newestMarkObservationSQL seeks the latest block through the market index,
+// then orders only that block's observations by their full source position.
+func newestMarkObservationSQL(market, blockBound string) string {
+	bound := ""
+	if blockBound != "" {
+		bound = " AND block <= " + blockBound
+	}
+	return `SELECT index_price, mark_price, block, block_time, tx_index, log_index, sub FROM perps.mark_prices
+        WHERE market_id >= ` + market + ` AND market_id <= ` + market + ` AND block = (
+            SELECT block FROM perps.mark_prices
+            WHERE market_id >= ` + market + ` AND market_id <= ` + market + bound + `
+            ORDER BY market_id DESC, block DESC LIMIT 1)
+        ORDER BY market_id DESC, ` + newest + ` LIMIT 1`
+}
+
+// newestIndexObservationSQL compares one candidate from each source. Market
+// ranges and leading market sort keys keep both seeks on their market indexes.
+func newestIndexObservationSQL(market, markBlock, indexBlock string) string {
+	bound := ""
+	if indexBlock != "" {
+		bound = " AND block <= " + indexBlock
+	}
+	return `SELECT index_price, block, block_time FROM (
+    (SELECT index_price, block, block_time, tx_index, log_index, sub FROM (` + newestMarkObservationSQL(market, markBlock) + `) mark)
+    UNION ALL
+    (SELECT index_price, block, block_time, tx_index, log_index, sub FROM perps.index_prices
+        WHERE market_id >= ` + market + ` AND market_id <= ` + market + ` AND kind = 'aggregate' AND index_price IS NOT NULL` + bound + `
+        ORDER BY market_id ASC, ` + newest + ` LIMIT 1)
+) candidates ORDER BY ` + newest + ` LIMIT 1`
+}
+
+// indexPriceMarketsSQL walks distinct source markets through their indexes,
+// including observations whose market is absent from the current catalog.
+const indexPriceMarketsSQL = `WITH RECURSIVE mark_markets AS (
+    (SELECT market_id FROM perps.mark_prices ORDER BY market_id LIMIT 1)
+    UNION ALL
+    SELECT n.market_id FROM mark_markets m CROSS JOIN LATERAL (
+        SELECT market_id FROM perps.mark_prices WHERE market_id > m.market_id ORDER BY market_id LIMIT 1
+    ) n
+), index_markets AS (
+    (SELECT market_id FROM perps.index_prices ORDER BY market_id LIMIT 1)
+    UNION ALL
+    SELECT n.market_id FROM index_markets m CROSS JOIN LATERAL (
+        SELECT market_id FROM perps.index_prices WHERE market_id > m.market_id ORDER BY market_id LIMIT 1
+    ) n
+)
+SELECT market_id FROM mark_markets UNION SELECT market_id FROM index_markets`
+
+func latestIndexSQL(markets string) string {
+	return `SELECT m.market_id, mp.index_price::text, floor(extract(epoch FROM mp.block_time))::bigint,
+    mp.block, mp.block_time FROM (` + markets + `) m
+CROSS JOIN LATERAL (` + newestIndexObservationSQL("m.market_id", "", "") + `) mp `
+}
 
 func latestPriceDest(l *LatestPrice) []any {
 	return []any{&l.MarketID, &l.Price, &l.OnchainTimestamp, &l.BlockNumber, &l.UpdatedAt}
 }
 
 func (r *Resolver) LatestPrices(ctx context.Context) ([]*LatestPrice, error) {
-	return collect(ctx, r.DB, "latestPrices", latestIndexSQL+"ORDER BY market_id, "+newest, nil, latestPriceDest)
+	return collect(ctx, r.DB, "latestPrices", latestIndexSQL(indexPriceMarketsSQL)+"ORDER BY m.market_id", nil, latestPriceDest)
 }
 
 func (r *Resolver) PriceHistory(ctx context.Context, args struct {
@@ -1293,7 +1344,7 @@ func (r *Resolver) PoolStates(ctx context.Context) ([]*PoolState, error) {
 }
 
 func (r *Resolver) PoolState(ctx context.Context, args struct{ MarketID int32 }) (*PoolState, error) {
-	l, err := first(ctx, r.DB, "poolState", latestIndexSQL+"WHERE market_id = $1::numeric ORDER BY market_id, "+newest,
+	l, err := first(ctx, r.DB, "poolState", latestIndexSQL("SELECT $1::numeric AS market_id"),
 		[]any{int64(args.MarketID)}, latestPriceDest)
 	if err != nil || l == nil {
 		return nil, err
@@ -1787,26 +1838,26 @@ func latestSQL(table, columns string) string {
 	return "(SELECT " + columns + " FROM perps." + table + " x WHERE x.market_id = m.market_id ORDER BY x.block DESC, x.tx_index DESC, x.log_index DESC, x.sub DESC LIMIT 1)"
 }
 
+var orderlyTickersSQL = `SELECT ` + orderlySymbolSQL + `, mp.mark_price / 1e18, ip.index_price / 1e18, NULL::float8,
+    trim_scale(` + latestSQL("funding_settlements", "funding_rate") + ` * 0.000000000000000001)::text, ` + latestSQL("funding_settlements", "funding_rate") + ` / 1e18,
+    NULL::float8, (s.open_interest_long + s.open_interest_short) / 1e18, h.open / 1e18, h.close / 1e18, h.high / 1e18,
+    h.low / 1e18, h.amount / 1e18, h.volume
+FROM perps.markets m
+LEFT JOIN perps.market_stats_rolling s ON s.market_id = m.market_id
+LEFT JOIN LATERAL (` + newestMarkObservationSQL("m.market_id", "") + `) mp ON true
+LEFT JOIN LATERAL (` + newestIndexObservationSQL("m.market_id", "", "") + `) ip ON true
+LEFT JOIN LATERAL (SELECT (array_agg(price ORDER BY block, tx_index, log_index, sub))[1] AS open,
+    (array_agg(price ORDER BY ` + newest + `))[1] AS close, max(price) AS high, min(price) AS low, sum(size_usd) AS amount,
+    sum(size_usd / NULLIF(price, 0)) AS volume
+    FROM perps.fills WHERE market_id = m.market_id AND block_time >= $1) h ON true
+ORDER BY m.market_id`
+
 // OrderlyTickers answers every market in the Orderly ticker shape, in USD:
 // the latest mark and index price, the hourly rate of the latest
 // FundingSettled exactly as a decimal string and as a float, the open interest of
 // market_stats_rolling and the 24 hour window of fills.
 func (r *Resolver) OrderlyTickers(ctx context.Context) ([]*OrderlyTicker, error) {
-	return collect(ctx, r.DB, "orderlyTickers", `SELECT `+orderlySymbolSQL+`, mp.mark_price / 1e18, ip.index_price / 1e18, NULL::float8,
-    trim_scale(`+latestSQL("funding_settlements", "funding_rate")+` * 0.000000000000000001)::text, `+latestSQL("funding_settlements", "funding_rate")+` / 1e18,
-    NULL::float8, (s.open_interest_long + s.open_interest_short) / 1e18, h.open / 1e18, h.close / 1e18, h.high / 1e18,
-    h.low / 1e18, h.amount / 1e18, h.volume
-FROM perps.markets m
-LEFT JOIN perps.market_stats_rolling s ON s.market_id = m.market_id
-LEFT JOIN LATERAL (SELECT x.mark_price FROM perps.mark_prices x WHERE x.market_id = m.market_id
-    ORDER BY x.block DESC, x.tx_index DESC, x.log_index DESC, x.sub DESC LIMIT 1) mp ON true
-LEFT JOIN LATERAL (SELECT x.index_price FROM (`+indexPriceRowsSQL+`) x WHERE x.market_id = m.market_id
-    ORDER BY x.block DESC, x.tx_index DESC, x.log_index DESC, x.sub DESC LIMIT 1) ip ON true
-LEFT JOIN LATERAL (SELECT (array_agg(price ORDER BY block, tx_index, log_index, sub))[1] AS open,
-    (array_agg(price ORDER BY `+newest+`))[1] AS close, max(price) AS high, min(price) AS low, sum(size_usd) AS amount,
-    sum(size_usd / NULLIF(price, 0)) AS volume
-    FROM perps.fills WHERE market_id = m.market_id AND block_time >= $1) h ON true
-ORDER BY m.market_id`, []any{time.Now().Add(-24 * time.Hour).UTC()},
+	return collect(ctx, r.DB, "orderlyTickers", orderlyTickersSQL, []any{time.Now().Add(-24 * time.Hour).UTC()},
 		func(t *OrderlyTicker) []any {
 			return []any{&t.Symbol, &t.PaxeerSymbol, &t.MarkPrice, &t.IndexPrice, &t.SumUnitaryFunding, &t.LastFundingRateHourly,
 				&t.LastFundingRate, &t.NextFundingTime, &t.OpenInterest, &t.H24Open, &t.H24Close, &t.H24High, &t.H24Low,
@@ -1836,18 +1887,27 @@ ORDER BY m.market_id`, nil,
 // priceChangeWindows are the Orderly price change windows.
 var priceChangeWindows = []string{"5 minutes", "30 minutes", "1 hour", "4 hours", "24 hours", "3 days", "7 days", "30 days"}
 
-func (r *Resolver) OrderlyPriceChanges(ctx context.Context) ([]*OrderlyPriceChange, error) {
+func orderlyPriceChangesSQL() string {
 	columns := make([]string, len(priceChangeWindows))
+	bounds := make([]string, len(priceChangeWindows))
 	for i, w := range priceChangeWindows {
-		columns[i] = `(SELECT (l.index_price - x.index_price) / NULLIF(x.index_price, 0) FROM (` + indexPriceRowsSQL + `) x
-        WHERE x.market_id = m.market_id AND x.block_time <= $1::timestamptz - interval '` + w + `'
-        ORDER BY x.block DESC, x.tx_index DESC, x.log_index DESC, x.sub DESC LIMIT 1)`
+		markBlock, indexBlock := fmt.Sprintf("mark_%d", i), fmt.Sprintf("index_%d", i)
+		bounds[i] = `(SELECT block FROM perps.mark_prices WHERE block_time <= $1::timestamptz - interval '` + w + `'
+            ORDER BY block_time DESC, block DESC LIMIT 1) AS ` + markBlock + `,
+        (SELECT block FROM perps.index_prices WHERE block_time <= $1::timestamptz - interval '` + w + `'
+            ORDER BY block_time DESC, block DESC LIMIT 1) AS ` + indexBlock
+		columns[i] = `(SELECT (l.index_price - x.index_price) / NULLIF(x.index_price, 0) FROM (` +
+			newestIndexObservationSQL("m.market_id", "b."+markBlock, "b."+indexBlock) + `) x)`
 	}
-	return collect(ctx, r.DB, "orderlyPriceChanges", `SELECT `+orderlySymbolSQL+`, l.index_price / 1e18, `+strings.Join(columns, ", ")+`
-FROM perps.markets m
-JOIN LATERAL (SELECT x.index_price FROM (`+indexPriceRowsSQL+`) x WHERE x.market_id = m.market_id
-    ORDER BY x.block DESC, x.tx_index DESC, x.log_index DESC, x.sub DESC LIMIT 1) l ON true
-ORDER BY m.market_id`, []any{time.Now().UTC()},
+	return `WITH bounds AS MATERIALIZED (SELECT ` + strings.Join(bounds, ", ") + `)
+SELECT ` + orderlySymbolSQL + `, l.index_price / 1e18, ` + strings.Join(columns, ", ") + `
+FROM perps.markets m CROSS JOIN bounds b
+JOIN LATERAL (` + newestIndexObservationSQL("m.market_id", "", "") + `) l ON true
+ORDER BY m.market_id`
+}
+
+func (r *Resolver) OrderlyPriceChanges(ctx context.Context) ([]*OrderlyPriceChange, error) {
+	return collect(ctx, r.DB, "orderlyPriceChanges", orderlyPriceChangesSQL(), []any{time.Now().UTC()},
 		func(p *OrderlyPriceChange) []any {
 			return []any{&p.Symbol, &p.PaxeerSymbol, &p.LastPrice, &p.Change5m, &p.Change30m, &p.Change1h, &p.Change4h,
 				&p.Change24h, &p.Change3d, &p.Change7d, &p.Change30d}

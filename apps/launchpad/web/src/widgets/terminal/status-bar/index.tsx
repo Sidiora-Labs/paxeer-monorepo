@@ -112,7 +112,7 @@ export default function TerminalStatusBar({ poolAddress }: { poolAddress: string
     <div ref={barRef} role="toolbar" aria-label="Terminal status bar" className="relative flex min-h-7 w-full shrink-0 flex-wrap items-center gap-2 bg-surface-2 px-2">
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <ConnectionPill poolAddress={pool} />
-        <DropdownMenu label="Terminal settings" size="sm" trigger={<Settings aria-hidden="true" className="size-icon-sm" />} triggerClassName="h-6 px-1.5"
+        <DropdownMenu label="Terminal settings" size="sm" trigger={<Settings aria-hidden="true" className="size-icon-sm" />} triggerClassName="h-6 border border-transparent bg-transparent px-1.5 text-text-muted hover:border-control-edge"
           items={[{ id: 'reset-columns', label: 'Reset column layout', onSelect: () => window.dispatchEvent(new CustomEvent(terminalResetColumnsEvent)) }]} />
         <div className="scrollbar-none flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto">
           {tools.map(tool => {
@@ -144,9 +144,9 @@ export default function TerminalStatusBar({ poolAddress }: { poolAddress: string
       {open ? (
         <div ref={panelRef} id={panelId(open)} role="dialog" aria-modal="false" aria-labelledby={`${panelId(open)}-title`} tabIndex={-1}
           style={{ left, width: `min(${PANEL_WIDTH}px, calc(100% - var(--sl-space-2)))` }}
-          className="absolute bottom-full z-[var(--sl-z-dropdown)] mb-1 flex max-h-[var(--sl-page-min-height)] flex-col rounded-md bg-surface-3 shadow-pop focus-visible:outline-2 focus-visible:outline-focus">
+          className="sl-floating absolute bottom-full z-[var(--sl-z-dropdown)] mb-1 flex max-h-[var(--sl-page-min-height)] flex-col rounded-md focus-visible:outline-2 focus-visible:outline-focus">
           <header className="flex min-h-9 shrink-0 items-center gap-2 pl-3 pr-1">
-            <h2 id={`${panelId(open)}-title`} className="min-w-0 flex-1 truncate text-sm font-bold text-text">{panelTitles[open]}</h2>
+            <h2 id={`${panelId(open)}-title`} className="min-w-0 flex-1 truncate text-sm font-semibold text-text">{panelTitles[open]}</h2>
             <IconButton label={`Close ${panelTitles[open]}`} icon={<X />} size="sm" onClick={() => close(true)} />
           </header>
           <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-2">{panelBody(open, pool)}</div>

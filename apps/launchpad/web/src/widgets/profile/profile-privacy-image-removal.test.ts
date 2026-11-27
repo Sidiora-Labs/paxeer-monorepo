@@ -235,26 +235,26 @@ function portfolio_hover_range() {
     expect(svg.getAttribute('aria-describedby')).toBe(view.container.querySelector('[role="status"]')?.id);
   }
   selectLast();
-  expect(view.container.querySelector('[role="status"]')?.textContent).toContain('5.00 USDL');
+  expect(view.container.querySelector('[role="status"]')?.textContent).toContain('$5.00');
   expect(view.container.querySelector('[role="status"]')?.textContent).toContain('some prices missing');
   const shorter = series.slice(0, 2);
   act(() => view.root.render(h(PortfolioChart, { points: shorter, tone: 'gain' })));
   expect(view.container.querySelector('[role="status"]')).toBeNull();
   expect(view.container.querySelector('svg')?.hasAttribute('aria-describedby')).toBe(false);
   selectLast();
-  expect(view.container.querySelector('[role="status"]')?.textContent).toContain('2.00 USDL');
+  expect(view.container.querySelector('[role="status"]')?.textContent).toContain('$2.00');
   for (const points of [[], series.slice(0, 1), [], shorter]) {
     act(() => view.root.render(h(PortfolioChart, { points, tone: 'flat' })));
     expect(view.container.querySelector('[role="status"]')).toBeNull();
     expect(view.container.querySelector('svg')?.hasAttribute('aria-describedby')).toBe(false);
   }
-  expect(view.container.querySelector('svg')?.getAttribute('aria-label')).toContain('2.00 USDL');
+  expect(view.container.querySelector('svg')?.getAttribute('aria-label')).toContain('$2.00');
   selectLast();
   const replacement = shorter.map(point => ({ ...point, valueRaw: point.valueRaw + 10_000_000n }));
   act(() => view.root.render(h(PortfolioChart, { points: replacement, tone: 'gain' })));
   expect(view.container.querySelector('[role="status"]')).toBeNull();
   selectLast();
-  expect(view.container.querySelector('[role="status"]')?.textContent).toContain('12.00 USDL');
+  expect(view.container.querySelector('[role="status"]')?.textContent).toContain('$12.00');
 }
 
 async function imageRemoval(kind: 'avatarAssetId' | 'bannerAssetId', withImages: boolean) {

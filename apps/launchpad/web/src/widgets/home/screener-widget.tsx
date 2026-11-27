@@ -8,7 +8,7 @@ import type { RankingCategory } from '@/core/market/use-rankings';
 import { SourceNotice } from '@/ui/common/source-notice';
 import { WatchlistNotice } from '@/ui/common/watchlist-notice';
 import { useWatchlist } from '@/hooks/ui/use-watchlist';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { compactCount } from '@/page-modules/token/market-presentation';
 import { RiskRow, riskLegend } from './risk-row';
 import { matchesFilter } from './trending-widget';
@@ -28,7 +28,7 @@ export const feesUnavailableReason = 'Fees are not tracked yet';
 
 export function screenerStats(row: ExploreRow): CoinCardStat[] {
   return [
-    { label: 'V', value: row.volume24hRaw ? formatUsdl(row.volume24hRaw, { compact: true, unit: false }) : null },
+    { label: 'V', value: row.volume24hRaw ? formatCompactUsd(row.volume24hRaw, { raw: true, compact: true }) : null },
     { label: 'TX', value: row.txns === null ? null : compactCount(row.txns) },
     { label: 'F', value: <span title={feesUnavailableReason} className="text-text-faint">—</span> },
   ];
@@ -88,7 +88,7 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
             {Array.from({ length: 6 }, (_, index) => <CoinCard key={index} loading variant={cards ? 'grid' : 'screener'} surface="surface-1" image={null} name="" symbol="" mcapRaw={null} percentChange={null} createdAt={null} href="#" />)}
           </div>
         ) : panel.state === 'unsupported' ? (
-          <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Screener" operation={panel.operation} status={panel.status} message={panel.message} onRetry={explore.reload} />
+          <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Screener" operation={panel.operation} status={panel.status} notServed={panel.notServed} message={panel.message} onRetry={explore.reload} />
         ) : panel.state === 'error' ? (
           <ErrorState variant="chip" className="self-start" message="Couldn't load coins" error={panel.error} onRetry={panel.retry} />
         ) : rows.length === 0 ? (
@@ -99,7 +99,7 @@ export function ScreenerWidget({ filter, view }: WidgetProps) {
           )
         ) : (
           <>
-            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Live stats" operation={explore.stats.operation} status={explore.stats.status} onRetry={explore.retrySources} /> : null}
+            {explore.stats.state === 'unsupported' ? <UnavailableState variant="chip" plural="auto" surface={1} wrap className="self-start" title="Live stats" operation={explore.stats.operation} status={explore.stats.status} notServed={explore.stats.notServed} onRetry={explore.retrySources} /> : null}
             <ul className={cn('gap-2', cards ? 'grid grid-cols-2' : 'flex flex-col')}>
               {rows.map(row => {
                 const risk = screenerRisk(row);

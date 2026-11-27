@@ -1,4 +1,6 @@
 'use client';
+import { CapabilityState } from '@/ui/primitives';
+import styles from './presentation.module.css';
 import { displayCoinText } from '@/utils/coin-text';
 import { useEffect, useRef, useState } from 'react';
 import { address, exactUnits, type OrderKind } from './domain';
@@ -8,7 +10,7 @@ import { reportUserFacingError } from '@/core/user-facing-error';
 
 export interface OrderFormProps { onPlaced?: () => void; provider?: AdvancedProvider }
 export default function OrderForm(props: OrderFormProps) {
-  if (!props.provider) return <p role="status" className="p-4 text-2xs text-text">Orders are not available yet</p>;
+  if (!props.provider) return <CapabilityState kind="orders" />;
   return <ConnectedOrderForm {...props} provider={props.provider} />;
 }
 function ConnectedOrderForm({ provider, onPlaced }: OrderFormProps & { provider: AdvancedProvider }) {
@@ -58,19 +60,19 @@ function ConnectedOrderForm({ provider, onPlaced }: OrderFormProps & { provider:
     finally { inFlight.current = false; setBusy(false); }
   };
   const blocker = provider.blockers.get('orders') ?? provider.blockers.get('oracle');
-  if (blocker) return <p role="status" className="p-4 text-2xs text-text">Orders are not available yet</p>;
-  return <section aria-labelledby="meta-order-title" className="space-y-3 rounded-xl bg-surface-1 p-4">
-    <h2 id="meta-order-title" className="text-base font-bold">Limit and stop orders</h2>
+  if (blocker) return <CapabilityState kind="orders" />;
+  return <section aria-labelledby="meta-order-title" className={`${styles.panel} w-full max-w-search-max space-y-3 rounded-md bg-surface-1 p-4`}>
+    <h2 id="meta-order-title" className="text-base font-semibold">Limit and stop orders</h2>
     <p className="text-2xs text-text">Prices are in {provider.manifest.priceDenomination}. Hitting your trigger doesn't guarantee that exact price</p>
-    <label htmlFor="meta-order-kind" className="block">Order type<select id="meta-order-kind" name="orderType" className="block w-full rounded-xl bg-surface-2 p-3" value={kind} onChange={event => setKind(event.target.value as OrderKind)}>{provider.manifest.supportedKinds.map(value => <option key={value} value={value}>{value.replaceAll('-', ' ')}</option>)}</select></label>
-    <label htmlFor="meta-order-token" className="block">Coin<select id="meta-order-token" name="token" className="block w-full rounded-xl bg-surface-2 p-3" value={token} onChange={event => setToken(event.target.value)}><option value="">Select coin</option>{tokens.map(value => <option key={value.tokenAddress} value={value.tokenAddress} title={displayCoinText(value.symbol, value.tokenAddress)}>{displayCoinText(value.symbol, value.tokenAddress)} · {value.tokenAddress}</option>)}</select></label>
-    <label htmlFor="meta-order-amount" className="block">Amount<input id="meta-order-amount" name="amount" className="block w-full rounded-xl bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} /></label>
-    {kind.startsWith('stop') && <label htmlFor="meta-order-trigger" className="block">Trigger price<input id="meta-order-trigger" name="triggerPrice" className="block w-full rounded-xl bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={trigger} onChange={event => setTrigger(event.target.value)} /></label>}
-    {kind !== 'stop-loss' && <label htmlFor="meta-order-limit" className="block">Limit price<input id="meta-order-limit" name="limitPrice" className="block w-full rounded-xl bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={limit} onChange={event => setLimit(event.target.value)} /></label>}
-    <label htmlFor="meta-order-minimum" className="block">Minimum received<input id="meta-order-minimum" name="minimumReceived" className="block w-full rounded-xl bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={minimum} onChange={event => setMinimum(event.target.value)} /></label>
-    <label htmlFor="meta-order-expiry" className="block">Expires in<select id="meta-order-expiry" name="expiry" className="block w-full rounded-xl bg-surface-2 p-3" value={expiry} onChange={event => setExpiry(event.target.value)}>{[3600,86400,604800].filter(value => BigInt(value) <= BigInt(provider.manifest.maximumOrderLifetimeSeconds)).map(value => <option key={value} value={value}>{value / 3600 === 1 ? '1 hour' : value / 3600 === 168 ? '7 days' : `${value / 3600} hours`}</option>)}{provider.manifest.gtcSentinel !== undefined && <option value="0">Good until cancelled</option>}</select></label>
-    <button className="rounded-xl bg-accent text-on-accent p-3 disabled:opacity-40" disabled={busy || !owner} onClick={() => void prepare()}>Review order</button>
-    {review && <div className="rounded-xl bg-surface-2 p-3 space-y-2"><p>Amount {review.intent.amountRaw.toString()} units of {review.escrowAsset}</p><p>Minimum received {review.minimumOutput.toString()} units</p><p>Trigger {review.intent.triggerPriceRaw?.toString() ?? 'None'} · Limit {review.intent.limitPriceRaw?.toString() ?? 'None'}</p><p>Expires {review.intent.expiresAt === BigInt(provider.manifest.gtcSentinel ?? '-1') ? 'when cancelled' : new Date(Number(review.intent.expiresAt) * 1000).toLocaleString()}</p><p>{review.fees}</p><p>{review.cancellation}</p><p>Approves {review.spender}</p><button disabled={busy} className="rounded-xl bg-info text-on-info p-3 disabled:opacity-40" onClick={() => void place()}>Place order</button></div>}
+    <label htmlFor="meta-order-kind" className="block">Order type<select id="meta-order-kind" name="orderType" className="block w-full rounded-sm bg-surface-2 p-3" value={kind} onChange={event => setKind(event.target.value as OrderKind)}>{provider.manifest.supportedKinds.map(value => <option key={value} value={value}>{value.replaceAll('-', ' ')}</option>)}</select></label>
+    <label htmlFor="meta-order-token" className="block">Coin<select id="meta-order-token" name="token" className="block w-full rounded-sm bg-surface-2 p-3" value={token} onChange={event => setToken(event.target.value)}><option value="">Select coin</option>{tokens.map(value => <option key={value.tokenAddress} value={value.tokenAddress} title={displayCoinText(value.symbol, value.tokenAddress)}>{displayCoinText(value.symbol, value.tokenAddress)} · {value.tokenAddress}</option>)}</select></label>
+    <label htmlFor="meta-order-amount" className="block">Amount<input id="meta-order-amount" name="amount" className="block w-full rounded-sm bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={amount} onChange={event => setAmount(event.target.value)} /></label>
+    {kind.startsWith('stop') && <label htmlFor="meta-order-trigger" className="block">Trigger price<input id="meta-order-trigger" name="triggerPrice" className="block w-full rounded-sm bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={trigger} onChange={event => setTrigger(event.target.value)} /></label>}
+    {kind !== 'stop-loss' && <label htmlFor="meta-order-limit" className="block">Limit price<input id="meta-order-limit" name="limitPrice" className="block w-full rounded-sm bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={limit} onChange={event => setLimit(event.target.value)} /></label>}
+    <label htmlFor="meta-order-minimum" className="block">Minimum received<input id="meta-order-minimum" name="minimumReceived" className="block w-full rounded-sm bg-surface-2 p-3" inputMode="decimal" autoComplete="off" value={minimum} onChange={event => setMinimum(event.target.value)} /></label>
+    <label htmlFor="meta-order-expiry" className="block">Expires in<select id="meta-order-expiry" name="expiry" className="block w-full rounded-sm bg-surface-2 p-3" value={expiry} onChange={event => setExpiry(event.target.value)}>{[3600,86400,604800].filter(value => BigInt(value) <= BigInt(provider.manifest.maximumOrderLifetimeSeconds)).map(value => <option key={value} value={value}>{value / 3600 === 1 ? '1 hour' : value / 3600 === 168 ? '7 days' : `${value / 3600} hours`}</option>)}{provider.manifest.gtcSentinel !== undefined && <option value="0">Good until cancelled</option>}</select></label>
+    <button className="w-full rounded-sm bg-accent text-on-accent p-3 font-bold transition-colors hover:bg-accent-hover disabled:opacity-40" disabled={busy || !owner} onClick={() => void prepare()}>Review order</button>
+    {review && <div className={`${styles.summary} rounded-sm bg-surface-2 p-3 space-y-2`}><p><span>Amount</span> <span>{review.intent.amountRaw.toString()} units of {review.escrowAsset}</span></p><p><span>Minimum received</span> <span>{review.minimumOutput.toString()} units</span></p><p>Trigger {review.intent.triggerPriceRaw?.toString() ?? 'None'} · Limit {review.intent.limitPriceRaw?.toString() ?? 'None'}</p><p>Expires {review.intent.expiresAt === BigInt(provider.manifest.gtcSentinel ?? '-1') ? 'when cancelled' : new Date(Number(review.intent.expiresAt) * 1000).toLocaleString()}</p><p>{review.fees}</p><p>{review.cancellation}</p><p><span>Approves</span> <span>{review.spender}</span></p><button disabled={busy} className={`w-full rounded-sm p-3 font-bold transition-colors disabled:opacity-40 ${kind === 'limit-buy' || kind === 'stop-limit-buy' ? 'bg-accent text-on-accent hover:bg-accent-hover' : 'bg-danger text-on-danger hover:bg-danger-strong'}`} onClick={() => void place()}>Place order</button></div>}
     <p role="status" className="text-2xs break-all">{message}</p>
   </section>;
 }

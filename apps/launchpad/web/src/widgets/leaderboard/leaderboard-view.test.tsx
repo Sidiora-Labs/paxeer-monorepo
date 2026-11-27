@@ -1,18 +1,11 @@
 import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
-/**
- * The real LeaderboardView against a real local HTTP origin that serves none
- * of the cup, ranking or feed routes (404 everywhere, as on a box with no
- * backend). Checks the parity structure survives: the cup hero frame always
- * renders with the period control inside it and no prize figure, the cup
- * segment is disabled and ?period=cup falls back to the day board, and Best
- * callouts is a column at xl but a fourth tab below it.
- */
+/** Ranking periods and responsive callouts stay available beside the compact competition state. */
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createRequire } from 'node:module';
 import React, { act } from 'react';
 import type { Root } from 'react-dom/client';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, test } from 'vitest';
 
 interface BrowserDom { window: Window & typeof globalThis }
 type JsdomModule = { JSDOM: new (html: string, options: { url: string; pretendToBeVisual: boolean }) => BrowserDom };
@@ -52,19 +45,20 @@ const { injected } = await import('wagmi/connectors');
 const { defineChain } = await import('viem');
 const { LeaderboardView } = await import('./leaderboard-view');
 const { CalloutsRail } = await import('@/widgets/social/callouts-rail');
+const { LeaderboardPanel } = await import('@/widgets/profile/leaderboard-panel');
 
 const chain = defineChain({ id: 125, name: 'Paxeer', nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 }, rpcUrls: { default: { http: ['http://127.0.0.1:1'] } } });
 const wagmiConfig = createConfig({ chains: [chain], connectors: [injected()], transports: { 125: http('http://127.0.0.1:1', { retryCount: 0, timeout: 500 }) }, ssr: false, multiInjectedProviderDiscovery: false });
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
 
-function mount(width: number, search = '') {
+function mount(width: number, search = '', initialTab?: string, profile = false) {
   viewportWidth = width;
   window.history.replaceState(null, '', `/leaderboard${search}`);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root: Root = createRoot(container);
-  act(() => { root.render(<WagmiProvider config={wagmiConfig}><QueryClientProvider client={queryClient}><LeaderboardView rail={<CalloutsRail />} /></QueryClientProvider></WagmiProvider>); });
+  act(() => { root.render(<WagmiProvider config={wagmiConfig}><QueryClientProvider client={queryClient}><LeaderboardView rail={<CalloutsRail />} initialTab={initialTab} />{profile ? <LeaderboardPanel /> : null}</QueryClientProvider></WagmiProvider>); });
   return { root, container, queryClient };
 }
 function unmount(view: ReturnType<typeof mount>) {
@@ -86,7 +80,7 @@ const classesOf = (root: ParentNode) => Array.from(root.querySelectorAll('[class
 afterAll(() => new Promise<void>(resolve => server.close(() => resolve())));
 
 describe('leaderboard view without a backend', () => {
-  it('keeps the cup hero frame with the period control inside it while loading and after the cup route 404s', async () => {
+  it('keeps the period control above a compact competition state while loading and after an absent cup', async () => {
     const view = mount(1440);
     const loading = hero(view.container);
     expect(loading).not.toBeNull();
@@ -96,36 +90,37 @@ describe('leaderboard view without a backend', () => {
     await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
     expect(seen.some(url => url.startsWith('/v2/cups/current'))).toBe(true);
     const frame = hero(view.container)!;
-    expect(frame.className).toContain('md:before:aspect-[16/7]');
+    expect(frame.className).toBe('flex min-w-0 flex-col gap-3');
     const control = frame.querySelector('[role=radiogroup][aria-label="Ranking period"]')!;
     expect(control.querySelectorAll('[role=radio]')).toHaveLength(4);
     expect(control.querySelector<HTMLButtonElement>('[aria-label="Competition"]')!.disabled).toBe(true);
     expect(control.querySelector('[aria-checked="true"]')!.textContent).toBe('1D');
     expect(frame.textContent).toContain('No competition scheduled');
-    expect(frame.textContent).toContain('No prize pool announced');
+    expect(frame.querySelectorAll('h2')).toHaveLength(1);
+    expect(frame.querySelector('details, [role=alert], [data-state=unavailable]')).toBeNull();
     // Nothing fabricated: no USDL figure and no digits in the unavailable frame beyond the segment labels.
     expect(frame.textContent).not.toContain('USDL');
     expect(frame.textContent!.replace(/1[DWM]/g, '')).not.toMatch(/\d/);
-    expect(frame.querySelector('button:not([role=radio])')!.textContent).toBe('Try again');
+    expect(frame.querySelector('button:not([role=radio])')).toBeNull();
     // The rolling board follows the hero.
     expect(view.container.querySelector('#traders-board-title')).not.toBeNull();
     expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     unmount(view);
   });
 
-  it('puts Best callouts in its own column at xl with three tabs', async () => {
+  it('puts Best callouts in its own column at xl with two tabs', async () => {
     const view = mount(1440);
-    expect(tabNames(view.container)).toEqual(['Traders', 'Squads', 'Rewards']);
+    expect(tabNames(view.container)).toEqual(['Traders', 'Rewards']);
     const rail = view.container.querySelector('aside[aria-label="Best callouts"]');
     expect(rail).not.toBeNull();
     expect(rail!.closest('[role=tabpanel]')).toBeNull();
-    expect(rail!.parentElement!.className).toContain('[&>aside>div:first-child_h2]:text-xl');
+    expect(rail!.parentElement!.className).toContain('[&>aside>div:first-child_h2]:text-md');
     unmount(view);
   });
 
-  it('folds Best callouts into a fourth tab below xl', async () => {
+  it('folds Best callouts into a third tab below xl', async () => {
     const view = mount(1024);
-    expect(tabNames(view.container)).toEqual(['Traders', 'Squads', 'Rewards', 'Best callouts']);
+    expect(tabNames(view.container)).toEqual(['Traders', 'Rewards', 'Best callouts']);
     expect(view.container.querySelector('aside[aria-label="Best callouts"]')).toBeNull();
     const tab = Array.from(view.container.querySelectorAll<HTMLButtonElement>('[role=tab]')).find(node => node.textContent === 'Best callouts')!;
     act(() => { tab.click(); });
@@ -137,16 +132,18 @@ describe('leaderboard view without a backend', () => {
     unmount(view);
   });
 
-  it('keeps the hero first on a phone, with the control, the unavailable chip and the rules row inside it', async () => {
+  it('keeps the period control and one neutral empty form first on a phone', async () => {
     const view = mount(390);
-    expect(tabNames(view.container)).toEqual(['Traders', 'Squads', 'Rewards', 'Best callouts']);
+    expect(tabNames(view.container)).toEqual(['Traders', 'Rewards', 'Best callouts']);
     await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
     const frame = hero(view.container)!;
     const panel = view.container.querySelector('#leaderboard-panel-traders')!;
     expect(panel.firstElementChild).toBe(frame);
     expect(frame.querySelector('[role=radiogroup][aria-label="Ranking period"]')).not.toBeNull();
-    expect(frame.querySelector('[data-state="unavailable"]')).not.toBeNull();
-    expect(frame.textContent).toContain('Schedule, scoring, eligibility and rules');
+    expect(frame.querySelector('[data-state="unavailable"], [role="alert"], details')).toBeNull();
+    expect(frame.textContent).toContain('Prizes and results show up here once cups start');
+    expect(frame.querySelectorAll('h2')).toHaveLength(1);
+    expect(frame.querySelector('button:not([role=radio])')).toBeNull();
     expect(frame.className).not.toContain('overflow-hidden');
     expect(view.container.querySelector('aside[aria-label="Best callouts"]')).toBeNull();
     unmount(view);
@@ -161,3 +158,48 @@ describe('leaderboard view without a backend', () => {
     unmount(view);
   });
 });
+
+async function tabsWithoutASourceAreNotRendered() {
+  for (const width of [390, 1024, 1440]) {
+    const view = mount(width, '?tab=squads', 'squads', true);
+    try {
+      await waitFor(() => hero(view.container)?.getAttribute('data-cup-state') === 'unsupported');
+      expect(tabNames(view.container)).toEqual(width >= 1280
+        ? ['Traders', 'Rewards']
+        : ['Traders', 'Rewards', 'Best callouts']);
+      expect(view.container.querySelector('#leaderboard-tab-traders')?.getAttribute('aria-selected')).toBe('true');
+      expect(view.container.querySelector('#leaderboard-panel-traders')).not.toBeNull();
+      expect(view.container.querySelector('#leaderboard-tab-squads, #leaderboard-panel-squads, section[aria-label="Squads"]')).toBeNull();
+      expect(document.body.textContent).not.toMatch(/squads|squad rankings|top rewards|check back soon/i);
+
+      const profile = view.container.querySelector('select[aria-label="Metric"]')!.closest('section')!;
+      const heading = Array.from(profile.querySelectorAll('h2')).find(node => node.textContent === 'Top traders');
+      expect(heading).toBeDefined();
+      expect(heading!.id).not.toBe('');
+      expect(profile.getAttribute('aria-labelledby')).toBe(heading!.id);
+      expect(Array.from(document.querySelectorAll('[id]')).filter(node => node.id === heading!.id)).toEqual([heading]);
+      expect(document.getElementById(heading!.id)).toBe(heading);
+      expect(profile.querySelector('[role="tablist"], [role="tab"], [role="tabpanel"]')).toBeNull();
+      expect(profile.querySelector('select[aria-label="Metric"]')).not.toBeNull();
+      expect(profile.querySelector('select[aria-label="Window"]')).not.toBeNull();
+      await waitFor(() => profile.textContent?.includes('Leaderboard is not available yet') === true);
+      expect(profile.textContent).not.toMatch(/top rewards|check back soon/i);
+
+      const rewards = view.container.querySelector<HTMLButtonElement>('#leaderboard-tab-rewards')!;
+      act(() => rewards.click());
+      expect(rewards.getAttribute('aria-selected')).toBe('true');
+      expect(view.container.querySelector('#leaderboard-panel-rewards')).not.toBeNull();
+      act(() => {
+        window.history.replaceState(null, '', '/leaderboard?tab=squads');
+        window.dispatchEvent(new window.PopStateEvent('popstate'));
+      });
+      expect(view.container.querySelector('#leaderboard-tab-traders')?.getAttribute('aria-selected')).toBe('true');
+      expect(view.container.querySelector('#leaderboard-panel-traders')).not.toBeNull();
+      expect(document.body.textContent).not.toMatch(/squads|squad rankings|top rewards|check back soon/i);
+    } finally {
+      unmount(view);
+    }
+  }
+}
+
+test(tabsWithoutASourceAreNotRendered, tabsWithoutASourceAreNotRendered);

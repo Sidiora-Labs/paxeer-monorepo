@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronLeftIcon } from "@paxeer-network/ui/icon/chevronLeft";
 
 import { WORKSPACE_THEME_CSS_VARS } from "../theme/workspaceTheme";
+import { PageMetadata } from "../PageMetadata";
 import { CookieBanner } from "./CookieBanner";
 
 interface LegalLayoutProps {
@@ -25,6 +26,7 @@ export function LegalLayout({
       style={WORKSPACE_THEME_CSS_VARS as CSSProperties}
       className="oui-min-h-full oui-bg-base-10 oui-px-4 oui-py-10"
     >
+      <PageMetadata documentTitle={title} />
       <div className="oui-mx-auto oui-max-w-2xl">
         {/* Back link */}
         <Link

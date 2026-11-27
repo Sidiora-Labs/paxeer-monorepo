@@ -243,7 +243,7 @@ export class OrderLineService {
     }
     const pnlStr = this.tpslCalService.getFormattedEstPnl(pendingOrder);
     const displayPnl = pnlStr ? pnlStr : formatPnl(undefined);
-    return `${text} | ${displayPnl} USDC`;
+    return `${text} | ${displayPnl} USDL`;
   }
 
   getTPSLText(pendingOrder: any) {
