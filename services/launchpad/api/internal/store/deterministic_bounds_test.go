@@ -15,14 +15,14 @@ func TestDeterministicReaderValidatesRequestAndSourceRows(t *testing.T) {
 			t.Fatalf("invalid schema: %q", schema)
 		}
 	}
-	if _, err := r.Snapshot(ctx, "invalid"); !errors.Is(err, ErrAddressInvalid) {
+	if _, err := repeatDeterministicRead(func() (SnapshotRead, error) { return r.Snapshot(ctx, "invalid") }); !errors.Is(err, ErrAddressInvalid) {
 		t.Fatalf("snapshot address: %v", err)
 	}
-	snapshot, err := r.Snapshot(ctx, fixtureAddress)
+	snapshot, err := repeatDeterministicRead(func() (SnapshotRead, error) { return r.Snapshot(ctx, fixtureAddress) })
 	if err != nil || snapshot.Watermark.ProjectionRevision != "1" {
 		t.Fatalf("snapshot: %+v %v", snapshot, err)
 	}
-	page, err := r.Trades(ctx, fixtureAddress, "", "", 0)
+	page, err := repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, fixtureAddress, "", "", 0) })
 	if err != nil || len(page.Trades) != 0 || page.HasMore {
 		t.Fatalf("default trade page: %+v %v", page, err)
 	}
@@ -36,7 +36,7 @@ func TestDeterministicReaderValidatesRequestAndSourceRows(t *testing.T) {
 		{fixtureAddress, "unknown", "", 1, ErrCursorInvalid},
 		{fixtureAddress, "", "invalid", 1, ErrCursorInvalid},
 	} {
-		if _, err := r.Trades(ctx, tc.pool, tc.filter, tc.token, tc.size); !errors.Is(err, tc.want) {
+		if _, err := repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, tc.pool, tc.filter, tc.token, tc.size) }); !errors.Is(err, tc.want) {
 			t.Fatalf("request %+v: %v", tc, err)
 		}
 	}
@@ -48,7 +48,7 @@ func TestDeterministicReaderValidatesRequestAndSourceRows(t *testing.T) {
 			if _, err := db.Exec(ctx, tc.change); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := r.Snapshot(ctx, fixtureAddress); !errors.Is(err, ErrDataIntegrity) {
+			if _, err := repeatDeterministicRead(func() (SnapshotRead, error) { return r.Snapshot(ctx, fixtureAddress) }); !errors.Is(err, ErrDataIntegrity) {
 				t.Fatalf("invalid source accepted: %v", err)
 			}
 			if _, err := db.Exec(ctx, tc.restore); err != nil {
@@ -59,30 +59,30 @@ func TestDeterministicReaderValidatesRequestAndSourceRows(t *testing.T) {
 	if _, err := db.Exec(ctx, `INSERT INTO `+fixtureSchema+`.market_trades VALUES('125',$1,1,-1,0,'invalid-order',1,'{}')`, fixtureAddress); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Trades(ctx, fixtureAddress, "", "", 1); !errors.Is(err, ErrDataIntegrity) {
+	if _, err := repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, fixtureAddress, "", "", 1) }); !errors.Is(err, ErrDataIntegrity) {
 		t.Fatalf("invalid order accepted: %v", err)
 	}
 	if _, err := db.Exec(ctx, `UPDATE `+fixtureSchema+`.market_trades SET transaction_index=0,event_id=$1`, strings.Repeat("x", 161)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Trades(ctx, fixtureAddress, "", "", 1); !errors.Is(err, ErrDataIntegrity) {
+	if _, err := repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, fixtureAddress, "", "", 1) }); !errors.Is(err, ErrDataIntegrity) {
 		t.Fatalf("oversized identity accepted: %v", err)
 	}
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
-	if _, err := r.Snapshot(cancelled, fixtureAddress); !errors.Is(err, context.Canceled) {
+	if _, err := repeatDeterministicRead(func() (SnapshotRead, error) { return r.Snapshot(cancelled, fixtureAddress) }); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled snapshot: %v", err)
 	}
 	if _, err := db.Exec(ctx, `DROP TABLE `+fixtureSchema+`.market_trades`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Trades(ctx, fixtureAddress, "", "", 1); err == nil {
+	if _, err := repeatDeterministicRead(func() (TradePage, error) { return r.Trades(ctx, fixtureAddress, "", "", 1) }); err == nil {
 		t.Fatal("missing trades source accepted")
 	}
 	if _, err := db.Exec(ctx, `DROP TABLE `+fixtureSchema+`.market_snapshots`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := r.Snapshot(ctx, fixtureAddress); err == nil {
+	if _, err := repeatDeterministicRead(func() (SnapshotRead, error) { return r.Snapshot(ctx, fixtureAddress) }); err == nil {
 		t.Fatal("missing snapshot source accepted")
 	}
 }
