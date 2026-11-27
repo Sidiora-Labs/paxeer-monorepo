@@ -214956,7 +214956,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1307]
 title = "Make the local journey of the agent kit wait for a receipt by reading it until it is there, and show with a count why the present wait can end at its limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
