@@ -214727,7 +214727,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1294]
 title = "Bring two cases of the web in step with the writer of the swap record of a trade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214874,7 +214874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1289]
 title = "Bring the page of the client contracts of the discovery module in step with the web, which renders no ranking of squads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
