@@ -147,6 +147,8 @@ type maintenanceState struct {
 	Assets                                   map[string]maintenanceAsset
 	AccountState, PublicationState, Revision string
 	Document                                 json.RawMessage
+	ModerationRevision                       string
+	Blocked                                  bool
 	Outbox                                   int
 }
 
@@ -494,13 +496,48 @@ func (d *maintenanceDatabase) query(sql string, state *maintenanceState) (mainte
 			return maintenanceResult{}, fmt.Errorf("wrong creator pool")
 		}
 		return maintenanceRow(d.creator), nil
+	case strings.HasPrefix(sql, "SELECT COALESCE(d.moderation_revision >="):
+		matches := regexp.MustCompile(`>=\s*'([0-9]+)'\s*::numeric,false\).* WHERE p.pool=\s*'([^']+)'`).FindStringSubmatch(sql)
+		if len(matches) != 3 {
+			return maintenanceResult{}, fmt.Errorf("invalid moderation read: %s", sql)
+		}
+		if matches[2] != d.pool {
+			return maintenanceNoRows(), nil
+		}
+		if state.ModerationRevision == "" {
+			return maintenanceRow(false), nil
+		}
+		revision, _ := new(big.Int).SetString(matches[1], 10)
+		current, ok := new(big.Int).SetString(state.ModerationRevision, 10)
+		if !ok {
+			return maintenanceResult{}, fmt.Errorf("invalid stored moderation revision: %s", state.ModerationRevision)
+		}
+		return maintenanceRow(current.Cmp(revision) >= 0), nil
 	case strings.HasPrefix(sql, "INSERT INTO "+table("documents")):
 		if !has(d.pool) {
 			return maintenanceResult{}, fmt.Errorf("wrong moderation pool")
 		}
+		matches := regexp.MustCompile(`VALUES\(\s*'([^']+)'\s*,\s*'([0-9]+)'\s*::numeric\s*,\s*'(t|f)'\s*\)`).FindStringSubmatch(sql)
+		if len(matches) != 4 || !strings.Contains(sql, "WHERE "+table("documents")+".moderation_revision<EXCLUDED.moderation_revision") {
+			return maintenanceResult{}, fmt.Errorf("invalid restriction SQL: %s", sql)
+		}
+		revision, _ := new(big.Int).SetString(matches[2], 10)
+		if state.ModerationRevision != "" {
+			current, ok := new(big.Int).SetString(state.ModerationRevision, 10)
+			if !ok {
+				return maintenanceResult{}, fmt.Errorf("invalid stored moderation revision: %s", state.ModerationRevision)
+			}
+			if current.Cmp(revision) >= 0 {
+				return mutation("INSERT 0 0")
+			}
+		}
+		state.ModerationRevision, state.Blocked = matches[2], matches[3] == "t"
 		return mutation("INSERT 0 1")
 	case strings.HasPrefix(sql, "SELECT blocked FROM "+table("documents")):
-		return maintenanceRow(false), nil
+		if !has(d.pool) || state.ModerationRevision == "" {
+			return maintenanceNoRows(), nil
+		}
+		return maintenanceRow(state.Blocked), nil
 	case strings.HasPrefix(sql, "UPDATE "+table("assets")+" SET state="):
 		if asset.ID == "" {
 			return mutation("UPDATE 0")
@@ -597,7 +634,7 @@ func (d *maintenanceDatabase) query(sql string, state *maintenanceState) (mainte
 	case strings.HasPrefix(sql, "SELECT pool,creator FROM "+table("pools")):
 		return maintenanceRow(d.pool, d.creator), nil
 	case strings.HasPrefix(sql, "SELECT EXISTS(SELECT 1 FROM "+table("documents")):
-		return maintenanceRow(false), nil
+		return maintenanceRow(has(d.pool) && state.ModerationRevision != "" && state.Blocked), nil
 	case strings.HasPrefix(sql, "SELECT pool,actor,body_hash,result FROM "+table("v2_operations")):
 		return maintenanceNoRows(), nil
 	case strings.HasPrefix(sql, "INSERT INTO "+table("v2_documents")):
@@ -616,7 +653,7 @@ func (d *maintenanceDatabase) query(sql string, state *maintenanceState) (mainte
 		state.Revision = "1"
 		return mutation("UPDATE 1")
 	case strings.HasPrefix(sql, "SELECT p.pool,p.token,d.revision::text,d.document"):
-		return maintenanceRow(d.pool, d.token, state.Revision, state.Document, time.Now().UTC(), nil, false), nil
+		return maintenanceRow(d.pool, d.token, state.Revision, state.Document, time.Now().UTC(), nil, state.Blocked), nil
 	case strings.HasPrefix(sql, "UPDATE "+table("v2_documents")+" SET search_document="):
 		return mutation("UPDATE 1")
 	case strings.HasPrefix(sql, "INSERT INTO "+table("v2_operations")):
