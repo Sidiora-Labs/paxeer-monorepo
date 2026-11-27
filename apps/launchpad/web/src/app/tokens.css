@@ -979,7 +979,7 @@
     nav a,
     section[aria-label='Market ticker'] a,
     a[href]:not(p a),
-    [tabindex='0']
+    [tabindex='0']:not([data-keeps-size])
   ) {
     min-block-size: var(--sl-touch-target-min);
     min-inline-size: var(--sl-touch-target-min);
