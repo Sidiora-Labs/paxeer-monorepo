@@ -1,4 +1,4 @@
-"""Describe the named dependencies of a PostgreSQL SELECT statement."""
+"""Describe the named dependencies of a PostgreSQL SELECT or INSERT statement."""
 
 import json
 import sys
@@ -22,12 +22,23 @@ def names(parts):
 
 def describe(sql):
     statements = json.loads(parse_sql_json(sql))["stmts"]
-    if len(statements) != 1 or set(statements[0]["stmt"]) != {"SelectStmt"}:
-        raise ValueError("expected one SELECT statement")
+    kinds = {"SelectStmt": "SELECT", "InsertStmt": "INSERT"}
+    if len(statements) != 1 or len(statements[0]["stmt"]) != 1:
+        raise ValueError("expected one SELECT or INSERT statement")
     tree = statements[0]["stmt"]
+    kind = kinds.get(next(iter(tree)))
+    if kind is None:
+        raise ValueError("expected one SELECT or INSERT statement")
     ctes = {node["CommonTableExpr"]["ctename"] for node in nodes(tree)
             if "CommonTableExpr" in node}
     tables, functions, columns = set(), set(), set()
+    if kind == "INSERT":
+        insert = tree["InsertStmt"]
+        relation = insert["relation"]
+        tables.add(relation.get("schemaname", "chat") + "." + relation["relname"])
+        columns.update(column["ResTarget"]["name"] for column in insert.get("cols", []))
+        conflict = insert.get("onConflictClause", {})
+        columns.update(target["ResTarget"]["name"] for target in conflict.get("targetList", []))
     for node in nodes(tree):
         if "RangeVar" in node:
             relation = node["RangeVar"]
@@ -42,7 +53,7 @@ def describe(sql):
             fields = node["ColumnRef"]["fields"]
             if all("String" in field for field in fields):
                 columns.add(".".join(names(fields)))
-    return {"kind": "SELECT", "tables": sorted(tables), "sequences": [],
+    return {"kind": kind, "tables": sorted(tables), "sequences": [],
             "functions": sorted(functions), "columns": sorted(columns)}
 
 
