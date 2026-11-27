@@ -17770,6 +17770,18 @@ value = "One. The rule. The stand-in of the case TestChainMeasurementTracksCommi
 basis = "Gotcha 5053."
 affects = []
 
+[decision.4110]
+title = "The chain fixture of the holdings service repeats a range that the epoch check refuses by its own bound, as the run loop of the indexer does; a case without chain and without database proves the repeat; the guard, its bound and the sources of the indexer do not change"
+value = "One. The rule. A call of the batch function in the fixture that ends with the refusal of the epoch check by its own bound, while the context of the fixture has not ended, is made again for the same range, gotcha 5054 points four and five. One range is repeated at most ten times, with a wait of one second before each repeat. The refusal is known by the text of the error: it holds the words restoration epoch fence rejected and the words context deadline exceeded. Two. Every other error ends the fixture at once, as today, and so does the error of the tenth repeat. The messages of the two places stay as they are. Three. The repeat is one function of the fixture file, pnlFixtureRange. It takes the context of the fixture, the wait, the limit of repeats, a function for its log lines and the call of one range as a function. Before each repeat it writes one log line with the number of the repeat and the text of the error. A context that ends during a wait ends the function with the error of the last call. Both places of the fixture call the batch function through it. Four. The case TestPnlCanonicalFixtureRepeatsARefusedRange of the fixture file. It uses no chain, no database and no variable of the environment, and a wait of one millisecond. It has four parts. A call that is refused twice and then passes: the function returns no error after three calls and two log lines. A call with another error: the function returns that error after one call. A call that is refused every time: the function returns the error of the last call after the limit plus one calls. A refused call under a context that has ended: one call and no repeat. Five. The case TestLocalCanonicalFixtureRepeatsARefusedRange of the package, in the new file local_canonical_repeat_test.go. The run pattern of the fixture names only the case TestPnlCanonicalFixture, so the start of the fixture never runs the case of point four. The new case takes the program from the loader that the fixture uses, so that one run of the package builds the program once, starts it with the run pattern of the case of point four, anchored at both ends, and asks for the end status 0 and for the pass line of that case in the output; a run of the program that started no case does not count as a pass. It needs no database and no chain. Six. Not done. The guard, its bound of 150 milliseconds, the store and the run loop of the indexer stay as they are; nothing outside services/launchpad/pnl-tracker/internal/production/l16 changes. No case that starts a chain is added. No case is skipped or marked. Seven. The proof by hand, after the change is complete, in a copy of the final revision that is not committed. In the copy the guard that the fixture hands to its store is wrapped so that one check inside the ranges returns the error of the bound once. The case TestLiveDenseCanonicalTransfersUseCommittedReceiptPages is run once: it passes, and the log of the program holds the line of one repeat. Then the wrap refuses every check from one range on, and the case is run once more: it fails with the message of the fixture after ten repeats. The task gives both results with the lines of the repeats. Eight. The verification runs the format check and the lint of the module, the whole package once, the new case of the package with its pass line counted, the case of the record twice, and reads the two new names in the fixture file. It does not reproduce a check that meets its bound; the next records of the public job decide whether the row passes, and a further cause that such a record shows gets a task of its own. "
+basis = "Gotcha 5054."
+affects = []
+
+[decision.4111]
+title = "The seven enrollment cases of the holdings service run as the parts of one case with one start of the fixture; no assertion changes; the verification runs the package with the race detector under the bound of the public job"
+value = "One. The rule. The file services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go holds one case, TestEnrollmentBusy. It calls the function enrollmentBusyFixture once and runs the seven cases of gotcha 5055 point three as its parts, in the order of the file. Each part carries the name of its case without the common head: UnchangedRowWritesNothing, NewExpiryWritesWhenFree, ReadPassesWithLiveAccount, WriteRefusedAndLogged, ReadRequiresLiveAccount, ErrorWrapsLockTimeout and StatementTimeoutRefused. The parts below three of them stay as they are: two methods (line 162), five methods (line 190) and three states (line 211). Two. The start of a part. The parts change the expiry of the row of the owner, the stored expiry of the session, the state of the enrollment and the account of the row. So every part begins with one helper of the file that brings the fixture into the state that the function enrollmentBusyFixture returns today: no hold on the row is open, the row is enrolled for the owner of the fixture with the account of that owner, and the principal of the part carries the expiry that the session stores at that moment. The helper runs at the start of a part and not at the end of the part before it, so that a part that fails does not fail the parts after it by what it left. Which values the helper sets back is read from the seven parts; where the enrollment does not set a value back by itself, the helper writes it over the admin connection of the fixture, as the cases write today. Three. Nothing is dropped. Every assertion of the seven cases stays with its values: the lock limit of 250 milliseconds (line 23), the status and the body of each answer, the one log line with its five fields, and the check that the log holds no identifier of the owner. No part is skipped or marked. No file outside services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go changes. Four. Not done. The fixture of the package, the bound of the public job and the workflow stay as they are. The other cases of the package, each of which starts its fixture by itself as before, are not changed by this task. Five. The verification. The format check and the lint of the module. Two counts in the file: the name enrollmentBusyFixture stands at two lines, the head of the function and its one call, and the name newLiveOwnerSessionFixture at one line. The package once with the race detector under a bound of 15 minutes, the bound of the public job. The case TestEnrollmentBusy in the verbose form with at least 17 pass lines of parts: the seven parts and the ten parts below them. Six. What the verification does not prove. The time of the package in the public job: a task run is not the public job, and gotcha 5055 shows the whole package at one revision after 778.258 seconds in a task run and after 850.373 and 896.092 seconds in the pass test of the public job. The next records of the public job decide. "
+basis = "Gotcha 5055."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47430,6 +47442,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1323]
+title = "Let the seven enrollment cases of the holdings service of the launchpad run as the parts of one case with one start of the fixture, so that the package fits the time bound of the public job again"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && test $(grep -c -e enrollmentBusyFixture internal/production/l16/enrollment_busy_test.go) -eq 2 && test $(grep -c -e newLiveOwnerSessionFixture internal/production/l16/enrollment_busy_test.go) -eq 1 && GOWORK=off go test -race -count=1 -timeout 15m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 15m -v -run ^TestEnrollmentBusy ./internal/production/l16/ | grep -c -e ---.PASS:.TestEnrollmentBusy/) -ge 17)"
+do_1 = "do_1 Gotcha 5055, decision 4111. Read whole: services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go and services/launchpad/pnl-tracker/internal/production/l16/live_owner_session_test.go. This task changes only services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go. The cases use a database and the chain program anvil; a run by hand needs them as the verification does."
+symbols = []
+
+[capability.22.39.1322]
+title = "Let the chain fixture of the holdings service of the launchpad repeat a range that the epoch check refuses by its own bound, as the run loop of the indexer does, and add a case for the repeat"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestLocalCanonicalFixtureRepeats ./internal/production/l16/ | grep -c -e ^---.PASS:.TestLocalCanonicalFixtureRepeats) -ge 1 && GOWORK=off go test -count=2 -timeout 20m -run ^TestLiveDenseCanonicalTransfersUseCommittedReceiptPages ./internal/production/l16/ && grep -e TestPnlCanonicalFixtureRepeatsARefusedRange internal/production/l16/testdata/local_canonical/indexer_test.go.overlay > /dev/null && grep -e pnlFixtureRange internal/production/l16/testdata/local_canonical/indexer_test.go.overlay > /dev/null)"
+do_1 = "do_1 Gotcha 5054, decision 4110. Read whole: services/launchpad/pnl-tracker/internal/production/l16/testdata/local_canonical/indexer_test.go.overlay and services/launchpad/pnl-tracker/internal/production/l16/local_canonical_program_test.go. Read in services/launchpad/pnl-tracker/internal/production/l16/local_canonical_test.go the function newLocalCanonicalFixture (line 45) up to its return, in services/launchpad/indexer/internal/processor/processor.go the run loop around line 313 and the batch function (line 341), in services/launchpad/indexer/internal/store/canonical.go lines 548 to 568, and in sdk/launchpad/shared/queue/queue.go the function Assert (line 99). This task changes only the fixture file and adds the file services/launchpad/pnl-tracker/internal/production/l16/local_canonical_repeat_test.go; the sources of the indexer and of the shared code are read only. The cases of the package that start the fixture use a database and the chain program anvil; a run by hand needs them as the verification does."
+symbols = []
 
 [capability.22.39.1321]
 title = "Let the stand-in of the chain measurement case of the shared launchpad code write its watermark with a context that does not end with the request, and add a case with a request that has ended"
@@ -215334,9 +215364,74 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1323]
+title = "Let the seven enrollment cases of the holdings service of the launchpad run as the parts of one case with one start of the fixture, so that the package fits the time bound of the public job again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1323"]
+interfaces = []
+do_1 = "do_1 Gotcha 5055, decision 4111. Read whole: services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go and services/launchpad/pnl-tracker/internal/production/l16/live_owner_session_test.go. This task changes only services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go. The cases use a database and the chain program anvil; a run by hand needs them as the verification does."
+do_2 = "do_2 The case, points one and three. Write the one case TestEnrollmentBusy that calls enrollmentBusyFixture once and runs the seven cases as parts with the names of point one, in the order of the file. Keep the bodies of the seven with every assertion. After the change the name enrollmentBusyFixture stands at exactly two lines of the file, the head of the function and its one call, and no comment names it; the name newLiveOwnerSessionFixture stands at one line. No other case of the package gets a name that begins with TestEnrollmentBusy."
+do_3 = "do_3 The helper, point two. Read what each of the seven parts changes and write the helper that every part calls first. A part that changes the principal it got works on a value of its own. A hold on the row that a part takes ends with that part, as the cleanup of the hold does today. Run the case several times in a row and once with the parts of the file in another order in a copy that is not committed, if time allows; the order of the final revision is the order of the file."
+do_4 = "do_4 Give in the final message the time of the package with the race detector from the verification and the time of the case TestEnrollmentBusy from its verbose run."
+do_5 = "do_5 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are part of the work of this task and are not left out; they are made with the commands themselves, they are not the counted runs and they use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./internal/production/l16/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && test $(grep -c -e enrollmentBusyFixture internal/production/l16/enrollment_busy_test.go) -eq 2 && test $(grep -c -e newLiveOwnerSessionFixture internal/production/l16/enrollment_busy_test.go) -eq 1 && GOWORK=off go test -race -count=1 -timeout 15m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 15m -v -run ^TestEnrollmentBusy ./internal/production/l16/ | grep -c -e ---.PASS:.TestEnrollmentBusy/) -ge 17)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1322]
+title = "Let the chain fixture of the holdings service of the launchpad repeat a range that the epoch check refuses by its own bound, as the run loop of the indexer does, and add a case for the repeat"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1322"]
+interfaces = []
+do_1 = "do_1 Gotcha 5054, decision 4110. Read whole: services/launchpad/pnl-tracker/internal/production/l16/testdata/local_canonical/indexer_test.go.overlay and services/launchpad/pnl-tracker/internal/production/l16/local_canonical_program_test.go. Read in services/launchpad/pnl-tracker/internal/production/l16/local_canonical_test.go the function newLocalCanonicalFixture (line 45) up to its return, in services/launchpad/indexer/internal/processor/processor.go the run loop around line 313 and the batch function (line 341), in services/launchpad/indexer/internal/store/canonical.go lines 548 to 568, and in sdk/launchpad/shared/queue/queue.go the function Assert (line 99). This task changes only the fixture file and adds the file services/launchpad/pnl-tracker/internal/production/l16/local_canonical_repeat_test.go; the sources of the indexer and of the shared code are read only. The cases of the package that start the fixture use a database and the chain program anvil; a run by hand needs them as the verification does."
+do_2 = "do_2 The function, points one to three. Add pnlFixtureRange to the fixture file and let the two calls of the batch function (lines 186 and 248) go through it, with a wait of one second and a limit of ten repeats. The message of line 187 and the end of the case at the second place stay. The log lines of the repeats go to the log of the case of the fixture, so that they stand in the log of the program."
+do_3 = "do_3 The case of the fixture file, point four. Add TestPnlCanonicalFixtureRepeatsARefusedRange to the fixture file with the four parts of point four. It reads no variable of the environment and starts no chain: the program runs it without the variables of the fixture."
+do_4 = "do_4 The case of the package, point five. Add services/launchpad/pnl-tracker/internal/production/l16/local_canonical_repeat_test.go with the case TestLocalCanonicalFixtureRepeatsARefusedRange. Take the program from the loader (function load, line 42 of services/launchpad/pnl-tracker/internal/production/l16/local_canonical_program_test.go, as line 57 of services/launchpad/pnl-tracker/internal/production/l16/local_canonical_test.go does), with an environment that holds the environment of the process and GOWORK=off. Start it from the directory of the processor package of the indexer, as the fixture does, with the flags test.count=1 and test.v and the run pattern of point five, and assert the end status and the pass line. Say in the final message how long the build of the program and the run of the case took."
+do_5 = "do_5 The proof, point seven. After the change is complete make the copy of point seven, run the case TestLiveDenseCanonicalTransfersUseCommittedReceiptPages there in both forms and give both results with the lines of the repeats. The copy is not committed."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are part of the work of this task and are not left out; they are made with the commands themselves, they are not the counted runs and they use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+planned_paths = ["services/launchpad/pnl-tracker/internal/production/l16/local_canonical_repeat_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./internal/production/l16/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestLocalCanonicalFixtureRepeats ./internal/production/l16/ | grep -c -e ^---.PASS:.TestLocalCanonicalFixtureRepeats) -ge 1 && GOWORK=off go test -count=2 -timeout 20m -run ^TestLiveDenseCanonicalTransfersUseCommittedReceiptPages ./internal/production/l16/ && grep -e TestPnlCanonicalFixtureRepeatsARefusedRange internal/production/l16/testdata/local_canonical/indexer_test.go.overlay > /dev/null && grep -e pnlFixtureRange internal/production/l16/testdata/local_canonical/indexer_test.go.overlay > /dev/null)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1321]
 title = "Let the stand-in of the chain measurement case of the shared launchpad code write its watermark with a context that does not end with the request, and add a case with a request that has ended"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -215368,7 +215463,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1320]
 title = "Let the round trip case of the rewards of the holdings service count its upper bound from the entry of the first read that hangs, and add a case with slow reads before that read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
