@@ -1,12 +1,23 @@
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 const repository = fileURLToPath(new URL('../../../../../', import.meta.url));
+
+async function buildProducer(cwd, overlay, packagePath, env = process.env) {
+  try {
+    await promisify(execFile)('go', ['test', `-overlay=${overlay}`, '-count=1', '-run=^$', `./${packagePath}`], {
+      cwd, env, timeout: 600000, maxBuffer: 8 * 1024 * 1024,
+    });
+  } catch (error) {
+    throw new Error(`Producer fetch and build failed: ${error.message}\n${error.stdout ?? ''}${error.stderr ?? ''}`, { cause: error });
+  }
+}
 
 export async function startProducer(module, packagePath, source, testName, env = {}) {
   const directory = mkdtempSync(join(tmpdir(), 'sdk-producer-'));
@@ -15,6 +26,8 @@ export async function startProducer(module, packagePath, source, testName, env =
   writeFileSync(overlay, JSON.stringify({ Replace: {
     [resolve(cwd, packagePath, 'sdk_producer_test.go')]: fileURLToPath(new URL(source, import.meta.url)),
   } }));
+  try { await buildProducer(cwd, overlay, packagePath, { ...process.env, ...env }); }
+  catch (error) { rmSync(directory, { recursive: true, force: true }); throw error; }
   const child = spawn('go', ['test', `-overlay=${overlay}`, '-count=1', '-v', `-run=^${testName}$`, `./${packagePath}`], {
     cwd, env: { ...process.env, ...env }, stdio: ['pipe', 'pipe', 'pipe'],
   });
@@ -70,8 +83,7 @@ export async function readProducerCases(module, packagePath, source, testName) {
     [resolve(cwd, packagePath, 'sdk_answers_test.go')]: fileURLToPath(new URL(source, import.meta.url)),
   } }));
   try {
-    const { execFile } = await import('node:child_process');
-    const { promisify } = await import('node:util');
+    await buildProducer(cwd, overlay, packagePath);
     const { stdout } = await promisify(execFile)('go', ['test', `-overlay=${overlay}`, '-count=1', '-v', `-run=^${testName}$`, `./${packagePath}`], { cwd, timeout: 120000, maxBuffer: 8 * 1024 * 1024 });
     const records = stdout.split('\n').filter(line => line.startsWith('SDK_SERVICE ')).map(line => JSON.parse(line.slice('SDK_SERVICE '.length)));
     assert.ok(records.length > 0);
