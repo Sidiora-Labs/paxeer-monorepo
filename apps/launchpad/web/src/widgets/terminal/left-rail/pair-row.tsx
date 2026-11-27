@@ -1,4 +1,6 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
+
 import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { AtSign, Globe, MessageCircle, Send, Users, type LucideIcon } from 'lucide-react';
@@ -25,7 +27,7 @@ export function PairRow({ row, active, now }: PairRowProps) {
       data-pool={row.poolAddress}
       className={cn('sl-hairline relative flex min-h-11 items-center gap-2 px-2 transition-colors duration-fast', active ? 'bg-surface-3' : 'bg-surface-1 hover:bg-surface-hover', change.value !== null && change.value !== 0 && (change.value > 0 ? 'sl-row-wash-up' : 'sl-row-wash-down'))}
     >
-      <Avatar src={row.image} name={row.name} size="md" shape="square" decorative badge={row.stage ? <StageBadge stage={row.stage} size={14} decorative surface={active ? 3 : 1} /> : undefined} />
+      <Avatar src={row.image} name={row.name} size="md" shape="square" decorative badge={row.stage ? <StageBadge stage={row.stage} size={launchpadGeometry.smallBadge} decorative surface={active ? 3 : 1} /> : undefined} />
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-0.5">
         <div className="flex min-w-0 items-baseline gap-1.5">
           <Link prefetch={false}

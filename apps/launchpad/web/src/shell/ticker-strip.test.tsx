@@ -246,7 +246,7 @@ describe('shell reads against a real HTTP origin that answers a transient failur
     expect(served.paths).toContain(`GET ${PLATFORM}?window=24h`);
     expect(served.paths.some(path => path.startsWith('GET /platform/metrics'))).toBe(false);
     const values = Object.fromEntries(Array.from(container.querySelectorAll('dl[aria-label="Platform activity"] > div')).map(row => [row.querySelector('dt')?.textContent, row.querySelector('dd')]));
-    expect(values['24h volume']?.textContent).toBe('1.25K USDL');
+    expect(values['24h volume']?.textContent).toBe('$1.25K');
     expect(values['24h traders']?.textContent).toBe('7');
     expect(values['Coins launched']?.textContent).toBe('12');
     // A producer older than 2.2.0 sends none of these: the unavailable treatment, never a number.
@@ -263,7 +263,7 @@ describe('shell reads against a real HTTP origin that answers a transient failur
     const { container } = mount(<PlatformMetricsFooter />);
     await waitFor(() => container.querySelector('dl[aria-label="Platform activity"]:not([aria-busy="true"])') !== null);
     const values = Object.fromEntries(Array.from(container.querySelectorAll('dl[aria-label="Platform activity"] > div')).map(row => [row.querySelector('dt')?.textContent, row.querySelector('dd')?.textContent]));
-    expect(values).toEqual({ '24h volume': '147.28 USDL', 'Market cap': '10.1K USDL', '24h trades': '2', '24h traders': '1', 'Coins launched': '2', 'New today': '1' });
+    expect(values).toEqual({ '24h volume': '$147.28', 'Market cap': '$10.1K', '24h trades': '2', '24h traders': '1', 'Coins launched': '2', 'New today': '1' });
     expect(container.querySelector('[data-unavailable]')).toBeNull();
   });
 
@@ -272,7 +272,7 @@ describe('shell reads against a real HTTP origin that answers a transient failur
     const { container } = mount(<PlatformMetricsFooter />);
     await waitFor(() => container.querySelector('dl[aria-label="Platform activity"]:not([aria-busy="true"])') !== null);
     const values = Object.fromEntries(Array.from(container.querySelectorAll('dl[aria-label="Platform activity"] > div')).map(row => [row.querySelector('dt')?.textContent, row.querySelector('dd')]));
-    expect(values['Market cap']?.textContent).toBe('9K USDL');
+    expect(values['Market cap']?.textContent).toBe('$9K');
     expect(values['24h trades']?.textContent).toBe('42');
     expect(values['New today']?.textContent).toBe('3');
     expect(container.querySelector('[data-unavailable]')).toBeNull();

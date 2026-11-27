@@ -15,8 +15,7 @@
  *   has no trade yet, so the cell shows an em dash with that reason, never 0.
  *   `spotPriceUsdlRaw` (6 decimals) is too coarse for sub-cent coins and is
  *   not used for display.
- * - Market cap is `totalSupplyValuationUsdlRaw` (price x total supply, the
- *   pump.fun "market cap"); `circulatingMarketCapUsdlRaw` is the secondary
+ * - Market cap is `totalSupplyValuationUsdlRaw` (price x total supply); `circulatingMarketCapUsdlRaw` is the secondary
  *   value. Both are null when `supplyValuationQuality` is `unavailable`.
  * - `top10HolderShareBps` / `creatorHoldingShareBps`: basis points of circulating
  *   supply under `supply_minus_pool_reserve_v1`, converted to shares of total

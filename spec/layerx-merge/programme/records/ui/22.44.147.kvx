@@ -1,0 +1,140 @@
+[meta]
+task = "22.44.147"
+product = "Sidiora launchpad"
+brief = "spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md"
+
+[presentation]
+shared_forms = "Option rows, trading capability states, market table presentation and paired-bar placeholders use shared primitives."
+money = "Market values use the dollar sign; quote-token amounts paid, received, held or claimed retain USDL, their scale, precision and compact form."
+holders = "Named and unnamed holder rows keep whole column headings, middle-shortened one-line addresses and one-line figures; the table scrolls within its region at phone widths."
+stats = "The buyers and sellers frame is absent. The daily buy and sell count placeholder appears only while daily statistics load; known counts retain their bar, aggregate trades retain their line, and volume retains its waiting form."
+profile = "Profile tab controls and data placeholders arrive together after the route waiting state; an empty replies list uses the neutral form."
+swap_settings = "The device-storage notice uses the primary text colour on the floating settings surface."
+tokens = "Intrinsic image dimensions, badge sizes, chart strokes and view proportions use presentation roles."
+brief_values = "Dark faint text uses #9f9faa and control edges use #81818e; text-link labels may wrap."
+floating_actions = "Opaque phone creation actions remain above navigation, with room for focused form controls and footer links to scroll into view."
+
+[availability]
+explore = "Historical all-time-high progress where no source supplies it."
+coin = "Holder profit, average entry, amount bought and profit filters; all-time-high market value for pools without complete daily history."
+home = "Screener fee, sniper and bundle figures."
+terminal = "Historical all-time-high market value, accumulated fees and graduation progress where no source supplies them."
+
+[views.home]
+home = "home; sections 1, 2, 3, 4, 5 and 7; default; search-dialog, sign-in-dialog, paste-address-dialog, search-filled, callouts-tab, top-tab. Coins first at phone widths; flush board columns on wide screens, direction washes and neutral first states."
+first_visit = "home; sections 1, 2, 3, 4, 5 and 7; default; cookie-consent, cookie-accepted. Coins first at phone widths; flush board columns on wide screens, direction washes and neutral first states."
+home_empty = "home; sections 1, 2, 3, 4, 5 and 7; empty; callouts-empty, top-empty. Coins first at phone widths; flush board columns on wide screens, direction washes and neutral first states."
+home_error = "home; sections 1, 2, 3, 4, 5 and 7; failed read. Coins first at phone widths; flush board columns on wide screens, direction washes and neutral first states."
+home_loading = "home; sections 1, 2, 3, 4, 5 and 7; loading. Coins first at phone widths; flush board columns on wide screens, direction washes and neutral first states."
+auth_callback = "home; sections 1, 2, 3, 4, 5 and 7; default. Coins first at phone widths; flush board columns on wide screens, direction washes and neutral first states."
+new = "home; sections 1, 2, 3, 4, 5 and 7; default. Coins first at phone widths; flush board columns on wide screens, direction washes and neutral first states."
+not_found = "home; sections 1, 2, 3, 4, 5 and 7; default. Coins first at phone widths; flush board columns on wide screens, direction washes and neutral first states."
+
+[views.community]
+bounties = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+bounties_empty = "community; sections 1, 2, 3, 4, 5 and 7; empty. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+bounties_error = "community; sections 1, 2, 3, 4, 5 and 7; failed read. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+bounties_loading = "community; sections 1, 2, 3, 4, 5 and 7; loading. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+bounties_bountyId = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+bounties_new = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+chat = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+chat_conversationId = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+docs = "community; sections 1, 2, 3, 4, 5 and 7; default; colour-mode-open. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+docs_dmca = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+docs_do_not_sell = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+docs_privacy = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+docs_terms = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+docs_trademark_guidelines = "community; sections 1, 2, 3, 4, 5 and 7; default. Neutral panels, hairline lists, shared labels and controls, inverse sign-in and selectable colour mode."
+
+[views.coin]
+coin_address = "coin; sections 1, 2, 3, 4, 5 and 7; default; trades, about, callouts, chart-options. Coin identity and market figures above the chart, quiet tools, activity tabs and neutral side panels."
+coin_holders = "coin; sections 1, 2, 3, 4, 5 and 7; named and unnamed holders. Coin identity and market figures above the chart, quiet tools, activity tabs and neutral side panels."
+coin_0x1111111111111111111111111111111111111111_empty = "coin; sections 1, 2, 3, 4, 5 and 7; empty. Coin identity and market figures above the chart, quiet tools, activity tabs and neutral side panels."
+coin_0x1111111111111111111111111111111111111111_error = "coin; sections 1, 2, 3, 4, 5 and 7; failed read. Coin identity and market figures above the chart, quiet tools, activity tabs and neutral side panels."
+coin_0x1111111111111111111111111111111111111111_loading = "coin; sections 1, 2, 3, 4, 5 and 7; loading. Coin identity and market figures above the chart, quiet tools, activity tabs and neutral side panels."
+token = "coin; sections 1, 2, 3, 4, 5 and 7; default. Coin identity and market figures above the chart, quiet tools, activity tabs and neutral side panels."
+token_poolAddress = "coin; sections 1, 2, 3, 4, 5 and 7; default. Coin identity and market figures above the chart, quiet tools, activity tabs and neutral side panels."
+tokens_tokenAddress_metadata = "coin; sections 1, 2, 3, 4, 5 and 7; default. Coin identity and market figures above the chart, quiet tools, activity tabs and neutral side panels."
+
+[views.create]
+create = "create; sections 1, 2, 3, 4, 5 and 7; default; draft-filled, social-links, fee-strategies, pair-open. Labelled fields and shared option rows beside the preview, with the summary and action above phone navigation."
+create_chain = "create; sections 1, 2, 3, 4, 5 and 7; default; names-filled, name-validation, fee-strategies, connect-wallet, pair-open. Labelled fields and shared option rows beside the preview, with the summary and action above phone navigation."
+
+[views.explore]
+explore = "explore; sections 1, 2, 3, 4, 5 and 7; default; filter-panel, column-menu, grid. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_breakout = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_empty = "explore; sections 1, 2, 3, 4, 5 and 7; empty. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_error = "explore; sections 1, 2, 3, 4, 5 and 7; failed read. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_loading = "explore; sections 1, 2, 3, 4, 5 and 7; loading. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_mcap = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_new = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_trending = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_unusual = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+explore_volume = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+search = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+search_q_science_empty = "explore; sections 1, 2, 3, 4, 5 and 7; empty. One row of presets and controls above flat coin rows or cards with aligned market figures."
+search_q_science_error = "explore; sections 1, 2, 3, 4, 5 and 7; failed read. One row of presets and controls above flat coin rows or cards with aligned market figures."
+search_q_science_loading = "explore; sections 1, 2, 3, 4, 5 and 7; loading. One row of presets and controls above flat coin rows or cards with aligned market figures."
+watchlist = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+search_q_science = "explore; sections 1, 2, 3, 4, 5 and 7; default. One row of presets and controls above flat coin rows or cards with aligned market figures."
+
+[views.rewards]
+holder_rewards = "rewards; sections 1, 2, 3, 4, 5 and 7; default; grid, filters, sort. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+holder_rewards_empty = "rewards; sections 1, 2, 3, 4, 5 and 7; empty. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+holder_rewards_error = "rewards; sections 1, 2, 3, 4, 5 and 7; failed read. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+holder_rewards_loading = "rewards; sections 1, 2, 3, 4, 5 and 7; loading. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+leaderboard = "rewards; sections 1, 2, 3, 4, 5 and 7; default. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+leaderboard_callouts = "rewards; sections 1, 2, 3, 4, 5 and 7; default. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+leaderboard_empty = "rewards; sections 1, 2, 3, 4, 5 and 7; empty. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+leaderboard_error = "rewards; sections 1, 2, 3, 4, 5 and 7; failed read. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+leaderboard_loading = "rewards; sections 1, 2, 3, 4, 5 and 7; loading. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+leaderboard_month = "rewards; sections 1, 2, 3, 4, 5 and 7; default. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+leaderboard_rewards = "rewards; sections 1, 2, 3, 4, 5 and 7; default. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+leaderboard_week = "rewards; sections 1, 2, 3, 4, 5 and 7; default. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+r_shortCode = "rewards; sections 1, 2, 3, 4, 5 and 7; referral destination. Home opens on the loaded Coins tab at narrow widths and the loaded coin, callout and ranking board at wider widths."
+rewards = "rewards; sections 1, 2, 3, 4, 5 and 7; default. Hairline ranking rows, rank colours, exact reward amounts and inverse sign-in actions."
+
+[views.live]
+live = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+live_empty = "live; sections 1, 2, 3, 4, 5 and 7; empty. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+live_error = "live; sections 1, 2, 3, 4, 5 and 7; failed read. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+live_loading = "live; sections 1, 2, 3, 4, 5 and 7; loading. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+live_all = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+live_all_empty = "live; sections 1, 2, 3, 4, 5 and 7; empty. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+live_all_error = "live; sections 1, 2, 3, 4, 5 and 7; failed read. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+live_all_loading = "live; sections 1, 2, 3, 4, 5 and 7; loading. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+pnl_expired = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+pnl_missing = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+pnl_error = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+pnl_cardId = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+profile = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+profile_walletAddress = "live; sections 1, 2, 3, 4, 5 and 7; default; wallets-open, chart-collapsed. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+profile_0x4444444444444444444444444444444444444444_empty = "live; sections 1, 2, 3, 4, 5 and 7; empty. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+profile_0x4444444444444444444444444444444444444444_error = "live; sections 1, 2, 3, 4, 5 and 7; failed read. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+profile_0x4444444444444444444444444444444444444444_loading = "live; sections 1, 2, 3, 4, 5 and 7; loading. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+profile_activity = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+profile_closed = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+profile_replies = "live; sections 1, 2, 3, 4, 5 and 7; default. Neutral profile, stream and profit-card panels with aligned figures and compact availability forms."
+
+[views.terminal]
+meta_ag_orders = "terminal; sections 1, 2, 3, 4, 5 and 7; default. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+meta_ag_swap = "terminal; sections 1, 2, 3, 4, 5 and 7; default. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+swap = "terminal; sections 1, 2, 3, 4, 5 and 7; default; settings, coin-selector. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal = "terminal; sections 1, 2, 3, 4, 5 and 7; default; layout-menu, settings-menu. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_coin = "terminal; sections 1, 2, 3, 4, 5 and 7; default; positions, orders, top-traders, creator-coins. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_portfolio = "terminal; sections 1, 2, 3, 4, 5 and 7; default. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_rewards = "terminal; sections 1, 2, 3, 4, 5 and 7; default. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_track = "terminal; sections 1, 2, 3, 4, 5 and 7; default. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_trenches = "terminal; sections 1, 2, 3, 4, 5 and 7; default. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_slug = "terminal; sections 1, 2, 3, 4, 5 and 7; default. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_empty = "terminal; sections 1, 2, 3, 4, 5 and 7; empty. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_error = "terminal; sections 1, 2, 3, 4, 5 and 7; failed read. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+terminal_loading = "terminal; sections 1, 2, 3, 4, 5 and 7; loading. Flush workspace regions, shared market tables, labelled trade fields, quiet tools and aligned figures."
+
+[coverage]
+views = 95
+named_states = 40
+render_cases = 4590
+comparison_widths = [390, 834, 1440, 1920]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]

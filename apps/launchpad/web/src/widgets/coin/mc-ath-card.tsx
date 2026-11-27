@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import type { PoolStats } from '@/core/market/pool-resolver';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { statsCirculatingMarketCap, statsMarketCap } from '@/core/market/pool-stats-display';
 import { StatDash } from '@/ui/shared/stat-value';
 import { allTimeHighMarketCap } from '@/core/market/all-time-high';
@@ -24,7 +24,7 @@ export default function McAthCard({ poolAddress, liveStats }: { poolAddress: str
   // Market cap is price x total supply (PoolStats.totalSupplyValuationUsdlRaw).
   const mcapStat = statsMarketCap(stats);
   const circulating = statsCirculatingMarketCap(stats).value;
-  const mcap = mcapStat.value === null ? null : formatUsdl(mcapStat.value, { compact: true });
+  const mcap = mcapStat.value === null ? null : formatCompactUsd(mcapStat.value, { raw: true, compact: true });
   const loading = snapshot.isPending && !stats;
   const history = useAllTimeHigh(poolAddress, snapshot.data?.createdAt, inView);
   const token = snapshot.data?.token;
@@ -35,7 +35,7 @@ export default function McAthCard({ poolAddress, liveStats }: { poolAddress: str
   const ath = high === null ? null : history.data?.status === 'no_candles' ? high : peak.current.value;
   const athLoading = snapshot.isPending || (history.covered && history.isPending);
   const showAth = athLoading || ath !== null;
-  const athLabel = ath === null ? null : formatUsdl(BigInt(Math.round(ath * 1e6)), { compact: true });
+  const athLabel = ath === null ? null : formatCompactUsd(BigInt(Math.round(ath * 1e6)), { raw: true, compact: true });
   const current = mcapStat.value === null ? null : Number(mcapStat.value) / 1e6;
   const share = ath !== null && current !== null ? (ath > 0 ? Math.min(100, Math.max(0, current / ath * 100)) : 100) : null;
   const shareLabel = share === null ? null : share > 0 && share < 0.01 ? 'less than 0.01' : String(Number(share.toFixed(2)));
@@ -49,7 +49,7 @@ export default function McAthCard({ poolAddress, liveStats }: { poolAddress: str
             {loading
               ? <span aria-hidden="true" className="sl-skeleton inline-block h-3.5 w-12 align-middle" />
               : mcap !== null
-                ? <span title={circulating ? `Circulating market cap ${formatUsdl(circulating, { compact: true })}` : undefined}>{mcap}</span>
+                ? <span title={circulating ? `Circulating market cap ${formatCompactUsd(circulating, { raw: true, compact: true })}` : undefined}>{mcap}</span>
                 : stats ? <StatDash reason={mcapStat.reason ?? 'Market cap not available yet'} subject="Market cap" align="start" /> : '—'}
           </dd>
         </div>

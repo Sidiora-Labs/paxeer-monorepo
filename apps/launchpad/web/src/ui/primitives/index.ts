@@ -23,3 +23,6 @@ export { ProgressLine, OptionRow, Panel } from './forms';
 export type { OptionRowProps, PanelProps } from './forms';
 export { Sheet } from './sheet';
 export { UnderlineTabs as TextTabs } from './controls';
+export { CapabilityState } from './capability-state';
+export { MarketTable } from './market-table';
+export { PairedBarPlaceholder } from './paired-bar-placeholder';

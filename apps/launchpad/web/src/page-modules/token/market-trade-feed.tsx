@@ -86,7 +86,7 @@ export function MarketTradeFeed({ pool, token, rows, watermark, contiguous, expl
             return <tr data-market-trade-key={key} style={{ height: rowHeight }} key={key} className={`border-b border-surface-3 transition-colors hover:bg-surface-hover ${row.side === 'buy' ? 'sl-row-wash-up' : 'sl-row-wash-down'} ${previous.current.length > 0 && !previous.current.includes(key) ? 'coin-trade-arrival' : ''}`}>
               <td className="min-w-0"><Link prefetch={false} href={`/profile/${row.sender}`} className="inline-flex min-w-0 flex-col rounded-xs font-mono text-xs text-text hover:underline" title={row.sender}>{shortAddress(row.sender)}{recipient ? <span className="text-2xs text-text-faint">to {recipient}</span> : null}</Link></td>
               <td className={row.side === 'buy' ? 'font-semibold capitalize text-percent-up' : 'font-semibold capitalize text-percent-down'}>{row.side}</td>
-              <td data-numeric className="text-right tabular-nums text-text">{formatUsdl(row.usdlAmountRaw, { unit: false })}</td>
+              <td data-numeric className="text-right tabular-nums text-text">{formatUsdl(row.usdlAmountRaw)}</td>
               <td data-numeric className="text-right tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.tokenAmountRaw, decimals)}</td>
               <td data-numeric className="text-right tabular-nums text-text-muted">{decimals === null ? <span className="text-text-faint">—</span> : exactRatio((BigInt(row.usdlAmountRaw) * 10n ** BigInt(decimals)).toString(), (BigInt(row.tokenAmountRaw) * 1000000n).toString())}</td>
               <td data-numeric className="font-mono text-xs tabular-nums text-text-muted">{row.position.height}</td>

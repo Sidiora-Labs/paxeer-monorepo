@@ -8,7 +8,7 @@ import { technicalDetail } from '@/core/user-facing-error';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import type { Unsupported } from '@/core/market/unsupported';
 import { Avatar, Skeleton, Tooltip } from '@/ui/primitives';
-import { formatUsdl, shortAddress } from '@/utils/format';
+import { shortAddress, formatCompactUsd } from '@/utils/format';
 import { marketCapRaw, type PoolStats } from './callout-model';
 
 export type EmbeddedStatsState =
@@ -77,7 +77,7 @@ export function EmbeddedCoinCard({ poolAddress, stats, positionDisclosure, posit
           <Skeleton width={surfaceSpacing(14)} className="h-3.5" />
         ) : (
           <span data-numeric className={cn('text-num-sm font-bold tabular-nums', mcap ? 'text-text' : 'text-text-faint')} title={stats.state === 'unsupported' ? 'Market cap is not available yet' : stats.state === 'error' ? "Can't load market cap right now" : undefined} data-operation={stats.state === 'unsupported' ? technicalDetail(stats.operation, stats.status) ?? undefined : undefined}>
-            {mcap ? formatUsdl(mcap, { compact: true }) : '—'}
+            {mcap ? formatCompactUsd(mcap, { raw: true, compact: true }) : '—'}
           </span>
         )}
       </span>

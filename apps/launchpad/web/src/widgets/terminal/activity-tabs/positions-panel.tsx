@@ -3,7 +3,7 @@ import { useSyncExternalStore, type ReactNode } from 'react';
 import { LogIn, Wallet } from 'lucide-react';
 import { Avatar, Button, EmptyState, ErrorState, LoadMore, SortHeader, Skeleton, UnavailableState } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
-import { formatTokenAmount, formatUsdl } from '@/utils/format';
+import { formatTokenAmount, formatCompactUsd } from '@/utils/format';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { isSignedOutError } from '@/core/market/unsupported';
 import { SignedOutState } from '@/ui/shared/signed-out-state';
@@ -64,10 +64,10 @@ export function PositionsTable({ positions, token, symbol, empty }: PositionsTab
                   </span>
                 </td>
                 <td data-numeric className="text-right tabular-nums text-text">{decimals === null ? <span className="text-text-faint" title="Not available yet">-</span> : formatTokenAmount(position.balanceRaw, decimals)}</td>
-                <td data-numeric className="text-right tabular-nums text-text">{position.remainingCostUsdlRaw === null ? <span className="text-text-faint" title={`At least ${formatUsdl(position.knownRemainingCostUsdlRaw)}, some buys are missing`}>-</span> : formatUsdl(position.remainingCostUsdlRaw)}</td>
-                <td data-numeric className={cn('text-right tabular-nums', signedTone(position.realizedPnlRaw))}>{position.realizedPnlRaw === null ? <span title="Not available yet">-</span> : formatUsdl(position.realizedPnlRaw, { signed: true })}</td>
-                <td data-numeric className={cn('text-right tabular-nums', signedTone(position.unrealizedPnlRaw))}>{position.unrealizedPnlRaw === null ? <span title="No price yet">-</span> : formatUsdl(position.unrealizedPnlRaw, { signed: true })}</td>
-                <td data-numeric className="text-right tabular-nums text-text">{value === null ? <span className="text-text-faint" title="No price yet">-</span> : formatUsdl(value)}</td>
+                <td data-numeric className="text-right tabular-nums text-text">{position.remainingCostUsdlRaw === null ? <span className="text-text-faint" title={`At least ${formatCompactUsd(position.knownRemainingCostUsdlRaw, { raw: true })}, some buys are missing`}>-</span> : formatCompactUsd(position.remainingCostUsdlRaw, { raw: true })}</td>
+                <td data-numeric className={cn('text-right tabular-nums', signedTone(position.realizedPnlRaw))}>{position.realizedPnlRaw === null ? <span title="Not available yet">-</span> : formatCompactUsd(position.realizedPnlRaw, { raw: true, signed: true })}</td>
+                <td data-numeric className={cn('text-right tabular-nums', signedTone(position.unrealizedPnlRaw))}>{position.unrealizedPnlRaw === null ? <span title="No price yet">-</span> : formatCompactUsd(position.unrealizedPnlRaw, { raw: true, signed: true })}</td>
+                <td data-numeric className="text-right tabular-nums text-text">{value === null ? <span className="text-text-faint" title="No price yet">-</span> : formatCompactUsd(value, { raw: true })}</td>
               </tr>
             );
           })}

@@ -5,7 +5,7 @@ import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import { ArrowDownRight, ArrowDownToLine, ArrowUpRight, ChartNoAxesCombined, ChevronDown, CircleDollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, Chip, EmptyState, IconButton, SegmentedControl, Skeleton, UnavailableState } from '@/ui/primitives';
-import { formatPercent, formatUsdl } from '@/utils/format';
+import { formatPercent, formatCompactUsd } from '@/utils/format';
 import { openAccountMenu } from '@/shell/account-menu-store';
 import { isSignedOutError } from '@/core/market/unsupported';
 import { SignedOutState } from '@/ui/shared/signed-out-state';
@@ -63,7 +63,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
   const partialValue = !!summary && summary.completeValueUsdlRaw === null;
   const decimals = portfolio.loadable.state === 'ready' ? portfolio.loadable.data.decimals : 6;
   const quote = portfolio.loadable.state === 'ready' ? portfolio.loadable.data.quoteAsset : 'USDL';
-  const amount = valueRaw !== null ? splitAmount(formatUsdl(valueRaw, { decimals, unit: false })) : null;
+  const amount = valueRaw !== null ? splitAmount(formatCompactUsd(valueRaw, { raw: true, decimals})) : null;
   const chartId = `${useId()}-portfolio-chart`;
   const valueFailed = portfolio.loadable.state === 'error' && !issue && !(owner && isSignedOutError(portfolio.loadable.error));
   const historyFailed = history.state === 'error' && !historyIssue && !(owner && isSignedOutError(history.error));
@@ -85,7 +85,6 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
                 <span className="text-2xl font-bold">{amount.integer}</span>
                 {amount.fraction ? <span className="text-lg font-semibold text-text-muted">{amount.fraction}</span> : null}
               </MaskedAmount>
-              <span className="ml-1.5 text-sm font-semibold text-text-faint">{quote}</span>
             </p>
           ) : issue ? (
             <PortfolioIssueState issue={issue} variant="inline" className="max-w-md" />
@@ -105,7 +104,7 @@ export function PortfolioBlock({ wallet, isOwner, className, notice }: Portfolio
             ) : delta ? (
               <>
                 <MaskedAmount className={cn('inline-flex items-center gap-1 rounded-xs px-1.5 py-0.5 text-num-sm tabular-nums', deltaClass[delta.tone])}>
-                  {delta.tone === 'gain' ? <ArrowUpRight aria-hidden="true" className="size-3" /> : delta.tone === 'loss' ? <ArrowDownRight aria-hidden="true" className="size-3" /> : null}{formatUsdl(delta.absRaw, { decimals, signed: true })}{delta.pct !== null ? ` (${formatPercent(delta.pct)})` : ''}
+                  {delta.tone === 'gain' ? <ArrowUpRight aria-hidden="true" className="size-3" /> : delta.tone === 'loss' ? <ArrowDownRight aria-hidden="true" className="size-3" /> : null}{formatCompactUsd(delta.absRaw, { raw: true, decimals, signed: true })}{delta.pct !== null ? ` (${formatPercent(delta.pct)})` : ''}
                 </MaskedAmount>
                 <span className="text-xs text-text-faint">{range}</span>
               </>

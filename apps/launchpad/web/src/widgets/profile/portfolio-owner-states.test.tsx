@@ -158,8 +158,8 @@ describe('owner portfolio on the production routes', () => {
     const view = mount(<PositionsOpenClosed wallet={me} mode="open" isOwner />);
     await waitFor(() => view.container.querySelectorAll('ul[aria-label="Open positions"] > li').length === 1);
     const row = view.container.querySelector('ul[aria-label="Open positions"] > li')?.textContent ?? '';
-    expect(row).toContain('3.00 USDL');
-    expect(row).toContain('+0.50 USDL');
+    expect(row).toContain('$3.00');
+    expect(row).toContain('+$0.50');
     const read = ownerReads().find(entry => entry.url === '/v3/me/portfolio?limit=50');
     expect(read?.headers.authorization).toBe('Bearer access-fresh');
     expect(read?.headers.cookie).toBeUndefined();
@@ -171,7 +171,7 @@ describe('owner portfolio on the production routes', () => {
     signIn('access-fresh');
     const view = mount(<TopTrades wallet={me} isOwner />);
     await waitFor(() => view.container.querySelectorAll('ol[aria-label="Top trades"] > li').length === 1);
-    expect(view.container.textContent).toContain('-1.20 USDL');
+    expect(view.container.textContent).toContain('-$1.20');
     unmount(view);
   });
 
@@ -182,7 +182,7 @@ describe('owner portfolio on the production routes', () => {
     const labels = Array.from(view.container.querySelectorAll('dt')).map(node => node.textContent);
     expect(labels).toEqual(['Value', 'Remaining', 'Realized', 'Total PNL']);
     const values = Array.from(view.container.querySelectorAll('dd')).map(node => node.textContent);
-    expect(values).toEqual(['3.00', '2.50', '+0.40', '+0.90']);
+    expect(values).toEqual(['$3.00', '$2.50', '+$0.40', '+$0.90']);
     expect(assertControlEdges(view.container.innerHTML)).not.toMatch(BORDER);
     unmount(view);
   });

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useId, useState, type HTMLAttributes, type ReactNode } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ProgressBar } from './data';
+import { DisclosureRow } from './states';
 
 export function ProgressLine({ label, value, className }: {
   label: string;
@@ -22,6 +22,9 @@ export function ProgressLine({ label, value, className }: {
 }
 
 export interface OptionRowProps {
+  id?: string;
+  failed?: boolean;
+  defaultOpen?: boolean;
   label: string;
   choice: ReactNode;
   children: ReactNode;
@@ -30,29 +33,26 @@ export interface OptionRowProps {
   className?: string;
 }
 
-export function OptionRow({ label, choice, children, error, disabled, className }: OptionRowProps) {
-  const [open, setOpen] = useState(Boolean(error));
-  const id = useId();
-  useEffect(() => { if (error) setOpen(true); }, [error]);
+export function OptionRow({ id: providedId, label, choice, children, error, failed = false, defaultOpen = false, disabled, className }: OptionRowProps) {
+  const [open, setOpen] = useState(defaultOpen || failed || Boolean(error));
+  const generatedId = useId();
+  const id = providedId ?? generatedId;
+  useEffect(() => { if (error || failed) setOpen(true); }, [error, failed]);
   return (
-    <details open={open} onToggle={event => setOpen(event.currentTarget.open)} className={cn('sl-hairline min-w-0', className)}>
-      <summary
-        id={`${id}-label`}
-        aria-controls={`${id}-panel`}
-        aria-expanded={open}
-        aria-disabled={disabled || undefined}
-        onClick={event => { event.preventDefault(); if (!disabled) setOpen(!open); }}
-        className="flex min-h-12 cursor-pointer list-none items-center gap-3 py-2 text-sm font-semibold text-text [&::-webkit-details-marker]:hidden"
-      >
-        <span className="min-w-0 flex-1 truncate" title={label}>{label}</span>
-        <span className="min-w-0 max-w-full truncate font-medium text-text-muted">{choice}</span>
-        <ChevronDown aria-hidden="true" className={cn('size-icon-md shrink-0 text-text-muted transition-transform duration-base', open && 'rotate-180')} />
-      </summary>
-      <div id={`${id}-panel`} role="region" aria-labelledby={`${id}-label`} hidden={!open} className="pb-4">
-        {children}
+    <DisclosureRow
+      id={id}
+      label={label}
+      open={open}
+      onToggle={setOpen}
+      disabled={disabled}
+      trailing={<span title={typeof choice === 'string' ? choice : undefined} className="max-w-1/2 truncate text-xs font-medium text-text-muted">{choice}</span>}
+      className={cn('sl-hairline min-w-0 [&>summary]:flex-nowrap [&>summary>span]:basis-auto', className)}
+    >
+      <div className="flex min-w-0 flex-col gap-3">
         {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
+        {children}
       </div>
-    </details>
+    </DisclosureRow>
   );
 }
 

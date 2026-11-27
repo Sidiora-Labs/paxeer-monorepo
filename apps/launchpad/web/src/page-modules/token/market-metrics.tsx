@@ -1,4 +1,5 @@
 'use client';
+import { formatCompactUsd } from '@/utils/format';
 import { displayCoinText } from '@/utils/coin-text';
 import { exactUnits, holderRows, type HoldersResponse, type PoolStats, type Token } from './market-presentation';
 
@@ -9,9 +10,9 @@ export function MarketStats({ poolAddress, stats }: { poolAddress: string; stats
   const change = stats.changeBaselineQuality === 'complete' && stats.priceChangeBps24h !== null ? `${stats.priceChangeBps24h.startsWith('-') ? '-' : '+'}${exactUnits(stats.priceChangeBps24h.replace(/^-/, ''), 2, 2)}%` : '—';
   return <section data-market-stats-pool={poolAddress.toLowerCase()} data-market-stats-revision={stats.watermark.projectionRevision} data-market-window-start={stats.windowStart} data-market-window-end={stats.windowEnd} aria-label="Market statistics" className="flex flex-col gap-2 rounded-md bg-surface-2 px-3 py-2.5 text-text">
     <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3 [&_dd]:text-sm [&_dd]:font-bold [&_dd]:tabular-nums [&_dt]:text-2xs [&_dt]:font-bold [&_dt]:uppercase [&_dt]:tracking-wider [&_dt]:text-text-faint">
-      <div><dt>Volume · USDL · 24h</dt><dd>{exactUnits(stats.volume24hRaw, 6)}</dd></div>
-      <div><dt>Real pool backing · USDL · snapshot</dt><dd>{exactUnits(stats.realUsdlBalanceRaw, 6)}</dd></div>
-      <div><dt>Indicative TVL · USDL · snapshot</dt><dd>{exactUnits(stats.indicativeTvlUsdlRaw, 6)}</dd></div>
+      <div><dt>Volume · 24h</dt><dd>{formatCompactUsd(stats.volume24hRaw, { raw: true, fractionDigits: 6, group: false, trimFraction: true })}</dd></div>
+      <div><dt>Real pool backing · snapshot</dt><dd>{formatCompactUsd(stats.realUsdlBalanceRaw, { raw: true, fractionDigits: 6, group: false, trimFraction: true })}</dd></div>
+      <div><dt>Indicative TVL · snapshot</dt><dd>{formatCompactUsd(stats.indicativeTvlUsdlRaw, { raw: true, fractionDigits: 6, group: false, trimFraction: true })}</dd></div>
       <div><dt>Price change · 24h</dt><dd>{change}</dd></div>
       <div><dt>Buys · fills · 24h</dt><dd>{exactUnits(stats.buys24h, 0)}</dd></div>
       <div><dt>Sells · fills · 24h</dt><dd>{exactUnits(stats.sells24h, 0)}</dd></div>

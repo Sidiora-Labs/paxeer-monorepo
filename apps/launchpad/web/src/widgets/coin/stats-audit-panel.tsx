@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CircleCheck, CircleQuestionMark, CircleX } from 'lucide-react';
-import { KeyValueRow, PairedBar, SegmentedControl, Skeleton, TabStrip, UnavailableState } from '@/ui/primitives';
+import { KeyValueRow, PairedBar, PairedBarPlaceholder, SegmentedControl, Skeleton, TabStrip, UnavailableState } from '@/ui/primitives';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import type { PoolStats } from '@/core/market/pool-resolver';
 import { useCandles, type Candle, type CandleInterval } from '@/core/market/use-candles';
@@ -13,7 +13,7 @@ import { loadable, toUnsupported, unsupported } from '@/core/market/unsupported'
 import { queryKeys } from '@/core/query-keys';
 import { statsApiOrigin, statsApiUrl } from '@/core/sdk-config';
 import { priceNumber } from '@/page-modules/token/market-presentation';
-import { formatCount, formatUsdl, relativeAge } from '@/utils/format';
+import { formatCount, relativeAge, formatCompactUsd } from '@/utils/format';
 import { userFacingMessage } from '@/core/user-facing-error';
 
 type Window = '5m' | '1h' | '24h';
@@ -25,7 +25,6 @@ const windows: Record<Window, { interval: CandleInterval; ms: number; limit: num
   '24h': { interval: '1h', ms: 24 * 60 * 60_000, limit: 40 },
 };
 const windowOptions = (Object.keys(windows) as Window[]).map(value => ({ value, label: value }));
-const compact = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 });
 
 /** Minute-aligned clock so candle query bounds stay stable between renders. */
 function useMinuteClock(): number {
@@ -56,7 +55,7 @@ function aggregate(candles: readonly Candle[]): Aggregate {
 }
 
 function usdlUnits(raw: bigint): number { return Number(raw) / 1e6; }
-function formatUnits(n: number): string { return compact.format(n); }
+function formatUnits(n: number): string { return formatCompactUsd(BigInt(Math.round(n * 1e6)), { raw: true, compact: true, trimFraction: true }); }
 
 /* ------------------------------------------------------------- audit */
 
@@ -205,22 +204,6 @@ function AuditTab({ poolAddress, now }: { poolAddress: string; now: number }) {
 
 /* ------------------------------------------------------------- stats */
 
-/**
- * Split-bar loading and unavailable states, with the reason available to assistive tech.
- */
-function SplitBarFrame({ leftLabel, rightLabel, title, operation, loading = false }: { leftLabel: string; rightLabel: string; title: string; operation: string; loading?: boolean }) {
-  return (
-    <div className="flex flex-col gap-1" data-split-frame={leftLabel}>
-      <div aria-hidden="true" className="flex items-center justify-between text-xs">
-        <span className="text-text-faint">{loading ? <span className="sl-skeleton inline-block h-3 w-8 align-middle" /> : <span className="font-bold text-text-faint">—</span>} {leftLabel}</span>
-        <span className="text-text-faint">{loading ? <span className="sl-skeleton inline-block h-3 w-8 align-middle" /> : <span className="font-bold text-text-faint">—</span>} {rightLabel}</span>
-      </div>
-      <div aria-hidden="true" className="h-1 w-full rounded-pill bg-track" />
-      {loading ? <span className="sr-only">Loading {title.toLowerCase()}</span> : <UnavailableState variant="inline" title={title} plural="auto" operation={operation} status={null} className="sr-only" />}
-    </div>
-  );
-}
-
 function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddress: string; window: Window; now: number; liveStats: PoolStats | null }) {
   const snapshot = usePoolSnapshot(poolAddress);
   const spec = windows[selected];
@@ -254,7 +237,7 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
         <div className="flex min-w-0 items-center gap-1.5">
           <dt className="text-text-faint">Volume</dt>
           <dd data-numeric className={`text-sm font-bold tabular-nums ${volumeRaw === null ? 'text-text-faint' : 'text-text'}`} aria-busy={(loading && volumeRaw === null) || undefined}>
-            {loading && volumeRaw === null ? <span aria-hidden="true" className="sl-skeleton inline-block h-4 w-14 align-middle" /> : volumeRaw === null ? <span aria-label="No data">—</span> : <>{formatUsdl(volumeRaw, { compact: true, unit: false })} <span className="text-xs font-normal text-text-faint">USDL</span></>}
+            {loading && volumeRaw === null ? <span aria-hidden="true" className="sl-skeleton inline-block h-4 w-14 align-middle" /> : volumeRaw === null ? <span aria-label="No data">—</span> : formatCompactUsd(volumeRaw, { raw: true, compact: true })}
           </dd>
         </div>
       </dl>
@@ -262,11 +245,11 @@ function StatsTab({ poolAddress, window: selected, now, liveStats }: { poolAddre
         {buys !== null && sells !== null ? <PairedBar left={buys} right={sells} leftLabel="Buys" rightLabel="Sells" /> : (
           <div className="flex flex-col gap-1">
             {agg ? <dl><KeyValueRow className="min-h-8 py-0.5" label="Trades" value={formatCount(agg.trades)} /></dl> : null}
-            {selected === '24h' && snapshot.isPending ? <SplitBarFrame leftLabel="buys" rightLabel="sells" title="Buy and sell counts for 24h" operation="IF_POOL_STATS" loading /> : null}
+            {selected === '24h' && snapshot.isPending && !stats ? <PairedBarPlaceholder leftLabel="buys" rightLabel="sells" title="Buy and sell counts for 24h" operation="IF_POOL_STATS" loading /> : null}
           </div>
         )}
         {agg ? <PairedBar left={usdlUnits(agg.buyVolume)} right={usdlUnits(agg.sellVolume)} leftLabel="Buy vol" rightLabel="Sell vol" format={formatUnits} /> : null}
-        {!agg && series?.state !== 'error' ? <SplitBarFrame leftLabel="buy vol" rightLabel="sell vol" title="Buy and sell volume" operation={series?.state === 'unsupported' ? series.operation : 'IF_CANDLES'} loading={loading} /> : null}
+        {!agg && series?.state !== 'error' ? <PairedBarPlaceholder leftLabel="buy vol" rightLabel="sell vol" title="Buy and sell volume" operation={series?.state === 'unsupported' ? series.operation : 'IF_CANDLES'} loading={loading} /> : null}
         {series?.state === 'unsupported' && series.retry ? <UnavailableState variant="inline" title="Buy and sell volume" operation={series.operation} status={series.status} notServed={series.notServed} error={series.error} onRetry={series.retry} /> : null}
         {series?.state === 'error' ? <p role="alert" className="text-xs text-danger">Buy and sell volume can&apos;t load right now. {userFacingMessage(series.error)} <button type="button" onClick={series.retry} className="font-semibold underline">Try again</button></p> : null}
         {traders !== null || txns !== null ? (

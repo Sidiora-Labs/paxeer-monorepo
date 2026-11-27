@@ -15,7 +15,7 @@ import { useTokenMetadataBatch } from '@/hooks/market/use-token-metadata';
 import { useWatchlistTicker, type TickerChip } from '@/shell/use-ticker';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { Avatar, Button, EmptyState, ErrorState, KeyValueRow, PercentPill, Skeleton, UnavailableState } from '@/ui/primitives';
-import { formatUsdl, shortAddress } from '@/utils/format';
+import { shortAddress, formatCompactUsd } from '@/utils/format';
 import { readPortfolio } from '@/widgets/profile/account-transport';
 import { sumUnrealized } from '@/widgets/profile/portfolio-transport';
 import { useAccountSession } from '@/widgets/profile/use-account-session';
@@ -136,9 +136,9 @@ function PnlSummary({ wallet }: { wallet: string }) {
   return (
     <div className="flex flex-col px-2">
       <dl>
-        <KeyValueRow label={summary.completeValueUsdlRaw === null ? 'Holdings value (priced coins only)' : 'Holdings value'} value={formatUsdl(valueRaw, { compact: true })} />
-        <KeyValueRow label={summary.realizedPnlRaw === null ? 'Realized PnL (partial)' : 'Realized PnL'} value={<span className={signedTone(realizedRaw)}>{formatUsdl(realizedRaw, { signed: true })}</span>} />
-        <KeyValueRow label={unrealized.partial ? `Unrealized PnL (${unrealized.counted} coins priced)` : 'Unrealized PnL'} value={<span className={signedTone(unrealizedRaw)}>{formatUsdl(unrealizedRaw, { signed: true })}</span>} />
+        <KeyValueRow label={summary.completeValueUsdlRaw === null ? 'Holdings value (priced coins only)' : 'Holdings value'} value={formatCompactUsd(valueRaw, { raw: true, compact: true })} />
+        <KeyValueRow label={summary.realizedPnlRaw === null ? 'Realized PnL (partial)' : 'Realized PnL'} value={<span className={signedTone(realizedRaw)}>{formatCompactUsd(realizedRaw, { raw: true, signed: true })}</span>} />
+        <KeyValueRow label={unrealized.partial ? `Unrealized PnL (${unrealized.counted} coins priced)` : 'Unrealized PnL'} value={<span className={signedTone(unrealizedRaw)}>{formatCompactUsd(unrealizedRaw, { raw: true, signed: true })}</span>} />
         <KeyValueRow label="Positions" value={String(summary.positionCount)} />
       </dl>
       {summary.unpricedAssetCount > 0 ? <p className="py-1 text-xs text-text-faint">{summary.unpricedAssetCount} position{summary.unpricedAssetCount === 1 ? '' : 's'} without a mark price are left out of the value.</p> : null}

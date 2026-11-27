@@ -71,7 +71,7 @@ test(stripPriceComesFromTheSpotPriceOfTheStats, stripPriceComesFromTheSpotPriceO
 describe('tokenStripStats', () => {
   it('maps liquidity from realUsdlBalanceRaw and supply from the verified token supply', () => {
     const tiles = byKey({ stats, token, livePrice: 0.0000031245 });
-    expect(tiles.liquidity).toMatchObject({ label: 'Liquidity', value: '6.42K', unit: 'USDL', reason: null });
+    expect(tiles.liquidity).toMatchObject({ label: 'Liquidity', value: '$6.42K', reason: null });
     expect(tiles.supply).toMatchObject({ label: 'Supply', value: '1B', reason: null });
     expect(tiles.price).toMatchObject({ value: '$0.0₅3124', reason: null });
     expect(tokenStripStats({ stats, token, livePrice: null }).map(stat => stat.label)).toEqual(['All time high', 'Price', 'Liquidity', 'Supply', 'Total fees paid', 'Bonding curve']);

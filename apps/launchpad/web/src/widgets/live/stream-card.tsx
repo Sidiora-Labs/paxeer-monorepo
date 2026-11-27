@@ -1,4 +1,6 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
+
 import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
@@ -40,10 +42,10 @@ export function StreamTileMedia({ entry, className }: { entry: Pick<LiveDirector
   return (
     <div className={cn('relative aspect-video w-full overflow-hidden rounded-md bg-surface-2', className)}>
       {tile.kind === 'thumbnail' ? (
-        <img src={tile.src} alt="" loading="lazy" width={640} height={360} className="aspect-video size-full object-cover" />
+        <img src={tile.src} alt="" loading="lazy" width={launchpadGeometry.images.stream.width} height={launchpadGeometry.images.stream.height} className="aspect-video size-full object-cover" />
       ) : tile.kind === 'coin' ? (
         <div className="flex size-full items-center justify-center">
-          <img src={tile.src} alt="" loading="lazy" width={320} height={320} className="aspect-square h-3/5 rounded-[var(--sl-radius-coin)] object-cover" />
+          <img src={tile.src} alt="" loading="lazy" width={launchpadGeometry.images.streamCoin} height={launchpadGeometry.images.streamCoin} className="aspect-square h-3/5 rounded-[var(--sl-radius-coin)] object-cover" />
         </div>
       ) : (
         <div className="flex size-full items-center justify-center text-text-faint">

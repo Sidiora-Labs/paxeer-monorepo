@@ -112,7 +112,7 @@ describe('rank row', () => {
     expect(html).toContain('text-rank-1');
     expect(html).toContain('hdegroot');
     expect(html).toContain(`href="${profileHref(wallet)}"`);
-    expect(html).toContain('+285,822.31 USDL');
+    expect(html).toContain('+$285,822.31');
     expect(html).toContain('50,000 USDL');
     expect(html).toContain('text-success');
     expect(html).toContain('Follow');
@@ -123,7 +123,7 @@ describe('rank row', () => {
     const html = renderToStaticMarkup(<RankingTable label="Traders"><RankRow rank={7} wallet={wallet} metricSigned="-1500000" self /></RankingTable>);
     expect(html).toContain(shortAddress(wallet.toLowerCase(), 6, 4));
     expect(html).toContain('text-danger');
-    expect(html).toContain('-1.50 USDL');
+    expect(html).toContain('-$1.50');
     expect(html).toContain('>You<');
     // Names use the row-name step; figures use the numeric table step.
     expect(html).toContain('h-12');

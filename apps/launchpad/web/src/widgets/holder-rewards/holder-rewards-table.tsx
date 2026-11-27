@@ -10,7 +10,7 @@ import { AgeChip, Avatar, Button, EmptyState, LoadMore, StatusBadge, Tooltip } f
 import CopyAddress from '@/ui/shared/copy-address';
 import { TokenLinkIcons, UsdlBadge } from './holder-reward-token-card';
 import { launchHolderRewardsHref } from './holder-rewards-header';
-import { airdropText, coinHref, holdersPaidText, mcapText, nextOrder, rewardsText, usdlAmountText, type HolderRewardRow, type HolderRewardsOrder, type HolderRewardsSortKey } from './holder-rewards-presentation';
+import { airdropText, coinHref, holdersPaidText, mcapText, nextOrder, rewardsText, usdlAmountParts, type HolderRewardRow, type HolderRewardsOrder, type HolderRewardsSortKey } from './holder-rewards-presentation';
 
 /** Result of the single on-chain `getAirdropBalance` read for the row under the pointer. */
 export type AirdropHover =
@@ -120,7 +120,7 @@ export default function HolderRewardsTable({
               <ColumnHead
                 key={column.key}
                 label={column.label}
-                sr={column.key === 'mcap' ? 'in USDL' : undefined}
+                sr={column.key === 'mcap' ? 'in dollars' : undefined}
                 sort={order.key === column.key ? order.direction : null}
                 onSort={() => onOrderChange(nextOrder(order, column.key))}
                 className={column.width}
@@ -151,6 +151,7 @@ export default function HolderRewardsTable({
           ) : null}
           {rows.map((rawRow, index) => {
             const row = { ...rawRow, name: displayCoinText(rawRow.name, rawRow.tokenAddress), symbol: displayCoinText(rawRow.symbol, rawRow.tokenAddress) };
+            const distributed = usdlAmountParts(row.pool.distributedRaw);
             const hovered = hoveredPool === row.poolAddress;
             const href = coinHref(row.poolAddress);
             const mcap = row.mcapRaw === null ? null : mcapText(row.mcapRaw);
@@ -171,7 +172,7 @@ export default function HolderRewardsTable({
                           <span className="min-w-0 truncate">{row.name}</span>
                           <span className="sr-only">
                             , {rewardsText(row.pool.distributedRaw)} distributed to holders
-                            {mcap ? `, market cap ${mcap} USDL` : ', market cap not available yet'}
+                            {mcap ? `, market cap ${mcap}` : ', market cap not available yet'}
                             , {holdersPaidText(row.pool.holdersPaid)} holders paid
                           </span>
                         </Link>
@@ -187,19 +188,19 @@ export default function HolderRewardsTable({
                     </div>
                   </div>
                   <dl className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-2xs text-text-faint md:hidden">
-                    <div className="flex items-center gap-1"><dt className="whitespace-nowrap">MC</dt><dd data-numeric className={cn('tabular-nums', mcap ? 'text-text' : 'text-text-faint')}>{mcap ? `${mcap} USDL` : '—'}</dd></div>
+                    <div className="flex items-center gap-1"><dt className="whitespace-nowrap">MC</dt><dd data-numeric className={cn('tabular-nums', mcap ? 'text-text' : 'text-text-faint')}>{mcap ? `${mcap}` : '—'}</dd></div>
                     <div className="flex items-center gap-1"><dt className="whitespace-nowrap">Paid</dt><dd data-numeric className="tabular-nums text-text">{holdersPaidText(row.pool.holdersPaid)}</dd></div>
                   </dl>
                 </td>
                 <td className="px-2 text-right align-middle md:px-3">
                   <div className="flex flex-col items-end gap-0.5">
-                    <span data-numeric className="whitespace-nowrap text-md font-bold text-text md:text-lg tabular-nums">{usdlAmountText(row.pool.distributedRaw)}<span className="ml-1 inline-block whitespace-nowrap text-2xs font-semibold text-text-faint">USDL</span></span>
+                    <span data-numeric className="whitespace-nowrap text-md font-bold text-text md:text-lg tabular-nums">{distributed.amount}<span className="ml-1 inline-block whitespace-nowrap text-2xs font-semibold text-text-faint">{distributed.unit}</span></span>
                     {hovered && airdrop && airdrop.pool === row.poolAddress ? <AirdropLine airdrop={airdrop} /> : null}
                   </div>
                 </td>
                 <td className="hidden px-3 text-right align-middle md:table-cell">
                   {mcap ? (
-                    <span data-numeric className="whitespace-nowrap text-md font-bold tabular-nums text-text">{mcap} <span className="text-2xs font-semibold text-text-faint">USDL</span></span>
+                    <span data-numeric className="whitespace-nowrap text-md font-bold tabular-nums text-text">{mcap}</span>
                   ) : pricesUnavailable ? (
                     <Tooltip content="Market cap not available yet">
                       <span className="text-text-faint" aria-label="Market cap not available yet">{'—'}</span>

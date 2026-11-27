@@ -189,7 +189,7 @@ export function HeroCarouselSkeleton() {
         <Skeleton variant="block" className="aspect-video h-auto w-full rounded-none" />
         <div className="hidden flex-col gap-4 p-4 lg:flex lg:p-5">
           <Skeleton variant="pill" />
-          <Skeleton variant="text" width="80%" />
+          <Skeleton variant="text" width="var(--sl-skeleton-width-long)" />
           <Skeleton variant="block" height={surfaceSpacing(12)} />
           <Skeleton variant="block" height={surfaceSpacing(18)} />
         </div>

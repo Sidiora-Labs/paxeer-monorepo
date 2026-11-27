@@ -2,9 +2,10 @@
   "name": "Sidiora Launchpad \u2014 rewards",
   "directory": "../../../../../",
   "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
-  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs --surface tools/ui-check/surfaces/launchpad/parts/rewards.json",
   "address": "https://sidiora.test:4173",
   "readyPath": "/",
+  "readyMs": 120000,
   "views": [
     {
       "name": "holder-rewards",
@@ -83,7 +84,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -107,7 +108,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -174,7 +175,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -199,7 +200,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -228,7 +229,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -295,7 +296,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -319,7 +320,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -344,7 +345,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -353,17 +354,18 @@
       "path": "/r/science",
       "ready": [
         {
-          "action": "wait",
-          "text": "callouts yet"
-        },
-        {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
           "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible :text(\"Pool details: Prices are not loading right now, try again\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
           "key": "Shift"
         },
         {
@@ -373,7 +375,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -397,7 +399,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     }

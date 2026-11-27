@@ -7,7 +7,7 @@ import { useAccount, useBalance } from 'wagmi';
 import { USDL_ADDRESS, useReadErc20Balance } from '@/core/network/contracts';
 import { safeExternalDestination } from '@/core/app-foundation/navigation';
 import { Skeleton, Tooltip } from '@/ui/primitives';
-import { formatTokenAmount, formatUsdl } from '@/utils/format';
+import { formatTokenAmount, formatUsdl, formatCompactUsd } from '@/utils/format';
 import { readPortfolio } from '@/widgets/profile/account-transport';
 import { MaskedAmount } from '@/widgets/profile/balance-visibility';
 import { usePrivateAccountQuery } from '@/widgets/profile/use-private-account-query';
@@ -37,7 +37,7 @@ function ConnectedBalances({ account }: { account: `0x${string}` }) {
       <Amount icon={<Wallet />} label="PAX balance" loading={pax.isPending} value={pax.data ? `${formatTokenAmount(pax.data.value, 18, { compact: true })} PAX` : null}
         title={pax.isError ? "Your PAX balance can't load right now" : 'Your PAX balance, used for network fees'} />
       {portfolio.owner ? (
-        <Amount icon={<PieChart />} label="Portfolio value" loading={portfolio.isPending} value={valueRaw === null ? null : formatUsdl(valueRaw, { compact: true })}
+        <Amount icon={<PieChart />} label="Portfolio value" loading={portfolio.isPending} value={valueRaw === null ? null : formatCompactUsd(valueRaw, { raw: true, compact: true })}
           title={summary ? (summary.completeValueUsdlRaw === null ? 'Value of your coins, some have no price yet' : 'Value of your coins') : "Portfolio value can't load right now"} />
       ) : null}
     </>

@@ -11,7 +11,7 @@ import { useHolders, type HoldersPage } from '@/core/market/use-holders';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
 import { formatShare, statsShare, statsSpotPrice } from '@/core/market/pool-stats-display';
 import { StatDash } from '@/ui/shared/stat-value';
-import { formatPercent, formatTokenAmount, formatUsdl, rawToDecimalString, shortAddress } from '@/utils/format';
+import { formatPercent, formatTokenAmount, rawToDecimalString, shortAddress, formatCompactUsd } from '@/utils/format';
 import HoldersFilters, { type HolderSearch } from './holders-filters';
 import { userFacingMessage } from '@/core/user-facing-error';
 
@@ -217,13 +217,13 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
             const isPool = row.wallet.toLowerCase() === pool.toLowerCase();
             const walletContent = <>
               <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
-              <span className="flex min-w-0 flex-col leading-tight">
+              <span className="flex min-w-0 max-w-48 flex-col leading-tight">
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className={identity?.displayName ? 'truncate font-semibold text-text' : 'whitespace-nowrap font-mono text-xs text-text-muted'}>{name}</span>
+                  <span data-holder-address={identity?.displayName ? undefined : ''} className={identity?.displayName ? 'truncate font-semibold text-text' : 'whitespace-nowrap font-mono text-xs text-text-muted'}>{name}</span>
                   {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 whitespace-nowrap rounded-pill bg-surface-3 px-1.5 text-2xs font-semibold text-text-muted">Creator</span> : null}
                   {isPool ? <span data-pool-badge title="Coins held by the bonding curve" className="shrink-0 whitespace-nowrap rounded-pill bg-surface-3 px-1.5 text-2xs font-semibold text-text-muted">Bonding curve</span> : null}
                 </span>
-                {identity?.displayName ? <span className="whitespace-nowrap font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
+                {identity?.displayName ? <span data-holder-address className="whitespace-nowrap font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
               </span>
             </>;
             return <tr key={row.wallet} className="h-table-row border-b border-surface-3 transition-colors hover:bg-surface-hover [&>td]:px-3">
@@ -234,7 +234,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
               </td>
               <td data-numeric className="whitespace-nowrap text-right font-bold tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.balanceRaw, decimals)}</td>
               <td data-numeric className="whitespace-nowrap text-right tabular-nums text-text-muted">{row.supplyPercent === null ? <span className="text-text-faint">—</span> : <span className="coin-holder-share"><span>{formatPercent(row.supplyPercent, { sign: 'negative' })}</span><span aria-hidden="true" className="coin-holder-share-track"><span className="coin-holder-share-fill block" style={{ width: `${Math.min(100, Math.max(0, row.supplyPercent))}%` }} /></span></span>}</td>
-              <td data-numeric className="whitespace-nowrap text-right tabular-nums text-text">{row.positionUsdlRaw === null ? <span className="text-text-faint">—</span> : formatUsdl(row.positionUsdlRaw, { compact: true })}</td>
+              <td data-numeric className="whitespace-nowrap text-right tabular-nums text-text">{row.positionUsdlRaw === null ? <span className="text-text-faint">—</span> : formatCompactUsd(row.positionUsdlRaw, { raw: true, compact: true })}</td>
               <td colSpan={3} className="text-right text-xs text-text-faint" title={pnlOperation}>—</td>
             </tr>;
           })}

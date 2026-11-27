@@ -98,7 +98,7 @@ export async function middleware(request: NextRequest) {
 
   response.headers.set('Permissions-Policy', 'clipboard-write=(self), clipboard-read=(self), unload=(self)');
 
-  // Charting library gets a permissive CSP (TradingView requirement)
+  // The embedded chart receives the content policy required for its assets.
   if (pathname.startsWith('/charting_library')) {
     response.headers.set(
       'Content-Security-Policy',

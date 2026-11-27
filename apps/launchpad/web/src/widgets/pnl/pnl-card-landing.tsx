@@ -1,5 +1,5 @@
+import { formatCompactUsd } from '@/utils/format';
 import { cn } from '@/lib/utils';
-import { exactAmount } from '../profile/account-disclosure';
 import type { PublicShare } from './share-transport';
 
 export const shareFieldLabel: Record<string, string> = {
@@ -27,7 +27,7 @@ export function PublicShareFigures({ share }: { share: PublicShare }) {
         {share.fields.map((field) => (
           <div key={field} className="sl-hairline flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2">
             <dt className="text-sm font-medium text-text-muted">{shareFieldLabel[field] ?? field}</dt>
-            <dd className={cn('min-w-0 break-all text-right text-base font-bold tabular-nums', field !== 'completeValueUsdlRaw' && field !== 'historicalReturn' && share.values[field] !== null && share.values[field] !== undefined ? BigInt(share.values[field]) > 0n ? 'text-percent-up' : BigInt(share.values[field]) < 0n ? 'text-percent-down' : 'text-text' : 'text-text')}>{field === 'historicalReturn' ? share.values.historicalReturn?.return ? `${share.values.historicalReturn.return.numerator}/${share.values.historicalReturn.return.denominator}` : 'Not available yet' : exactAmount(share.values[field] ?? null, share.decimals, 'USDL')}</dd>
+            <dd className={cn('min-w-0 break-all text-right text-base font-bold tabular-nums', field !== 'completeValueUsdlRaw' && field !== 'historicalReturn' && share.values[field] !== null && share.values[field] !== undefined ? BigInt(share.values[field]) > 0n ? 'text-percent-up' : BigInt(share.values[field]) < 0n ? 'text-percent-down' : 'text-text' : 'text-text')}>{field === 'historicalReturn' ? share.values.historicalReturn?.return ? `${share.values.historicalReturn.return.numerator}/${share.values.historicalReturn.return.denominator}` : 'Not available yet' : formatCompactUsd(share.values[field] ?? null, { raw: true, decimals: share.decimals, fractionDigits: share.decimals, group: false })}</dd>
           </div>
         ))}
       </dl>
