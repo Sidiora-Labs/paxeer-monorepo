@@ -17536,6 +17536,120 @@ value = "Point one. When the function apply_service has created a service, it re
 basis = "Gotcha 5014."
 affects = []
 
+[decision.4071]
+title = "The trade path and the rebuild path of the pnl service price a position from indexed data"
+value = "Point one. A new function of the directory services/launchpad/pnl-tracker/internal/production/l16 gives the mark of a token at a height from indexed data alone. It receives the transaction, the token and the height, and it reads no node. It takes the newest fill of the token at or below the height with the statement and the checks that the function priceTx applies to that fill, from line 52 of services/launchpad/pnl-tracker/internal/production/l16/mark_price.go on. It returns no mark and no error in five cases: no such fill exists; the settlement of the fill is not the settlement asset with 6 decimals; the view indexer.pool_state_snapshots_v1 holds no row of the pool at the block and log index of the fill; the view holds a row of that pool in the same block with a higher log index; a reserve of the row is zero. Otherwise it builds the mark with the function SpotMark of line 147 from the reserves of that row, as the indexed branch of priceTx does, from the decimals the fill states for its token, and with the fill as the source. Point two. The function commitFullPortfolioTx prices each position with that function at the height of the watermark of that position, since the function Derive refuses at line 226 of services/launchpad/pnl-tracker/internal/production/l17/domain.go a mark above the watermark of its position. A position with a mark gets the quality that the live path gives a position with a mark; a position without one stays unpriced as today. Point three. The function PublishRebuiltWallet prices each position the same way at the height of its watermark. Point four. An error of the new function is returned the way each of the two paths returns its other read errors. A missing row is no error, so a fill whose pool state row is absent is folded as today. Point five. Reason for a function without a node: the trade path may fold a fill long after its block, and a node does not hold the logs and the state of every old block. A fold must not wait on such a read. Point six. The entries of services/launchpad/pnl-tracker/internal/rolecheck/statements.json follow the new statements. Point seven. Not changed here: the live path, the function priceTx with its reads of a node, the function markPriceTx, the development reads, the rule for the revision of a record, which record of a wallet a read takes as the latest, the views and every migration."
+basis = "Gotcha 5015."
+affects = []
+
+[decision.4072]
+title = "The layers at the lower edge of a narrow window are opaque"
+value = "Point one. A layer that lies over the text of the page for as long as its view is open must read well when no blur is drawn behind it. The five layers of gotcha 5016 therefore draw an opaque background. Sheets, menus, toasts, tooltips and dialogs open over the page for a moment and keep the floating surface as it is. Point two. The bar of destinations draws the plain background of the first surface at every width at which it is drawn: the block of apps/launchpad/web/src/shell/shell.css that starts at line 5 goes. Point three. A new class sl-floating-opaque in apps/launchpad/web/src/app/tokens.css, placed after the block for a supported filter of the floating surface, sets the background to the second surface and the backdrop filter to none. An element that carries it beside the class of the floating surface keeps the edge and the shadow of that surface. Point four. The cookie card, the trade bar of the coin page and the action bars of the two create views carry the new class beside the class of the floating surface, at every width. Point five. The brief follows in the same change. Its entry for floating layers no longer lists the bar of destinations and the sticky trade bar, and says in one more sentence that the bar of destinations, the sticky trade bar, the cookie notice and the action bar of a create view are opaque, the bar in surface 1 and the others in surface 2, each with its hairline. Its entry for the bar of destinations says opaque surface 1 in place of surface 1 at 82 percent with the blur. Point six. Not changed here: the rule of the floating surface and its values, the position, the size, the edge and the shadow of the five layers, the sheet of the bar of destinations at line 148 of apps/launchpad/web/src/shell/mobile-bottom-nav.tsx, and every other element that carries the floating surface."
+basis = "Gotcha 5016."
+affects = []
+
+[decision.4073]
+title = "The definition of the wallet gateway sets the two value limits of a user"
+value = "Point one. The section of variables of deploy/projects/wallet/wallet-gateway.kvx sets POLICY_MAX_TX_VALUE_WEI from the input WALLET_WALLET_GATEWAY_POLICY_MAX_TX_VALUE_WEI and POLICY_MAX_DAILY_VALUE_WEI from the input WALLET_WALLET_GATEWAY_POLICY_MAX_DAILY_VALUE_WEI, in the form of the other variables of that section that come from an input. Point two. The section of inputs names both inputs with the kind operator, each under a comment line in the form of the other inputs. The comments say what the values are: the largest value of one transaction of a user in wei, and the largest sum of the values of the transactions of a user within 24 hours in wei, each as a decimal integer that is not negative. Point three. The one who deploys from the definition decides both limits. The project tool counts an input that the environment does not hold as unresolved at line 576 of tools/deploy/platform-project.py and refuses an apply at line 582, so no deployment made from the definition starts on the defaults without that decision. Point four. Not changed here: the schema of the gateway and its two defaults, which stay for a start outside the definition, the function evaluate, every other variable and input of the definition, the other definitions of the folder, the project tool and the existing case files."
+basis = "Gotcha 5017."
+affects = []
+
+[decision.4074]
+title = "The verification of task 22.44.147 runs the script test of the web without the three case files that do not pass on the main line for causes outside the task, and the later cases follow decision 4024"
+value = "One. The verification of task 22.44.147 keeps the test of the record, the render check of the eight parts and the type check as they are. Its last part, the script test of the web, is called with the option --exclude once for each of the three files src/widgets/profile/replies-tab.test.tsx, src/core/network/deployment-regeneration.test.ts and src/widgets/trading/transaction-controls/swap-record-writer.test.ts. The script hands every argument after its own to the test program (apps/launchpad/web/scripts/prepare-test-environment.py line 258, apps/launchpad/web/package.json line 13), and the test program adds the files named so to the list of line 21 of apps/launchpad/web/vitest.config.ts. Every other case file of the web runs as before. Two. The case file src/widgets/coin/coin-layout.browser.test.ts stays in the verification. The render check of the eight parts runs before it and writes the files it reads (gotcha 5018 part two). It is a case of the look, and task 22.44.147 brings it to pass. Three. The cases of apps/launchpad/web/src/shell/use-ticker.earners.test.tsx, apps/launchpad/web/src/widgets/coin/mc-ath-card.test.tsx and apps/launchpad/web/src/widgets/coin/pool-info-card.live.test.tsx that expect the earlier text of a money figure are cases that expect the earlier text in the sense of do_7 of task 22.44.147: the task brings their expected texts in step with decision 4024. The gain of a wallet in the strip Top earners is a profit and reads with the dollar sign before the figure. What else those cases assert stays as it is, and no other case of a later task is changed to make it pass. Four. Not changed: decision 4024, the list of steps and the paths of task 22.44.147, its build, and the three case files of point one. The causes of gotcha 5018 part two, points one to three, are repaired by tasks of their own. Target: the verification of task 22.44.147 passes. Task 22.44.147. "
+basis = "Gotcha 5018."
+affects = []
+
+[decision.4075]
+title = "The page of the client contracts says what the web shows of squads on the main line"
+value = "One. The sentence about the squad rankings panel, from line 18 of services/launchpad/discovery/contracts/clients.md, is written anew to the state of the main line: the web renders no ranking of squads until a service ranks them (task 22.39.1244). The task reads apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx and the files beside it and words the sentence to what it finds. A link in the sentence leads to a file that exists on the main line. Two. The sentence about the squad operations of the SDK stays unless the task finds it untrue; then the final message names what was found. Three. The anchors launchpad-web-app and launchpad-sdk-sdk of the page stay, and so does every other sentence of the page. Four. Not changed: the case, the page services/launchpad/discovery/contracts/services.md and every file of the web. Target: the verification of task 22.39.1289 passes. Task 22.39.1289. "
+basis = "Gotcha 5019."
+affects = []
+
+[decision.4076]
+title = "The functions that read the retry fields of an answer live in a module that imports no package"
+value = "One. A new module apps/launchpad/web/src/core/retry-fields.ts holds the type RetryFields and the functions retryFields and readRetryFields, word for word, with the helper they use. It imports no package and no module that imports one. Two. apps/launchpad/web/src/core/transient-retry.ts exports the three names from the new module and takes the helper from it where it uses it, so no text stands twice. Every other importer stays as it is: apps/launchpad/web/src/widgets/community-safety/safety-client.ts, apps/launchpad/web/src/widgets/profile/utility-rows.tsx, apps/launchpad/web/src/widgets/trading/udf-datafeed.ts and the cases of apps/launchpad/web/src/core/transient-retry.test.ts. Three. The client apps/launchpad/web/src/core/clients/livestream-api.ts imports retryFields from the new module and no longer names transient-retry. Four. A case holds the rule. The new file apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts has the case livestreamClientImportsNoPackage: starting at the client it reads each source file, follows every import that starts with @/ or is relative, and requires that no file it reaches imports anything else. An import of types only in the form import type, which the type stripping of node removes whole, does not count. Five. Not changed: the two cases of the services, their scripts, and what the functions return. Target: the verification of task 22.39.1290 passes. Task 22.39.1290. "
+basis = "Gotcha 5020."
+affects = []
+
+[decision.4077]
+title = "The in-process stores of the metadata cases answer the read of the function Restrict as the database would"
+value = "One. Each of the two stores answers the read of line 278 of services/launchpad/metadata/internal/metadata/production.go from its own state: no row where it holds no such pool; false where the pool has no document or the moderation revision of the document is below the given revision; true otherwise. A store that lacks a field for it gains one in the form of its neighbouring fields. Two. Where a case still fails after that because the store refuses a further statement the service sends on the path of the case, the store answers that statement too, from its state, in the form of its neighbouring branches. The update of gotcha 5021 is such a candidate. The final message names each such statement. Three. Only files whose name ends with _test.go change. Where a case can pass only with a change of the service, the task stops and names case, file and reason. Four. No case gains a skip mark and none is removed. An expectation of a case changes only where it pins the count or the order of the statements of the function Restrict, which task 22.39.1279 changed; the final message names each such change. Target: the verification of task 22.39.1291 passes. It runs the two packages whole. Task 22.39.1291. "
+basis = "Gotcha 5021."
+affects = []
+
+[decision.4078]
+title = "The transcript of the reward history is renewed with its recorder for migration 150012"
+value = "One. The renewal. Task 22.39.1292 renews the transcript services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json with its recorder services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py for the tree of the main line as the task finds it (variable PNL_TEST_POSTGRES_DSN, option --dsn-env, line 158). No member of the transcript is written by hand. Where the recorder fails, the task repairs it inside its paths and the final message names the cause. Two. The expected difference. It is given to check the result against and not to write: the member applied gains migration 150012 with the checksum of the registry, and the member sources gains migrations/150012.sql. The migration creates or replaces a function of the schema api_stream; where the transcript records the functions of that schema, the member objects follows, and the final message gives the count of the objects before and after. Where the difference holds more than that, the final message names each further line and its cause. A further registration that the main line brought meanwhile is such a cause and belongs in the transcript. Three. Nothing else changes. The binding, the bootstrap and the cases of the package stay word for word. Where a case of the package still fails after the renewal, its cause is repaired inside the paths of the task and named in the final message; no case gains a skip mark and no case is removed. Four. The rule of decision 4012 point four stands as written. Five. Target: the verification of task 22.39.1292 passes. It runs the lint stage of the pnl module and the cases of its package internal/production/l18, and requires a case with the name prefix TestRewardHistoryPlanBinding. Task 22.39.1292. "
+basis = "Gotcha 5022."
+affects = []
+
+[decision.4079]
+title = "The list of the runtime statements of the social service is refreshed with its own program, and the new statement gets what the case of the role requires"
+value = "One. The refresh. The task runs the refresh the directory names itself, line 14 of services/launchpad/social/internal/rolecheck/generate.go with the program under services/launchpad/social/internal/rolecheck/cmd, on the tree of the main line as the task finds it, and writes no entry by hand. Two. The expected difference. It is given to check the result against and not to write: the function Publisher.Record gains one entry for the new statement, of the kind INSERT, which names the tables interaction_visibility_revision and interaction_comments, and the entries of the function after it move by one ordinal. Where the difference holds more than that, the final message names each further entry and its cause. A statement that the main line brought meanwhile is such a cause and belongs in the list. Three. The case TestRuntimeRoleStatements requires for every statement of the connected runtime what it requires for the others, and leaves none waiting. The new statement gets that in the form of its neighbour, the entry with the ordinal 3 of the same function. Four. Where the runtime role lacks a right the new statement needs, that is a finding outside the paths: the task stops and names statement, right and role. Five. Not changed: services/launchpad/social/internal/interactions/outbox.go, every migration, and the cases of the directory. No case gains a skip mark and none is removed. Target: the verification of task 22.39.1293 passes. It runs the lint stage of the social module and the cases of the directory whole. Task 22.39.1293. "
+basis = "Gotcha 5023."
+affects = []
+
+[decision.4080]
+title = "The expected deployment names the writer of the swap record, and the limit of the case with six trades follows its work"
+value = "One. The expected object of line 129 of apps/launchpad/web/src/core/network/deployment-regeneration.test.ts gains the property swapRecordWriter with the address of the launchpad module of the derived deployment, the member launchpadPrecompile, as line 150 of apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts sets it. Nothing else of the case changes. Two. The case swapRecordFromAnotherAddressIsNotCounted keeps its six trades and gets a limit of 120000 ms, written 120_000 the way its neighbours write theirs. Reason: a trade of the file took about 8 seconds in the recorded run, so six take about 48, and the limit leaves room for a loaded machine. The other cases of the file keep their limits. Three. Not changed: apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts and every file other than the two case files. Target: the verification of task 22.39.1294 passes. Task 22.39.1294. "
+basis = "Gotcha 5024."
+affects = []
+
+[decision.4081]
+title = "The script test of the web starts the chain of the comment service itself"
+value = "One. apps/launchpad/web/scripts/prepare-test-environment.py gains a stage that starts a chain with the id 125 with its method anvil, on a port that is free at that moment, and sets the variable L34_ANVIL_URL in the environment of the test program to the address of that chain. It sets the variable whatever the surrounding environment holds: the method never uses a chain it did not start (comment at line 101). Two. The chain ends with the script, like the other chains the script starts. Three. The case file and the case of the social service stay as they are. Where the comment service needs more of the chain than the method gives, the stage gives it in the script and the final message says so. Four. Not changed: the workflow files, the social service and every case of the web. Target: the verification of task 22.39.1295 passes. It runs the case file with the variable removed from the environment, so the file passes only when the script provides the chain. Task 22.39.1295. "
+basis = "Gotcha 5025."
+affects = []
+
+[decision.4082]
+title = "The case of the lease loss during the wait for a receipt waits at the read of the wait again, and a new case covers the loss before the recovery"
+value = "One. The order of commit d6e2da5b5a stays: confirmLeg reads the sequencer receipt before the recovery. No file under services/wallet/gateway/src changes. Two. The case actionLeaseLossDuringReceiptDoesNotPersistStaleOutcome keeps its name and every assertion. The chain of the file resolves the gate of that case at the read of the sequencer receipt that the wait sends, which is the second read of that method in one pass of confirmLeg, and no longer at the first. So the second holder claims the action while the wait runs, as the name of the case says, and the renewal reports the loss. Three. A new case, actionLeaseLossBeforeRecoveryStopsAdvancement, covers the place where the three runs of gotcha 5026 ended: the lease is lost between the first read of the sequencer receipt and the recovery. The chain of the file holds its answer to that first read until the case has let the second holder claim the action, so that the order does not depend on timing. The case expects that the list of warnings holds the message of the class ActionLeaseLostError, taken from an instance of the class and not written as text; that no write follows the claim of the second holder; that the action carries no error code and the lock time of the second holder; and that the chain saw one broadcast. Four. Every other case of the file keeps its assertions. Where the change of point two moves the moment at which another case passes its gate, that case changes only in what it waits on. Five. Not changed: every file other than the path of task 22.39.1296. Target: the verification of task 22.39.1296 passes. Task 22.39.1296. "
+basis = "Gotcha 5026."
+affects = []
+
+[decision.4083]
+title = "The limits of the cases of the delegated path that create keys follow the slower of the two machines"
+value = "One. The eight registrations of services/wallet/gateway/test/agent-delegated-path.test.ts with a limit of 60000 or 120000 ms get a limit of 300000 ms, written 300_000 the way the file writes its limits. The first registration keeps 900000 ms, and the two registrations without a limit stay without one. Two. Reason: on the slower machine the longest of the eight took 116167 ms and five ended at 60000 ms, so 300000 ms leaves more than twice the longest time measured. A limit bounds a case that hangs; it is not a measure of the work, and the cases take the time they take. Three. Not changed: the functions of the cases, the functions provisionStandardWallet, prepareDelegatedAgent and publishInventory, services/wallet/gateway/test/e2e/attestors.ts, every file under services/wallet/gateway/src and the workflow files. Four. The failures of gotcha 5027 part three are not repaired by a change of their own here. They showed only in runs in which a case before them ended at its limit. Where one of them shows in a run by hand of the task, the final message gives case and first message. Target: the verification of task 22.39.1297 passes. Task 22.39.1297. "
+basis = "Gotcha 5027."
+affects = []
+
+[decision.4084]
+title = "Task 22.39.1293 gives the segment of the path a constant, and its paths take the three files of the package that this needs"
+value = "One. The paths of task 22.39.1293 take services/launchpad/social/internal/app/constants.go, services/launchpad/social/internal/app/frozen.go and services/launchpad/social/internal/app/app.go beside services/launchpad/social/internal/rolecheck. Two. The segment users of the path at line 94 of services/launchpad/social/internal/app/frozen.go gets a constant in services/launchpad/social/internal/app/constants.go, named the way the constants of the other segments are named, and that line uses it. After that the text stands twice in the package, which the lint allows. Three. The two names of a schema at line 691 of services/launchpad/social/internal/app/app.go mean something else and do not go under the constant of the segment. They stay as they are. Only if the lint still names them do they get a constant of their own, for the name of the schema. Four. Nothing behaves differently: the paths the service answers, the check of the binding and every case stay as they are. Five. Not changed: the verification, the build and the steps of task 22.39.1293, and decision 4079. Target: the verification of task 22.39.1293 passes. Task 22.39.1293. "
+basis = "Gotcha 5028."
+affects = []
+
+[decision.4085]
+title = "The verification of task 22.39.1290 leaves out the one case that needs the executable, and that case is read in the workflow"
+value = "One. In the verification of task 22.39.1290 the command of the cases of the livestream service takes the option -skip with the name of the case TestStreamContractIntegrationPrivateIngestKeyRecovery. Every other part of the verification stays word for word. Two. The case is read in the run of the workflow .github/workflows/launchpad-test.yml that follows the merge of the task. If it does not pass there, the cause gets a task of its own. Three. The rule of decision 4076 is held by the case livestreamClientImportsNoPackage of the web, which the verification runs, and the cases of the gateway run as before. Four. Not changed: the build, the steps and the paths of task 22.39.1290, decision 4076, and the case itself. Target: the verification of task 22.39.1290 passes. Task 22.39.1290. "
+basis = "Gotcha 5029."
+affects = []
+
+[decision.4086]
+title = "Every scroll area of the trading workspace draws the thin bar of the workspace, and rows of tabs and labels of controls scroll without a bar"
+value = "One. apps/perps/apps/web/src/styles/globals.css gives every element of the document, and the document itself, the bar that the class custom-scrollbar has in apps/perps/packages/ui/src/tailwind/scrollBar.ts: six pixels in both directions, a track without colour, a thumb in the token base-7 and in the token base-5 under the pointer, a corner without colour. The rules stand where the two classes still win over them. Two. A browser that does not know the pseudo-elements of these rules gets the two standard properties instead, scrollbar-width with the value thin and scrollbar-color with the same two colours, inside a condition on the support of the selector of the pseudo-element; inside the same condition the class hide-scrollbar gets scrollbar-width with the value none. A browser that knows the pseudo-elements gets neither the value thin nor a colour by the standard properties, since it then draws by them and leaves the six pixels. Three. The parts of lines 103, 119, 125, 134 and 138 of apps/perps/apps/web/src/styles/globals.css keep their scroll and draw no bar, in every browser. The parts of lines 115 and 142 keep their scroll and draw the thin bar. No rule of task 22.44.39 is removed and none turns to hidden. Four. Not changed: the rules of the two classes in apps/perps/packages/ui/src/tailwind/scrollBar.ts and in apps/perps/packages/markets/src/style/index.css, every file of the packages, the colours, sizes and places of the reference source (decision 3705), every text. The colour scheme of the document is not declared in this task: it also changes how the browser draws form controls and the frames of other documents, and is decided on its own. Target: on the trade view at 1440 by 900 in a browser that draws its bars no bar is thicker than six pixels, the row of tabs above the list of markets draws none, and the container inside the container of the page no longer overflows sideways. Task 22.39.1298. "
+basis = "Gotcha 5030. Decision 3705."
+affects = []
+
+[decision.4087]
+title = "The list of markets beside the chart and the desktop order book of the trading workspace fit their boxes, so neither scrolls and neither draws a bar"
+value = "One. apps/perps/packages/markets/src/components/sideMarkets/column.tsx gives all three columns their widths in its own lines: 92 for the market, 100 for volume and open interest, 80 for the last price and the change. The sum is 272, the room of the table in the large panel of the split layout. Only the first width changes. A market name of six letters then ends six pixels past its cell, over the left part of the second column, which is empty because the values of that column stand at its right edge: nothing is cut and no name is shortened. The three values may move between the columns where the measure by hand shows two contents that meet; the sum stays at 272 or below. The shared columns of apps/perps/packages/markets/src/components/shared/column.tsx, the width of the panel and the padding of the scroll area do not change. Two. apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx counts for the desktop order book the rows around its two lists at the heights they have: 110 pixels in place of 104, that is 44 and 32 and 36 less the two pixels of the gaps counted too many. The row of the ratio stays at 38. With 148 in place of 142 the order book is as high as the height it is handed. The count of the mobile order book stays as it is: it was not measured. Three. apps/perps/packages/trading-next/src/components/desktop/orderBookAndTrades/orderBookAndTrades.ui.tsx does not change: it is one of the files the presentation check pins, and its counts stay as the reference source has them. With point two the content of the panel ends, in the layout with tabs, nine pixels inside the padding below it, three pixels above the lower edge of the container. The layout side by side was not measured. Four. Not changed: every rule of the overflow, in the stylesheet and in the packages. The container of the order book keeps the value task 22.44.39 gave it: with a content that fits, neither value draws a bar. Whether the containers of the layout return to the value of the reference source is decided on its own, with a render check of the trading surface. Also not changed: the rules of the bars of task 22.39.1298, the classic trading package, which the web application does not render, and the colours, texts and places of the reference source (decision 3705). Target: on the trade view at 1440 by 900 and at 1920 by 1080 in a browser that draws its bars the scroll area of the list of markets is as wide as its content, all three columns stand inside the panel, the container of the order book is at least as high as its content, and neither draws a bar. Task 22.39.1299. "
+basis = "Gotcha 5031. Decisions 3705 and 4086."
+affects = []
+
+[decision.4088]
+title = "Further cases lift the statement coverage of the holdings service of the launchpad above the minimum of its public job; the gate and its minimum stay as they are"
+value = "One. The repair is cases. Task 22.39.1300 writes them into files whose names end in _test.go, below services/launchpad/pnl-tracker. No file of the product changes, and neither tools/launchpad/coverage-gate.sh, its two minimums, the list of line 44 of services/launchpad/Makefile, the makefile nor the file go.mod of the module. No file gets the marker of generated code and no package leaves the measure. Two. A case stands for a behaviour of the code: a refusal, an error path, the boundary of an input, the second branch of a decision. Each case asserts what the code returns or does. No case calls a function only so that its lines count. Three. The task measures before it writes: it runs the target cover for the module and reads, with the tool of the language, the figure of every function in the profile. It then writes the cases where a case reaches the most statements that none reaches today. The figures of gotcha 5032 show where to look first. The command package cmd/pnld stays without cases unless a case can reach it without a start of the service. Four. Target: a total of 90.3 or above in the profile of the final revision, so that a run that reaches a little less than the run before still passes. The gate keeps its 90.0. Five. Not part of this decision: the case of internal/production/l16 that fails now and then (gotcha 5032, last paragraph). The task does not change that case, does not mark it skipped and does not repeat it inside the code. "
+basis = "Gotcha 5032."
+affects = []
+
+[decision.4089]
+title = "The public job of the launchpad packages leaves the one case of the web that needs a prepared host out of the web row and gets a row for the agent kit; the checks follow and stay as strict"
+value = "One. The web row runs python3 scripts/prepare-test-environment.py -- pnpm exec vitest run --exclude src/widgets/coin/coin-layout.browser.test.ts. Nothing else of the row changes. The case file, apps/launchpad/web/vitest.config.ts, the script test of the package and tools/ui-check/surfaces/launchpad/prepare.mjs stay as they are. The case keeps running where the render check runs before it, decision 4074 point two. The row leaves out this one file and no other. Two. The matrix gets the twelfth row sdk/launchpad/packages/agent-kit. The row runs the script test of the kit through the step Test package, as every row but the web row does. Before that step the row has what gotcha 5033 point three names: anvil, go, the binaries of PostgreSQL with PG_BIN_DIR for the later steps, the install and the build of services/agent/sdk/typescript, the install of sdk/wallet and the install of services/wallet. The job gateway of .github/workflows/wallet-test.yml is the model for these steps. Each such step runs for the row of the kit only, or widens the condition of a step that is there and does the same; no step that another row does not need starts to run for that row. The two installs of the wallet run with the version of the package manager their package files name; the steps of the other rows keep theirs. The actions the new steps use are the ones the two workflows already use, bound to the same full commit ids. Three. The checks follow the workflow and lose nothing. Each assertion that pins the rows, the conditions of the steps or the words of the command of the web row is brought to the new state in the same exact way: the list of words gets the two new words, the count of rows is twelve, the maps of conditions name the row of the kit. Every variant that tests/ci/test_js_suites_have_runner.py refuses today stays refused, and a command of the web row with a second excluded file, or with another file than the one of point one, is refused as well. No case is removed, skipped, marked as an expected failure or deselected, and tests/ci/data/js_suite_exclusions.txt gets no line for the kit. The job keeps exactly one step that sets up go, so what tests/ci/test_launchpad_go_tests_wired.py asserts about that step holds as it is. Four. Outside this decision: the three go jobs of the workflow, the cases of the kit and every file below sdk, services, apps and tools. If a case of the kit does not pass in the run by hand for a cause in such a file, the task names it and changes nothing there. "
+basis = "Gotcha 5033. Decision 4074."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47196,6 +47310,150 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1301]
+title = "Give the agent kit its row in the public job of the launchpad packages, leave the one case that needs a prepared host out of the web row, and bring the checks in step"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_js_suites_have_runner.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_launchpad_package_job_environment.py tests/ci/test_launchpad_install_steps.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_push_concurrency.py tests/ci/test_workflow_runs_on_routed.py"
+do_1 = "do_1 Gotcha 5033, decision 4089. Read whole: the job launchpad-test of .github/workflows/launchpad-test.yml, the job gateway of .github/workflows/wallet-test.yml, and the files tests/ci/test_js_suites_have_runner.py, tests/ci/test_pnpm_workspace_roots.py, tests/ci/test_launchpad_test_workflow.py and tests/ci/test_launchpad_package_job_environment.py. This task changes .github/workflows/launchpad-test.yml and files below tests/ci, nothing else."
+symbols = []
+
+[capability.22.39.1300]
+title = "Add cases to the holdings service of the launchpad until its statement coverage passes the minimum of 90.0 of its public job"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal", "services/launchpad/pnl-tracker/cmd"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint cover-check MODULES=pnl-tracker"
+do_1 = "do_1 Gotcha 5032, decision 4088. Read the targets cover and cover-check of services/launchpad/Makefile and tools/launchpad/coverage-gate.sh whole. This task adds cases in files whose names end in _test.go below services/launchpad/pnl-tracker. It changes no other file: no file of the product, not the gate, not the makefile, not go.mod and not go.sum."
+symbols = []
+
+[capability.22.39.1299]
+title = "Fit the list of markets beside the chart and the desktop order book of the trading workspace into their boxes so that neither scrolls or draws a bar"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages/markets/src/components/sideMarkets", "apps/perps/packages/trading-next/src/components/base/orderBook", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/workspace-fit.test.ts && grep -e theSideListOfMarketsFitsItsPanel apps/perps/tests/workspace-fit.test.ts > /dev/null && grep -e theDesktopOrderBookCountsItsFixedRows apps/perps/tests/workspace-fit.test.ts > /dev/null"
+do_1 = "do_1 Gotcha 5031, decision 4087, decision 3705. Read apps/perps/packages/markets/src/components/sideMarkets/column.tsx whole, apps/perps/packages/markets/src/components/marketsList/marketsList.ui.tsx whole, the column of volume and open interest in apps/perps/packages/markets/src/components/shared/column.tsx, apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx whole, apps/perps/packages/trading-next/src/components/desktop/orderBookAndTrades/orderBookAndTrades.ui.tsx whole and apps/perps/packages/trading-next/src/components/desktop/orderBook/index.desktop.tsx whole. This task changes one width, writes a second one into the same file and changes one count. It changes no rule of the overflow, no stylesheet, no colour, no text, no file the presentation check pins, no file of the classic trading package and no file of the mobile views."
+symbols = []
+
+[capability.22.39.1298]
+title = "Draw one thin dark bar on every scroll area of the trading workspace and none on its rows of tabs and the labels of its controls"
+reqs = ["22998.1"]
+touches = ["apps/perps/apps/web/src/styles", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/scroll-areas.test.ts && grep -e everyScrollAreaDrawsTheThinBar apps/perps/tests/scroll-areas.test.ts > /dev/null && grep -e theStandardPropertiesStandBehindTheCondition apps/perps/tests/scroll-areas.test.ts > /dev/null && grep -e rowsAndControlsKeepTheirScrollAndDrawNoBar apps/perps/tests/scroll-areas.test.ts > /dev/null"
+do_1 = "do_1 Gotcha 5030, decision 4086, decision 3705. Read apps/perps/apps/web/src/styles/globals.css whole, apps/perps/packages/ui/src/tailwind/scrollBar.ts whole, apps/perps/packages/markets/src/style/index.css whole and the two configuration files of the stylesheet build in apps/perps/apps/web. This task changes how a bar is drawn and which small parts draw one. It moves no part, changes no colour of a surface, no size and no text, and changes no file of the packages."
+symbols = []
+
+[capability.22.39.1297]
+title = "Give the cases of the delegated path of the wallet gateway that create keys limits that follow the slower machine"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/test/agent-delegated-path.test.ts"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/agent-delegated-path.test.ts && test $(grep -c -e 300_000 services/wallet/gateway/test/agent-delegated-path.test.ts) -eq 8 && grep -q -e delegatedAgentPath,.900_000 services/wallet/gateway/test/agent-delegated-path.test.ts"
+do_1 = "do_1 Gotcha 5027, decision 4083. Read services/wallet/gateway/test/agent-delegated-path.test.ts from line 163 to line 429 and from line 941 to its end."
+symbols = []
+
+[capability.22.39.1296]
+title = "Bring the case of the lease loss during the wait for a receipt in step with the order of the reads of the wallet gateway, and cover the loss before the recovery"
+reqs = ["22998.1"]
+touches = ["services/wallet/gateway/test/action-worker-leases.test.ts"]
+tests = []
+verification_contract = "pnpm --dir services/wallet/gateway exec vitest run test/action- && grep -q actionLeaseLossBeforeRecoveryStopsAdvancement services/wallet/gateway/test/action-*-leases.test.ts"
+do_1 = "do_1 Gotcha 5026, decision 4082. Read the path of the task whole, the file of the loop of the actions in the folder services/wallet/gateway/src/agent/actions whole (it holds the renewal of the lease), services/wallet/gateway/src/agent/actions/orchestrator.ts from line 470 to line 515 and from line 707 to line 729, services/wallet/gateway/src/db/actions.ts from line 76 to line 102 and services/wallet/gateway/src/chainReads.ts from line 349 to line 409. Run the case file by hand first with the first command of the verification, which names the case file by the start of its name, test/action-, and runs that one file; see the one case fail and read which message the list of warnings holds. If it is not the message of the class ActionLeaseLostError, find where it comes from before anything else and say so in the final message; the target of the decision stays."
+symbols = []
+
+[capability.22.39.1295]
+title = "Start the chain of the comment service in the script test of the web, so that the case file of the tab Replies passes without a chain from outside"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/scripts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && env -u L34_ANVIL_URL pnpm --dir apps/launchpad/web run test src/widgets/profile/replies-tab.test.tsx"
+do_1 = "do_1 Gotcha 5025, decision 4081. Read apps/launchpad/web/scripts/prepare-test-environment.py whole, apps/launchpad/web/src/widgets/profile/replies-tab.test.tsx from line 40 to line 80 and services/launchpad/social/internal/internaltest/canonical.go whole. Run the file by hand first with the variable removed and see its setup fail: env -u L34_ANVIL_URL pnpm --dir apps/launchpad/web run test src/widgets/profile/replies-tab.test.tsx."
+symbols = []
+
+[capability.22.39.1294]
+title = "Bring two cases of the web in step with the writer of the swap record of a trade"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/core/network/deployment-regeneration.test.ts", "apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/core/network/deployment-regeneration.test.ts src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q 120_000 apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q swapRecordWriter apps/launchpad/web/src/core/network/deployment-regeneration.test.ts"
+do_1 = "do_1 Gotcha 5024, decision 4080. Read apps/launchpad/web/src/core/network/deployment-regeneration.test.ts whole, apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts whole and apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts from line 133 to line 170."
+symbols = []
+
+[capability.22.39.1293]
+title = "Refresh the list of the runtime statements of the social service for the statement that raises the visibility revision of the comments of a wallet"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off go test -count=1 -timeout 40m ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 5023, decision 4079. Read services/launchpad/social/internal/rolecheck/generate.go whole, the program under services/launchpad/social/internal/rolecheck/cmd, services/launchpad/social/internal/rolecheck/generate_test.go and services/launchpad/social/internal/rolecheck/statements_test.go whole, the function Record of services/launchpad/social/internal/interactions/outbox.go from line 75 with the new statement at line 125, and the entries of services/launchpad/social/internal/rolecheck/statements.json whose function is Publisher.Record. Run the two cases by hand first and see them fail: (cd services/launchpad/social && GOWORK=off go test -count=1 -timeout 40m -run ^TestStatementLocationsPreserveAndRelocateRuntimeSQL ./internal/rolecheck/) and the same command with ^TestRuntimeRoleStatements."
+symbols = []
+
+[capability.22.39.1292]
+title = "Renew the transcript of the reward history of the pnl module with its recorder for migration 150012"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l18"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/production/l18/... && GOWORK=off go test -count=1 -list ^TestRewardHistoryPlanBinding ./internal/production/l18/ | grep -q ^TestRewardHistoryPlanBinding)"
+do_1 = "do_1 Gotcha 5022, decision 4078, and before them gotcha 4943 and decision 4018. Read services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py whole, of services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go the function rewardHistoryPlanBinding (line 142), the case at line 166 of services/launchpad/pnl-tracker/internal/production/l18/reward_history_plan_test.go, the file migrations/150012.sql and the entry of migration 150012 in migrations/registry.json."
+symbols = []
+
+[capability.22.39.1291]
+title = "Let the in-process stores of the metadata cases answer the read that the function Restrict sends before its transaction"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata/internal/app", "services/launchpad/metadata/internal/metadata"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && GOWORK=off go test -count=1 -timeout 20m ./internal/app/ ./internal/metadata/)"
+do_1 = "do_1 Gotcha 5021, decision 4077. Read the function Restrict of services/launchpad/metadata/internal/metadata/production.go from line 273, the store of services/launchpad/metadata/internal/app/metadata_maintenance_test.go up to line 641, the store of services/launchpad/metadata/internal/metadata/visibility_revocation_test.go up to line 613, and the six cases the gotcha names. Run the two packages by hand first and note which cases fail and with which first message: (cd services/launchpad/metadata && GOWORK=off go test -count=1 -timeout 20m ./internal/app/ ./internal/metadata/)."
+symbols = []
+
+[capability.22.39.1290]
+title = "Keep the imports of the livestream client of the web free of packages, so that the two cases that load it under node pass"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/core"]
+tests = []
+verification_contract = "anvil --version > /dev/null && ! grep -q transient-retry apps/launchpad/web/src/core/clients/livestream-api.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) && (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract ./internal/streams/) && pnpm --dir apps/launchpad/web run test src/core/transient-retry.test.ts src/core/clients/livestream-api.imports.test.ts && grep -q livestreamClientImportsNoPackage apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"
+do_1 = "do_1 Gotcha 5020, decision 4076. Read apps/launchpad/web/src/core/clients/livestream-api.ts whole, apps/launchpad/web/src/core/transient-retry.ts whole, the script services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/consumer.mjs and the part of services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go from line 717 that writes the script of its subcase. Run the two cases by hand first and note the results: (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) and (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract ./internal/streams/). Where the packages of the workspace are installed and built the two may pass already; the static part of the verification and the new case hold the rule."
+symbols = []
+
+[capability.22.39.1289]
+title = "Bring the page of the client contracts of the discovery module in step with the web, which renders no ranking of squads"
+reqs = ["22998.1"]
+touches = ["services/launchpad/discovery/contracts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/discovery && GOWORK=off go test -count=1 -timeout 15m -v -run ^TestMissingInterfaceContractPages . | grep -e ^---.PASS:.TestMissingInterfaceContractPages > /dev/null)"
+do_1 = "do_1 Gotcha 5019, decision 4075. Read services/launchpad/discovery/contracts/clients.md whole, the case TestMissingInterfaceContractPages of services/launchpad/discovery/squad_mutation_persistence_test.go from line 720, and apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx. Run the case by hand first and see it fail for the link of line 18: (cd services/launchpad/discovery && GOWORK=off go test -count=1 -timeout 15m -run ^TestMissingInterfaceContractPages .)."
+symbols = []
+
+[capability.22.39.1288]
+title = "Set the two value limits of a user in the definition of the wallet gateway"
+reqs = ["22998.1"]
+touches = ["deploy/projects/wallet/wallet-gateway.kvx"]
+tests = []
+verification_contract = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_definition_sets_both_value_limits tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_value_limits_are_operator_inputs tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_schema_still_reads_both_value_limits tools/deploy/tests/projects/test_wallet_gateway_value_limits.py"
+do_1 = "do_1 Gotcha 5017, decision 4073. Read deploy/projects/wallet/wallet-gateway.kvx whole, services/wallet/gateway/src/env.ts from line 126 to line 135, services/wallet/gateway/src/policy/index.ts from line 45 to line 106, and the two existing case files tools/deploy/tests/projects/test_wallet_wallet_gateway.py and tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py whole."
+symbols = []
+
+[capability.22.44.155]
+title = "Draw the layers at the lower edge of a narrow window opaque"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/shell", "apps/launchpad/web/src/app/tokens.css", "apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/widgets/create", "apps/launchpad/web/src/widgets/create-chain", "spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/shell/edge-layers.test.ts && grep -q edgeLayerRuleIsOpaque apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q barOfDestinationsIsOpaque apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q edgeLayersCarryBothClasses apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q otherFloatingLayersStayAsTheyAre apps/launchpad/web/src/shell/edge-layers.test.ts"
+do_1 = "do_1 Gotcha 5016, decision 4072. Read apps/launchpad/web/src/shell/shell.css whole, apps/launchpad/web/src/app/tokens.css from line 759 to line 781, the element of line 101 of apps/launchpad/web/src/shell/mobile-bottom-nav.tsx, of line 105 of apps/launchpad/web/src/ui/shared/cookie-banner.tsx, of line 34 of apps/launchpad/web/src/widgets/trading/mobile-trade-drawer.tsx, of line 1314 of apps/launchpad/web/src/widgets/create/create-wizard.tsx and of line 458 of apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx, and spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md from line 98 to line 101 and from line 253 to line 256. Before the first change run by hand the case files of the directories apps/launchpad/web/src/shell and apps/launchpad/web/src/ui/shared that render the bar of destinations or the cookie card, the case files of the directories apps/launchpad/web/src/widgets/trading, apps/launchpad/web/src/widgets/create and apps/launchpad/web/src/widgets/create-chain that name one of the attributes data-mobile-trade-cta, data-create-action and data-chain-action, and the case file apps/launchpad/web/src/app/tokens.test.ts, and note the results."
+symbols = []
+
+[capability.22.39.1287]
+title = "Price the positions of the trade path and of the rebuild path of the pnl service from indexed data"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "services/launchpad/pnl-tracker/internal/rolecheck", "services/launchpad/pnl-tracker/internal/reconcile", "services/launchpad/pnl-tracker/internal/devreads"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestIndexedMark ./internal/production/l16/ | grep -c -e ^---.PASS:.TestIndexedMark) -ge 6 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 5015, decision 4071. Read services/launchpad/pnl-tracker/internal/production/l16/mark_price.go whole, the function commitFullPortfolioTx of services/launchpad/pnl-tracker/internal/production/l16/ledger.go, the function PublishRebuiltWallet of services/launchpad/pnl-tracker/internal/production/l16/service.go, services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go from line 1470 to line 1496, services/launchpad/pnl-tracker/internal/production/l17/domain.go from line 202 to line 244, the entries of services/launchpad/pnl-tracker/internal/rolecheck/statements.json whose function is BaselineAuthority.priceTx, and the cases of services/launchpad/pnl-tracker/internal/production/l16 that fold a fill or publish a rebuilt wallet on the database the environment provides. Before the first change run by hand the case TestRuntimeRoleStatements of the directory services/launchpad/pnl-tracker/internal/rolecheck and the cases of the directories services/launchpad/pnl-tracker/internal/reconcile and services/launchpad/pnl-tracker/internal/devreads, and note the results."
+symbols = []
 
 [capability.22.39.1286]
 title = "Remove a new service from the other environments of its project"
@@ -182665,6 +182923,72 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1299]
+title = "Fit the list of markets beside the chart and the desktop order book of the trading workspace into their boxes so that neither scrolls or draws a bar"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1299"]
+interfaces = []
+do_1 = "do_1 Gotcha 5031, decision 4087, decision 3705. Read apps/perps/packages/markets/src/components/sideMarkets/column.tsx whole, apps/perps/packages/markets/src/components/marketsList/marketsList.ui.tsx whole, the column of volume and open interest in apps/perps/packages/markets/src/components/shared/column.tsx, apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx whole, apps/perps/packages/trading-next/src/components/desktop/orderBookAndTrades/orderBookAndTrades.ui.tsx whole and apps/perps/packages/trading-next/src/components/desktop/orderBook/index.desktop.tsx whole. This task changes one width, writes a second one into the same file and changes one count. It changes no rule of the overflow, no stylesheet, no colour, no text, no file the presentation check pins, no file of the classic trading package and no file of the mobile views."
+do_2 = "do_2 Decision 4087 point one, in apps/perps/packages/markets/src/components/sideMarkets/column.tsx. The first column goes from 115 to 92. The second column gets its width of 100 in this file in the form the third has, so that the three widths stand in one place and a later change of the shared column does not widen the table. The third stays at 80."
+do_3 = "do_3 Decision 4087 point two, in apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx. Give the desktop a count of its own with the value 110 beside the count of line 17, and use it where the screen is not the mobile one. The mobile order book keeps the value 104 and the two values of the row of the ratio stay."
+do_4 = "do_4 Write the case file apps/perps/tests/workspace-fit.test.ts with two cases, named theSideListOfMarketsFitsItsPanel and theDesktopOrderBookCountsItsFixedRows. The cases read the sources through the parser of the language, the package typescript that the root of the workspace lists among its development packages and that the presentation check uses, and not by a search of text. The first reads the list of columns apps/perps/packages/markets/src/components/sideMarkets/column.tsx returns, finds for each of the three a width written as a number in that file, and finds their sum at or below 272, the 280 pixels of the large panel less the eight of the padding of its scroll area. The second finds in apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx the desktop count with the value 110 and the mobile count with the value 104, and finds the desktop one used where the screen is not the mobile one."
+do_5 = "do_5 Measure by hand before the counted runs, for at most twenty minutes. The surface file tools/ui-check/surfaces/trading.json names the command that builds the web application and the command that starts it. Start it that way and open the trade view at 1440 by 900 and at 1920 by 1080 with the browser library of the browser cases of the workspace (apps/perps/playwright.config.ts), with the bars drawn: the browser without a window hides bars by default, so take that default off. Read the width of the scroll area of the list of markets and the width of its content, whether the right edge of the third column stands inside the panel, whether in any row the content of one column meets the content of the next, the height of the container of the order book and the height of its content, and the count of the bars the trade view draws. Where two contents of the list meet, move the widths as point one of decision 4087 allows and measure again. Give in the final message the numbers per size, the three widths of the final revision and each target of decision 4087 that does not hold. If the application does not start within ten minutes, leave the measure, say so and go on."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages/markets/src/components/sideMarkets", "apps/perps/packages/trading-next/src/components/base/orderBook", "apps/perps/tests"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/workspace-fit.test.ts && grep -e theSideListOfMarketsFitsItsPanel apps/perps/tests/workspace-fit.test.ts > /dev/null && grep -e theDesktopOrderBookCountsItsFixedRows apps/perps/tests/workspace-fit.test.ts > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1298]
+title = "Draw one thin dark bar on every scroll area of the trading workspace and none on its rows of tabs and the labels of its controls"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1298"]
+interfaces = []
+do_1 = "do_1 Gotcha 5030, decision 4086, decision 3705. Read apps/perps/apps/web/src/styles/globals.css whole, apps/perps/packages/ui/src/tailwind/scrollBar.ts whole, apps/perps/packages/markets/src/style/index.css whole and the two configuration files of the stylesheet build in apps/perps/apps/web. This task changes how a bar is drawn and which small parts draw one. It moves no part, changes no colour of a surface, no size and no text, and changes no file of the packages."
+do_2 = "do_2 Decision 4086 points one and two, in apps/perps/apps/web/src/styles/globals.css. Write the rules of the bar for every element and for the document with the values of the class custom-scrollbar of apps/perps/packages/ui/src/tailwind/scrollBar.ts, and the condition with the standard properties for a browser without the pseudo-elements. Then read the stylesheet the build produces and check that the two classes still win where an element carries one: the class hide-scrollbar draws no bar, and the class custom-scrollbar of apps/perps/packages/markets/src/style/index.css keeps its own width in the lists of the markets."
+do_3 = "do_3 Decision 4086 point three, in apps/perps/apps/web/src/styles/globals.css. Each of the five parts keeps its rule of the overflow and gets the rules that hide its bar: the display none of the bar for a browser with the pseudo-elements and scrollbar-width with the value none for the others. A row of tabs, a label or a card still scrolls by wheel, touch and keyboard."
+do_4 = "do_4 Write the case file apps/perps/tests/scroll-areas.test.ts with three cases, named everyScrollAreaDrawsTheThinBar, theStandardPropertiesStandBehindTheCondition and rowsAndControlsKeepTheirScrollAndDrawNoBar. The cases read apps/perps/apps/web/src/styles/globals.css through postcss, the parser of the stylesheet build, which the root of the workspace lists among its development packages, and not by a search of text. The first finds the rules of the bar for every element, with six pixels in both directions and the colours of the two tokens. The second finds the value thin and the colour of the standard properties only inside the condition, and the value none for the class hide-scrollbar inside it. The third finds for each of the five parts both its rule of the overflow and the rules that hide its bar, and finds the rules of lines 115 and 142 still with the value auto. Run apps/perps/tests/web-shell.test.ts once by hand as well, since it reads the same stylesheet; it is not part of the verification."
+do_5 = "do_5 Measure by hand before the counted runs, for at most twenty minutes. The surface file tools/ui-check/surfaces/trading.json names the command that builds the web application and the command that starts it. Start it that way and open the trade view at 1440 by 900 and at 1920 by 1080 with the browser library of the browser cases of the workspace (apps/perps/playwright.config.ts), with the bars drawn: the browser without a window hides bars by default, so take that default off. Read for every element that can scroll how thick its bar is and how far its content overflows, and compare with the targets of decision 4086. Give in the final message the count of bars drawn per view and size, the thickest bar, each target that does not hold, and each part that still draws a bar with the direction and the count of pixels its content overflows. Correct none of these overflows in this task. If the application does not start within ten minutes, leave the measure, say so and go on."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/apps/web/src/styles", "apps/perps/tests"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/scroll-areas.test.ts && grep -e everyScrollAreaDrawsTheThinBar apps/perps/tests/scroll-areas.test.ts > /dev/null && grep -e theStandardPropertiesStandBehindTheCondition apps/perps/tests/scroll-areas.test.ts > /dev/null && grep -e rowsAndControlsKeepTheirScrollAndDrawNoBar apps/perps/tests/scroll-areas.test.ts > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1247]
 title = "Keep the cookie notice of the trading web off the bottom navigation and the order form at phone size, make its close mark visible, and give the legal pages a title and the icon and every view a description and a preview title"
 status = "done"
@@ -214540,9 +214864,429 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1301]
+title = "Give the agent kit its row in the public job of the launchpad packages, leave the one case that needs a prepared host out of the web row, and bring the checks in step"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1301"]
+interfaces = []
+do_1 = "do_1 Gotcha 5033, decision 4089. Read whole: the job launchpad-test of .github/workflows/launchpad-test.yml, the job gateway of .github/workflows/wallet-test.yml, and the files tests/ci/test_js_suites_have_runner.py, tests/ci/test_pnpm_workspace_roots.py, tests/ci/test_launchpad_test_workflow.py and tests/ci/test_launchpad_package_job_environment.py. This task changes .github/workflows/launchpad-test.yml and files below tests/ci, nothing else."
+do_2 = "do_2 Nine files below tests/ci name the workflow: the eight of the verification and tests/ci/test_launchpad_go_tests_wired.py. Before any change run pytest over the nine and keep the summary of each and the names of the cases that fail. Run the same after the last change. A case that passed before and fails after is repaired inside the paths. Give both sets of summaries in the final message."
+do_3 = "do_3 The web row, decision 4089 point one: the command of line 273 of .github/workflows/launchpad-test.yml becomes python3 scripts/prepare-test-environment.py -- pnpm exec vitest run --exclude src/widgets/coin/coin-layout.browser.test.ts. Bring the list of words in tests/ci/test_pnpm_workspace_roots.py and the recognition of the web row in tests/ci/test_js_suites_have_runner.py to exactly this command, point three: the command without the two new words, with a second excluded file or with another file is not recognised."
+do_4 = "do_4 The row of the kit, decision 4089 point two. Add sdk/launchpad/packages/agent-kit to the matrix and the steps the row needs, in an order in which each tool is there before the step that uses it and all of them before the step Test package (line 274). The step Build SDK packages (line 268) already builds the kit. The default directory of the job is apps/launchpad: a step that runs elsewhere names its directory. For go widen the condition of the step of line 212: the job keeps exactly one step that sets up go. For anvil prefer the step of line 202 with a widened condition over a second copy, if the checks can then still say exactly which rows get it. Write conditions in the two forms the function package_condition_matches of tests/ci/test_launchpad_package_job_environment.py reads."
+do_5 = "do_5 The checks, decision 4089 point three. Bring tests/ci/test_js_suites_have_runner.py, tests/ci/test_pnpm_workspace_roots.py, tests/ci/test_launchpad_test_workflow.py and tests/ci/test_launchpad_package_job_environment.py to the new state. For the row of the kit the checks say exactly which steps it gets, and that every other row does not get the steps that are new. Where a check derives what a package needs from the sources of its cases and cannot read the cases of the kit that way, state what the kit needs as a fixed expectation with its cause in a comment line, and leave the derivation for the other packages as it is. If a change of the workflow touches what tests/ci/test_launchpad_install_steps.py or another file below tests/ci pins, bring that file in step the same way and name it in the final message."
+do_6 = "do_6 Run by hand, in the working tree and with the tools of the environment, the commands of the new row in the order of the workflow, up to and with the script test of the kit: pnpm --dir sdk/launchpad/packages/agent-kit run test. Give for each command whether it passed. If a tool of a step is not there, say so and go on with the next command. A case of the kit that fails: give case, file and first message, decision 4089 point four. Name in the final message every step of the new row that could not be run here as it will run in the public job, with the cause in a few words."
+do_7 = "do_7 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_js_suites_have_runner.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_launchpad_package_job_environment.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_js_suites_have_runner.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_launchpad_package_job_environment.py tests/ci/test_launchpad_install_steps.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_push_concurrency.py tests/ci/test_workflow_runs_on_routed.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1300]
+title = "Add cases to the holdings service of the launchpad until its statement coverage passes the minimum of 90.0 of its public job"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1300"]
+interfaces = []
+do_1 = "do_1 Gotcha 5032, decision 4088. Read the targets cover and cover-check of services/launchpad/Makefile and tools/launchpad/coverage-gate.sh whole. This task adds cases in files whose names end in _test.go below services/launchpad/pnl-tracker. It changes no other file: no file of the product, not the gate, not the makefile, not go.mod and not go.sum."
+do_2 = "do_2 Measure first. Run the target cover of services/launchpad/Makefile for the module, from the root of the tree: GOFLAGS=-timeout=15m make -C services/launchpad cover MODULES=pnl-tracker. The run takes more than ten minutes; the package internal/production/l16 alone took 490 seconds in the public run. The profile is services/launchpad/.cover/pnl-tracker.out. The directory .cover is ignored by git: never add it to a commit. Inside services/launchpad/pnl-tracker run go tool cover with the option -func and the path of the profile, and keep the output: it gives the figure of every function and the total in its last line. Give the total and the figures of the packages before the new cases in the final message."
+do_3 = "do_3 Choose the functions by the statements a case can reach, decision 4088 point three, and write the cases, points one and two. Use the helpers and the form the cases of the same package already use, a table of inputs where the package has tables. A case of internal/production/l16 that needs the local chain or the event broker uses the helpers of that package and starts nothing by a way of its own. To measure one package while writing, run go test with the option -coverprofile for that package alone, with GOWORK=off, inside services/launchpad/pnl-tracker; measure the whole module again only before the counted runs."
+do_4 = "do_4 Measure the whole module again as in do_2. The total of the final revision is 90.3 or above, decision 4088 point four. Give in the final message the total and the figures of the packages after the new cases, the names of the new cases for each package, and each function left without a case although its figure is low, with the cause in a few words."
+do_5 = "do_5 If the case TestCheckpointRevisionSecondFill or another case of internal/production/l16 that this task did not write fails in a run, repeat that run once. Name the case, the file and its first message in the final message. Do not change such a case, decision 4088 point five."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal", "services/launchpad/pnl-tracker/cmd"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint cover-check MODULES=pnl-tracker"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1297]
+title = "Give the cases of the delegated path of the wallet gateway that create keys limits that follow the slower machine"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1297"]
+interfaces = []
+do_1 = "do_1 Gotcha 5027, decision 4083. Read services/wallet/gateway/test/agent-delegated-path.test.ts from line 163 to line 429 and from line 941 to its end."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Make the change of decision 4083 point one and no other: eight limits. The file takes some minutes; run nothing beside it. The final message gives the time each of the eleven cases took in the last run by hand. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/test/agent-delegated-path.test.ts"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile)"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/agent-delegated-path.test.ts && test $(grep -c -e 300_000 services/wallet/gateway/test/agent-delegated-path.test.ts) -eq 8 && grep -q -e delegatedAgentPath,.900_000 services/wallet/gateway/test/agent-delegated-path.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1296]
+title = "Bring the case of the lease loss during the wait for a receipt in step with the order of the reads of the wallet gateway, and cover the loss before the recovery"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1296"]
+interfaces = []
+do_1 = "do_1 Gotcha 5026, decision 4082. Read the path of the task whole, the file of the loop of the actions in the folder services/wallet/gateway/src/agent/actions whole (it holds the renewal of the lease), services/wallet/gateway/src/agent/actions/orchestrator.ts from line 470 to line 515 and from line 707 to line 729, services/wallet/gateway/src/db/actions.ts from line 76 to line 102 and services/wallet/gateway/src/chainReads.ts from line 349 to line 409. Run the case file by hand first with the first command of the verification, which names the case file by the start of its name, test/action-, and runs that one file; see the one case fail and read which message the list of warnings holds. If it is not the message of the class ActionLeaseLostError, find where it comes from before anything else and say so in the final message; the target of the decision stays."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Make the changes of decision 4082 points two and three in the file and no other. At the end run the file five times in a row by hand; every run passes. The final message gives for each case of the file the time it took in the last run and says how the chain of the file tells the first read from the second. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/wallet/gateway/test/action-worker-leases.test.ts"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile)"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/action- && grep -q actionLeaseLossBeforeRecoveryStopsAdvancement services/wallet/gateway/test/action-*-leases.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1295]
+title = "Start the chain of the comment service in the script test of the web, so that the case file of the tab Replies passes without a chain from outside"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1295"]
+interfaces = []
+do_1 = "do_1 Gotcha 5025, decision 4081. Read apps/launchpad/web/scripts/prepare-test-environment.py whole, apps/launchpad/web/src/widgets/profile/replies-tab.test.tsx from line 40 to line 80 and services/launchpad/social/internal/internaltest/canonical.go whole. Run the file by hand first with the variable removed and see its setup fail: env -u L34_ANVIL_URL pnpm --dir apps/launchpad/web run test src/widgets/profile/replies-tab.test.tsx."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Add the stage as decision 4081 says, in the form of the neighbouring stages. Change nothing outside the paths. The final message names the rule by which the stage takes its port, and the time the case file took in the last run by hand. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/scripts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/social && GOWORK=off go build ./... && GOWORK=off go vet ./internal/interactions/...)"
+verify_cmd = "anvil --version > /dev/null && env -u L34_ANVIL_URL pnpm --dir apps/launchpad/web run test src/widgets/profile/replies-tab.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1294]
+title = "Bring two cases of the web in step with the writer of the swap record of a trade"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1294"]
+interfaces = []
+do_1 = "do_1 Gotcha 5024, decision 4080. Read apps/launchpad/web/src/core/network/deployment-regeneration.test.ts whole, apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts whole and apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts from line 133 to line 170."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Make the two changes of decision 4080 and no other. Run each of the two files by name with the script test of the web. The final message gives the time each case of apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts took in the last run by hand. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/core/network/deployment-regeneration.test.ts", "apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/core/network/deployment-regeneration.test.ts src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q 120_000 apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q swapRecordWriter apps/launchpad/web/src/core/network/deployment-regeneration.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1293]
+title = "Refresh the list of the runtime statements of the social service for the statement that raises the visibility revision of the comments of a wallet"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1293"]
+interfaces = []
+do_1 = "do_1 Gotcha 5023, decision 4079. Read services/launchpad/social/internal/rolecheck/generate.go whole, the program under services/launchpad/social/internal/rolecheck/cmd, services/launchpad/social/internal/rolecheck/generate_test.go and services/launchpad/social/internal/rolecheck/statements_test.go whole, the function Record of services/launchpad/social/internal/interactions/outbox.go from line 75 with the new statement at line 125, and the entries of services/launchpad/social/internal/rolecheck/statements.json whose function is Publisher.Record. Run the two cases by hand first and see them fail: (cd services/launchpad/social && GOWORK=off go test -count=1 -timeout 40m -run ^TestStatementLocationsPreserveAndRelocateRuntimeSQL ./internal/rolecheck/) and the same command with ^TestRuntimeRoleStatements."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Run the refresh as decision 4079 point one says. It needs the python packages that services/launchpad/social/internal/rolecheck/requirements.txt names and the PostgreSQL of the test environment. Read the difference of services/launchpad/social/internal/rolecheck/statements.json against point two, and give the new statement what point three requires. Then run the cases of the directory. The final message names the entries that were added or moved, the command of the refresh as it ran, and every file other than services/launchpad/social/internal/rolecheck/statements.json that changed. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal/rolecheck", "services/launchpad/social/internal/app/constants.go", "services/launchpad/social/internal/app/frozen.go", "services/launchpad/social/internal/app/app.go"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && GOWORK=off go build ./... && GOWORK=off go vet ./internal/rolecheck/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off go test -count=1 -timeout 40m ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1292]
+title = "Renew the transcript of the reward history of the pnl module with its recorder for migration 150012"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1292"]
+interfaces = []
+do_1 = "do_1 Gotcha 5022, decision 4078, and before them gotcha 4943 and decision 4018. Read services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py whole, of services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go the function rewardHistoryPlanBinding (line 142), the case at line 166 of services/launchpad/pnl-tracker/internal/production/l18/reward_history_plan_test.go, the file migrations/150012.sql and the entry of migration 150012 in migrations/registry.json."
+do_2 = "do_2 Run the case of line 166 alone first and see it fail with the id 150012: (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 15m -run ^TestRewardHistoryPlanBindingRepository ./internal/production/l18/). Then run the recorder from the root of the tree, python3 services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py, with the variable PNL_TEST_POSTGRES_DSN of the test environment. Read the difference of services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json against decision 4078 point two and write no member by hand. Then run the cases of the package."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point three says what stays. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. Where the main line brings a further registration or changes a source of the transcript while this task runs, take the main line and run the recorder again. The final message names the ids the member applied gained, the sources that were added or changed, the count of the objects before and after, the command of the recorder as it ran, and every file other than services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json that changed. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l18"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/production/l18/... && GOWORK=off go test -count=1 -list ^TestRewardHistoryPlanBinding ./internal/production/l18/ | grep -q ^TestRewardHistoryPlanBinding)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1291]
+title = "Let the in-process stores of the metadata cases answer the read that the function Restrict sends before its transaction"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1291"]
+interfaces = []
+do_1 = "do_1 Gotcha 5021, decision 4077. Read the function Restrict of services/launchpad/metadata/internal/metadata/production.go from line 273, the store of services/launchpad/metadata/internal/app/metadata_maintenance_test.go up to line 641, the store of services/launchpad/metadata/internal/metadata/visibility_revocation_test.go up to line 613, and the six cases the gotcha names. Run the two packages by hand first and note which cases fail and with which first message: (cd services/launchpad/metadata && GOWORK=off go test -count=1 -timeout 20m ./internal/app/ ./internal/metadata/)."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Change the stores as decision 4077 says. After each change run the cases of the gotcha by name. The final message names each statement a store answers now, with file and line, and each case that failed before and passes now. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata/internal/app", "services/launchpad/metadata/internal/metadata"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && GOWORK=off go build ./... && GOWORK=off go vet ./internal/app/... ./internal/metadata/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && GOWORK=off go test -count=1 -timeout 20m ./internal/app/ ./internal/metadata/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1290]
+title = "Keep the imports of the livestream client of the web free of packages, so that the two cases that load it under node pass"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1290"]
+interfaces = []
+do_1 = "do_1 Gotcha 5020, decision 4076. Read apps/launchpad/web/src/core/clients/livestream-api.ts whole, apps/launchpad/web/src/core/transient-retry.ts whole, the script services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/consumer.mjs and the part of services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go from line 717 that writes the script of its subcase. Run the two cases by hand first and note the results: (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) and (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract ./internal/streams/). Where the packages of the workspace are installed and built the two may pass already; the static part of the verification and the new case hold the rule."
+do_2 = "do_2 Make the change of decision 4076 points one to three. Change nothing in what the functions return, and nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Add the case of decision 4076 point four. It reads the source files as text; it starts no service and reaches no network. Show once by hand that the case fails when the client imports @/core/transient-retry again, and say so in the final message. If the case finds a further package among the imports the client reaches, bring that import to the rule inside the paths the same way and name it in the final message. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/core"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/core/retry-fields.ts", "apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go build ./...) && (cd services/launchpad/livestream && GOWORK=off go build ./...)"
+verify_cmd = "anvil --version > /dev/null && ! grep -q transient-retry apps/launchpad/web/src/core/clients/livestream-api.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) && (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract -skip ^TestStreamContractIntegrationPrivateIngestKeyRecovery ./internal/streams/) && pnpm --dir apps/launchpad/web run test src/core/transient-retry.test.ts src/core/clients/livestream-api.imports.test.ts && grep -q livestreamClientImportsNoPackage apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1289]
+title = "Bring the page of the client contracts of the discovery module in step with the web, which renders no ranking of squads"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1289"]
+interfaces = []
+do_1 = "do_1 Gotcha 5019, decision 4075. Read services/launchpad/discovery/contracts/clients.md whole, the case TestMissingInterfaceContractPages of services/launchpad/discovery/squad_mutation_persistence_test.go from line 720, and apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx. Run the case by hand first and see it fail for the link of line 18: (cd services/launchpad/discovery && GOWORK=off go test -count=1 -timeout 15m -run ^TestMissingInterfaceContractPages .)."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Change the page as decision 4075 says and nothing else. Then check every relative link of both pages once by hand. The final message gives the sentence before and after. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/discovery/contracts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/discovery && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/discovery && GOWORK=off go test -count=1 -timeout 15m -v -run ^TestMissingInterfaceContractPages . | grep -e ^---.PASS:.TestMissingInterfaceContractPages > /dev/null)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1288]
+title = "Set the two value limits of a user in the definition of the wallet gateway"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1288"]
+interfaces = []
+do_1 = "do_1 Gotcha 5017, decision 4073. Read deploy/projects/wallet/wallet-gateway.kvx whole, services/wallet/gateway/src/env.ts from line 126 to line 135, services/wallet/gateway/src/policy/index.ts from line 45 to line 106, and the two existing case files tools/deploy/tests/projects/test_wallet_wallet_gateway.py and tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py whole."
+do_2 = "do_2 Change deploy/projects/wallet/wallet-gateway.kvx as decision 4073 says. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file tools/deploy/tests/projects/test_wallet_gateway_value_limits.py. The file reads the definition and the source the way the existing case file tools/deploy/tests/projects/test_wallet_gateway_agent_lane.py does and changes nothing in the two existing case files. One: test_definition_sets_both_value_limits. The section of variables holds POLICY_MAX_TX_VALUE_WEI and POLICY_MAX_DAILY_VALUE_WEI, and the value of each is the prefix env: followed by the name of the folder, the name of the service and the name of the variable, in upper case, joined by underscores, with every dash turned into an underscore. Two: test_value_limits_are_operator_inputs. The section of inputs holds each of the two input names once with the kind operator, and the line above each is a comment that holds the word as between two spaces and the word wei. Three: test_schema_still_reads_both_value_limits. The text of services/wallet/gateway/src/env.ts holds the fields POLICY_MAX_TX_VALUE_WEI and POLICY_MAX_DAILY_VALUE_WEI, so that a new name in the source shows here. Run the two existing case files named above by hand before the change and after it. A case of those files that fails the same way before and after is named in the final message with its first message and is not repaired. A case of those files that fails only after the change is repaired inside the paths. Say in the final message that you saw the first two cases fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time and never opens a listener or a port. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["deploy/projects/wallet/wallet-gateway.kvx"]
+tests = []
+planned_paths = ["tools/deploy/tests/projects/test_wallet_gateway_value_limits.py"]
+build_cmd = "python3 -m py_compile tools/deploy/tests/projects/test_wallet_gateway_value_limits.py"
+verify_cmd = "python3 -m pytest -q tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_definition_sets_both_value_limits tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_value_limits_are_operator_inputs tools/deploy/tests/projects/test_wallet_gateway_value_limits.py && grep -q test_schema_still_reads_both_value_limits tools/deploy/tests/projects/test_wallet_gateway_value_limits.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.155]
+title = "Draw the layers at the lower edge of a narrow window opaque"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.155"]
+interfaces = []
+do_1 = "do_1 Gotcha 5016, decision 4072. Read apps/launchpad/web/src/shell/shell.css whole, apps/launchpad/web/src/app/tokens.css from line 759 to line 781, the element of line 101 of apps/launchpad/web/src/shell/mobile-bottom-nav.tsx, of line 105 of apps/launchpad/web/src/ui/shared/cookie-banner.tsx, of line 34 of apps/launchpad/web/src/widgets/trading/mobile-trade-drawer.tsx, of line 1314 of apps/launchpad/web/src/widgets/create/create-wizard.tsx and of line 458 of apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx, and spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md from line 98 to line 101 and from line 253 to line 256. Before the first change run by hand the case files of the directories apps/launchpad/web/src/shell and apps/launchpad/web/src/ui/shared that render the bar of destinations or the cookie card, the case files of the directories apps/launchpad/web/src/widgets/trading, apps/launchpad/web/src/widgets/create and apps/launchpad/web/src/widgets/create-chain that name one of the attributes data-mobile-trade-cta, data-create-action and data-chain-action, and the case file apps/launchpad/web/src/app/tokens.test.ts, and note the results."
+do_2 = "do_2 Change apps/launchpad/web/src/shell/shell.css, apps/launchpad/web/src/app/tokens.css, the four elements and spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md as decision 4072 says. Change no position, no size and no other class of the five elements, and nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/shell/edge-layers.test.ts. The file reads the style sheets and the source files as text from the file system, as the case file apps/launchpad/web/src/app/tokens.test.ts reads its style sheet, and starts no browser. One: edgeLayerRuleIsOpaque. apps/launchpad/web/src/app/tokens.css holds a rule of the class sl-floating-opaque after the line that sets the layer background inside the block for a supported filter, and that rule sets the background to the second surface and the backdrop filter to none. Two: barOfDestinationsIsOpaque. apps/launchpad/web/src/shell/shell.css sets the background of the class sl-mobile-destinations to the first surface and names neither a backdrop filter nor a mixed colour anywhere. Three: edgeLayersCarryBothClasses. In each of the four source files the opening tag of the element with its attribute, data-cookie-banner, data-mobile-trade-cta, data-create-action and data-chain-action, names the class sl-floating and the class sl-floating-opaque. Four: otherFloatingLayersStayAsTheyAre. apps/launchpad/web/src/app/tokens.css still holds the rule of the floating surface with the mixed background and the blur inside the block for a supported filter, and the sheet of the bar of destinations in apps/launchpad/web/src/shell/mobile-bottom-nav.tsx carries the class sl-floating without the new class. After the change run the case files of do_1 by hand again. A case there that fails the same way before and after is named in the final message with its first message and is not repaired; a case that fails only after the change is repaired inside the paths. Say in the final message that you saw the first three cases fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/shell", "apps/launchpad/web/src/app/tokens.css", "apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/widgets/create", "apps/launchpad/web/src/widgets/create-chain", "spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/shell/edge-layers.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/shell/edge-layers.test.ts && grep -q edgeLayerRuleIsOpaque apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q barOfDestinationsIsOpaque apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q edgeLayersCarryBothClasses apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q otherFloatingLayersStayAsTheyAre apps/launchpad/web/src/shell/edge-layers.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1287]
+title = "Price the positions of the trade path and of the rebuild path of the pnl service from indexed data"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1287"]
+interfaces = []
+do_1 = "do_1 Gotcha 5015, decision 4071. Read services/launchpad/pnl-tracker/internal/production/l16/mark_price.go whole, the function commitFullPortfolioTx of services/launchpad/pnl-tracker/internal/production/l16/ledger.go, the function PublishRebuiltWallet of services/launchpad/pnl-tracker/internal/production/l16/service.go, services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go from line 1470 to line 1496, services/launchpad/pnl-tracker/internal/production/l17/domain.go from line 202 to line 244, the entries of services/launchpad/pnl-tracker/internal/rolecheck/statements.json whose function is BaselineAuthority.priceTx, and the cases of services/launchpad/pnl-tracker/internal/production/l16 that fold a fill or publish a rebuilt wallet on the database the environment provides. Before the first change run by hand the case TestRuntimeRoleStatements of the directory services/launchpad/pnl-tracker/internal/rolecheck and the cases of the directories services/launchpad/pnl-tracker/internal/reconcile and services/launchpad/pnl-tracker/internal/devreads, and note the results."
+do_2 = "do_2 Add the function to services/launchpad/pnl-tracker/internal/production/l16/mark_price.go as decision 4071 says and use it in the two paths. Bring services/launchpad/pnl-tracker/internal/rolecheck/statements.json in step, in the form of its neighbouring entries. A case or a recorded expectation inside the paths that pins a position of one of the two paths as unpriced, where the rows of that case give a mark, follows the new output. Change nothing outside the paths and no migration."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in the new file services/launchpad/pnl-tracker/internal/production/l16/indexed_mark_test.go, with names that start with TestIndexedMark, on the database the environment provides, as the neighbour cases do. No case reaches a node. One: TestIndexedMarkReadsTheRowOfTheFill. With a fill and a row of its pool at the block and log index of the fill the function returns the mark that SpotMark gives for the reserves of the row and the decimals of the token of the fill, with the fill as its source. Two: TestIndexedMarkWithoutARow. Without such a row, and again for a token without a fill, the function returns no mark and no error. Three: TestIndexedMarkWithALaterRowInTheBlock. With a second row of the same pool in the block of the fill at a higher log index the function returns no mark and no error. With that second row in a later block instead, and no fill at it, the function returns the mark of case one. Four: TestIndexedMarkTakesTheNewestFillAtOrBelowTheHeight. With two fills of one token at two heights, each with its row, a height between the two gives the mark of the first and the height of the second gives the mark of the second. Five: TestIndexedMarkTradePathCommitsAPrice. The trade path folds a fill whose row is present: the position of the record it commits has a mark whose source is that fill, and the quality that the live path gives a position with a mark. The same fold without the row commits the position as it does today. Six: TestIndexedMarkRebuildPathCommitsAPrice. The same two halves for the record that PublishRebuiltWallet commits. If the rebuild path cannot be driven on the database of the environment without a node, cover its change with a case on the part of it that builds the positions and say so in the final message. After the change run the cases of the directories services/launchpad/pnl-tracker/internal/reconcile and services/launchpad/pnl-tracker/internal/devreads by hand again. A case there that fails the same way before and after is named in the final message with its first message and is not repaired; a case that fails only after the change is repaired inside the paths. Say in the final message which cases you saw fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "services/launchpad/pnl-tracker/internal/rolecheck", "services/launchpad/pnl-tracker/internal/reconcile", "services/launchpad/pnl-tracker/internal/devreads"]
+tests = []
+planned_paths = ["services/launchpad/pnl-tracker/internal/production/l16/indexed_mark_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./internal/production/l16/... ./internal/rolecheck/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestIndexedMark ./internal/production/l16/ | grep -c -e ^---.PASS:.TestIndexedMark) -ge 6 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1286]
 title = "Remove a new service from the other environments of its project"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214572,7 +215316,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1285]
 title = "Set the agent token secret in the definition of the wallet gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214812,7 +215556,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1277]
 title = "Read the accepted head in the pnl service of the launchpad with a bound height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217445,7 +218189,7 @@ touches = ["apps/launchpad/web/src", "tools/ui-check/surfaces", "spec/layerx-mer
 tests = []
 planned_paths = ["spec/layerx-merge/programme/records/ui/22.44.147.kvx"]
 build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
-verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.147.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && for p in home community coin create explore rewards live terminal; do NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/$p.json --out /tmp/ui-check/launchpad-$p || exit 1; done && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test"
+verify_cmd = "anvil --version > /dev/null && test -s spec/layerx-merge/programme/records/ui/22.44.147.kvx && (cd tools/ui-check && npm ci && npx playwright install --with-deps chromium) && (command -v certutil || (apt-get update -q && apt-get install -y -q libnss3-tools)) && node tools/ui-check/surfaces/launchpad/parts.mjs && for p in home community coin create explore rewards live terminal; do NODE_TLS_REJECT_UNAUTHORIZED=0 node tools/ui-check/check.mjs --surface tools/ui-check/surfaces/launchpad/parts/$p.json --out /tmp/ui-check/launchpad-$p || exit 1; done && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/web run test --exclude src/widgets/profile/replies-tab.test.tsx --exclude src/core/network/deployment-regeneration.test.ts --exclude src/widgets/trading/transaction-controls/swap-record-writer.test.ts"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"

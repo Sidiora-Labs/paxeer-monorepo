@@ -67,7 +67,7 @@ class Environment:
         print('Preparing ' + name, flush=True)
         function()
         (self.output / 'environment.json').write_text(json.dumps({key: value for key, value in self.env.items()
-            if key.startswith(('L25_', 'L26_', 'L27_', 'L28_', 'L38_', 'WALLET_TEST_', 'DISPATCH_TEST_', 'JOINED_'))}, indent=2) + '\n')
+            if key.startswith(('L25_', 'L26_', 'L27_', 'L28_', 'L34_', 'L38_', 'WALLET_TEST_', 'DISPATCH_TEST_', 'JOINED_'))}, indent=2) + '\n')
 
     def start(self, argv, name, cwd=ROOT, env=None):
         log = (self.output / (name + '.log')).open('w')
@@ -169,6 +169,13 @@ class Environment:
 
     def joined(self):
         module(WEB / 'src/widgets/trading/run-joined-services.py').prepare_fixture(self)
+
+    def comments(self):
+        with socket.socket() as probe:
+            probe.bind(('127.0.0.1', 0))
+            port = probe.getsockname()[1]
+        _, url = self.anvil(port, chain_id=125)
+        self.env['L34_ANVIL_URL'] = url
 
     def chart_recovery_ready(self, timeout=90):
         joined = json.loads(Path(self.env['JOINED_CONFIG_FILE']).read_text())
@@ -281,6 +288,7 @@ def main():
         setup.stage('trading phase two', setup.trading_phase2)
         setup.stage('joined services', setup.joined)
         setup.stage('chart recovery responses', setup.chart_recovery_ready)
+        setup.stage('comment service chain', setup.comments)
         if args.prepare_only:
             # Observe the candle interface separately from mandatory trade readiness.
             # Never manufacture candle documents or change a gate based on this probe.

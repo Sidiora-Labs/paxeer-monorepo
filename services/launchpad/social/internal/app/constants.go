@@ -20,4 +20,5 @@ const (
 	socialService              = "social"
 	socialPolicyChangedEvent   = "social.policy.changed.v2"
 	tokenResource              = "token"
+	usersResource              = "users"
 )
