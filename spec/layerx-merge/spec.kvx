@@ -17542,6 +17542,12 @@ value = "Point one. A new function of the directory services/launchpad/pnl-track
 basis = "Gotcha 5015."
 affects = []
 
+[decision.4072]
+title = "The layers at the lower edge of a narrow window are opaque"
+value = "Point one. A layer that lies over the text of the page for as long as its view is open must read well when no blur is drawn behind it. The five layers of gotcha 5016 therefore draw an opaque background. Sheets, menus, toasts, tooltips and dialogs open over the page for a moment and keep the floating surface as it is. Point two. The bar of destinations draws the plain background of the first surface at every width at which it is drawn: the block of apps/launchpad/web/src/shell/shell.css that starts at line 5 goes. Point three. A new class sl-floating-opaque in apps/launchpad/web/src/app/tokens.css, placed after the block for a supported filter of the floating surface, sets the background to the second surface and the backdrop filter to none. An element that carries it beside the class of the floating surface keeps the edge and the shadow of that surface. Point four. The cookie card, the trade bar of the coin page and the action bars of the two create views carry the new class beside the class of the floating surface, at every width. Point five. The brief follows in the same change. Its entry for floating layers no longer lists the bar of destinations and the sticky trade bar, and says in one more sentence that the bar of destinations, the sticky trade bar, the cookie notice and the action bar of a create view are opaque, the bar in surface 1 and the others in surface 2, each with its hairline. Its entry for the bar of destinations says opaque surface 1 in place of surface 1 at 82 percent with the blur. Point six. Not changed here: the rule of the floating surface and its values, the position, the size, the edge and the shadow of the five layers, the sheet of the bar of destinations at line 148 of apps/launchpad/web/src/shell/mobile-bottom-nav.tsx, and every other element that carries the floating surface."
+basis = "Gotcha 5016."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47202,6 +47208,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.44.155]
+title = "Draw the layers at the lower edge of a narrow window opaque"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/shell", "apps/launchpad/web/src/app/tokens.css", "apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/widgets/create", "apps/launchpad/web/src/widgets/create-chain", "spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/shell/edge-layers.test.ts && grep -q edgeLayerRuleIsOpaque apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q barOfDestinationsIsOpaque apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q edgeLayersCarryBothClasses apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q otherFloatingLayersStayAsTheyAre apps/launchpad/web/src/shell/edge-layers.test.ts"
+do_1 = "do_1 Gotcha 5016, decision 4072. Read apps/launchpad/web/src/shell/shell.css whole, apps/launchpad/web/src/app/tokens.css from line 759 to line 781, the element of line 101 of apps/launchpad/web/src/shell/mobile-bottom-nav.tsx, of line 105 of apps/launchpad/web/src/ui/shared/cookie-banner.tsx, of line 34 of apps/launchpad/web/src/widgets/trading/mobile-trade-drawer.tsx, of line 1314 of apps/launchpad/web/src/widgets/create/create-wizard.tsx and of line 458 of apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx, and spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md from line 98 to line 101 and from line 253 to line 256. Before the first change run by hand the case files of the directories apps/launchpad/web/src/shell and apps/launchpad/web/src/ui/shared that render the bar of destinations or the cookie card, the case files of the directories apps/launchpad/web/src/widgets/trading, apps/launchpad/web/src/widgets/create and apps/launchpad/web/src/widgets/create-chain that name one of the attributes data-mobile-trade-cta, data-create-action and data-chain-action, and the case file apps/launchpad/web/src/app/tokens.test.ts, and note the results."
+symbols = []
 
 [capability.22.39.1287]
 title = "Price the positions of the trade path and of the rebuild path of the pnl service from indexed data"
@@ -214551,6 +214566,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.44.155]
+title = "Draw the layers at the lower edge of a narrow window opaque"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.44.155"]
+interfaces = []
+do_1 = "do_1 Gotcha 5016, decision 4072. Read apps/launchpad/web/src/shell/shell.css whole, apps/launchpad/web/src/app/tokens.css from line 759 to line 781, the element of line 101 of apps/launchpad/web/src/shell/mobile-bottom-nav.tsx, of line 105 of apps/launchpad/web/src/ui/shared/cookie-banner.tsx, of line 34 of apps/launchpad/web/src/widgets/trading/mobile-trade-drawer.tsx, of line 1314 of apps/launchpad/web/src/widgets/create/create-wizard.tsx and of line 458 of apps/launchpad/web/src/widgets/create-chain/chain-wizard.tsx, and spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md from line 98 to line 101 and from line 253 to line 256. Before the first change run by hand the case files of the directories apps/launchpad/web/src/shell and apps/launchpad/web/src/ui/shared that render the bar of destinations or the cookie card, the case files of the directories apps/launchpad/web/src/widgets/trading, apps/launchpad/web/src/widgets/create and apps/launchpad/web/src/widgets/create-chain that name one of the attributes data-mobile-trade-cta, data-create-action and data-chain-action, and the case file apps/launchpad/web/src/app/tokens.test.ts, and note the results."
+do_2 = "do_2 Change apps/launchpad/web/src/shell/shell.css, apps/launchpad/web/src/app/tokens.css, the four elements and spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md as decision 4072 says. Change no position, no size and no other class of the five elements, and nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/shell/edge-layers.test.ts. The file reads the style sheets and the source files as text from the file system, as the case file apps/launchpad/web/src/app/tokens.test.ts reads its style sheet, and starts no browser. One: edgeLayerRuleIsOpaque. apps/launchpad/web/src/app/tokens.css holds a rule of the class sl-floating-opaque after the line that sets the layer background inside the block for a supported filter, and that rule sets the background to the second surface and the backdrop filter to none. Two: barOfDestinationsIsOpaque. apps/launchpad/web/src/shell/shell.css sets the background of the class sl-mobile-destinations to the first surface and names neither a backdrop filter nor a mixed colour anywhere. Three: edgeLayersCarryBothClasses. In each of the four source files the opening tag of the element with its attribute, data-cookie-banner, data-mobile-trade-cta, data-create-action and data-chain-action, names the class sl-floating and the class sl-floating-opaque. Four: otherFloatingLayersStayAsTheyAre. apps/launchpad/web/src/app/tokens.css still holds the rule of the floating surface with the mixed background and the blur inside the block for a supported filter, and the sheet of the bar of destinations in apps/launchpad/web/src/shell/mobile-bottom-nav.tsx carries the class sl-floating without the new class. After the change run the case files of do_1 by hand again. A case there that fails the same way before and after is named in the final message with its first message and is not repaired; a case that fails only after the change is repaired inside the paths. Say in the final message that you saw the first three cases fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/shell", "apps/launchpad/web/src/app/tokens.css", "apps/launchpad/web/src/ui/shared", "apps/launchpad/web/src/widgets/trading", "apps/launchpad/web/src/widgets/create", "apps/launchpad/web/src/widgets/create-chain", "spec/layerx-merge/programme/docs/launchpad-ui/design-brief.md"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/shell/edge-layers.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/shell/edge-layers.test.ts && grep -q edgeLayerRuleIsOpaque apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q barOfDestinationsIsOpaque apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q edgeLayersCarryBothClasses apps/launchpad/web/src/shell/edge-layers.test.ts && grep -q otherFloatingLayersStayAsTheyAre apps/launchpad/web/src/shell/edge-layers.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
