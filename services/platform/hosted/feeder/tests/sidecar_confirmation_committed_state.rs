@@ -119,6 +119,7 @@ fn committed_state_committed_submission_recovers_after_restart() -> TestResult {
         .metrics_text(now_ms())
         .contains("price_sidecar_confirmed_height 840\n"));
     assert_eq!(peer.state.lock().unwrap().txs.len(), 1);
+    assert!(peer.state.lock().unwrap().evm_observation_reads.is_empty());
     Ok(())
 }
 
