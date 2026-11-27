@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { API } from "@paxeer-network/types";
@@ -81,7 +82,7 @@ export const TokenOption: React.FC<TokenOptionProps> = (props) => {
             className="oui-size-[16px] oui-opacity-50"
           />
           <Text intensity={36} className="oui-max-w-[200px] oui-truncate">
-            {token.label}
+            {tokenDisplayName(token.label)}
           </Text>
           <Badge color="neutral" size="xs">
             {t("transfer.withdraw.InsufficientVaultBalance")}
@@ -152,7 +153,7 @@ export const TokenOption: React.FC<TokenOptionProps> = (props) => {
             "oui-max-w-[200px] oui-truncate",
           )}
         >
-          {token.label}
+          {tokenDisplayName(token.label)}
         </Text>
         {showAPY && (
           <Box

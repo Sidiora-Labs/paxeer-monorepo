@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { useMemo } from "react";
 import { useBadgeBySymbol } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -16,7 +17,7 @@ const SymbolBadge = (props: { symbol: string }) => {
       className="oui-cursor-pointer"
       showIcon
     >
-      {props.symbol}
+      {tokenDisplayName(props.symbol)}
     </Text.symbolBadge>
   );
 };
@@ -76,7 +77,7 @@ export const useFundingHistoryColumns = () => {
         },
       },
       {
-        title: `${t("funding.fundingFee")} (USDC)`,
+        title: `${t("funding.fundingFee")} (USDL)`,
         dataIndex: "funding_fee",
         width: 80,
         rule: "price",

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { FC, ReactNode, useMemo } from "react";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -33,7 +34,7 @@ const Option: React.FC<{
   );
 
   const optimizedItem = useMemo(() => {
-    return optimizeSymbolDisplay(item);
+    return optimizeSymbolDisplay(tokenDisplayName(item));
   }, [item]);
 
   return (
@@ -82,7 +83,7 @@ export const DesktopHeader: FC<DesktopHeaderProps> = (props) => {
     return optimizeSymbolDisplay(base);
   }, [base]);
   const optimizedCoinType = useMemo(() => {
-    return optimizeSymbolDisplay(coinType);
+    return optimizeSymbolDisplay(tokenDisplayName(coinType));
   }, [coinType]);
   return (
     <Flex pl={3} justify={"between"} className="oui-py-[6px]">
@@ -95,7 +96,7 @@ export const DesktopHeader: FC<DesktopHeaderProps> = (props) => {
             id="oui-order-book-header-price"
             className="oui-orderBook-header-price oui-text-base-contrast-36"
           >
-            {`${t("common.price")}(${quote})`}
+            {`${t("common.price")}(${tokenDisplayName(quote)})`}
           </Title>
         </Box>
         <Box width={"100%"}>
@@ -130,7 +131,7 @@ export const DesktopHeader: FC<DesktopHeaderProps> = (props) => {
                 className="oui-orderBook-header-total-base"
                 justifyEnd
               >
-                {`${t("common.total")}(${quote})`}
+                {`${t("common.total")}(${tokenDisplayName(quote)})`}
               </Title>
             </Box>
           </>

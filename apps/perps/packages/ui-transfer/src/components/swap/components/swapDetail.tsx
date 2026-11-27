@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, ReactNode } from "react";
 import { useTranslation, Trans } from "@paxeer-network/i18n";
 import { API } from "@paxeer-network/types";
@@ -96,7 +97,9 @@ export const SwapDetail: FC<SwapDetailProps> = (props) => {
           >
             {info.dstGasFee!}
           </Text.numeral>
-          <Text color="primaryLight">{nativeToken?.symbol}</Text>
+          <Text color="primaryLight">
+            {tokenDisplayName(nativeToken?.symbol)}
+          </Text>
           <Text className="oui-text-primary-light/60">
             ($
             <Text.numeral
@@ -126,7 +129,7 @@ export const SwapDetail: FC<SwapDetailProps> = (props) => {
           >
             {info.swapFee}
           </Text.numeral>
-          {` ${src?.token} `}
+          {` ${tokenDisplayName(src?.token)} `}
           <Text className="oui-text-[#63666D]">
             ($
             <Text.numeral padding={false} rm={Decimal.ROUND_UP} dp={2}>
@@ -149,7 +152,7 @@ export const SwapDetail: FC<SwapDetailProps> = (props) => {
           >
             {info.bridgeFee}
           </Text.numeral>
-          {` ${src?.token} `}
+          {` ${tokenDisplayName(src?.token)} `}
           <Text className="oui-text-[#63666D]">
             ($
             <Text.numeral padding={false} rm={Decimal.ROUND_UP} dp={2}>
@@ -171,7 +174,7 @@ export const SwapDetail: FC<SwapDetailProps> = (props) => {
           >
             {info.received}
           </Text.numeral>
-          {` ${dst?.token}`}
+          {` ${tokenDisplayName(dst?.token)}`}
         </>
       ),
     },
@@ -179,11 +182,11 @@ export const SwapDetail: FC<SwapDetailProps> = (props) => {
       label: t("common.price"),
       value: (
         <>
-          {`1 ${src?.token} = `}
+          {`1 ${tokenDisplayName(src?.token)} = `}
           <Text.numeral dp={3} padding={false}>
             {info.price}
           </Text.numeral>
-          {` ${dst?.token}`}
+          {` ${tokenDisplayName(dst?.token)}`}
         </>
       ),
     },
@@ -273,7 +276,7 @@ const SwapSymbol: FC<SwapSymbolProps> = (props) => {
           {props.amount}
         </Text.numeral>
         <Text intensity={54} size="xs">
-          {props.symbol}
+          {tokenDisplayName(props.symbol)}
         </Text>
       </Flex>
     </Flex>

@@ -35,7 +35,7 @@ export const VaultsHistoryMobile = (props: useVaultsHistoryHookReturn) => {
             <div>{t("common.token")}</div>
             <div className="oui-flex oui-items-center oui-gap-1 oui-text-xs oui-text-base-contrast-80">
               <TokenIcon name={"USDC"} size="2xs" />
-              <Text>USDC</Text>
+              <Text>USDL</Text>
             </div>
           </div>
           <div>

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React from "react";
 import { useAppStore } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -35,7 +36,7 @@ export const useAssetsColumns = (options: ColumnsOptions) => {
           return (
             <Flex itemAlign="center" gap={2}>
               <TokenIcon name={val} />
-              {val}
+              {tokenDisplayName(val)}
             </Flex>
           );
         },

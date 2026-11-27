@@ -22,7 +22,7 @@ export const CommissionChart: FC<TitleStatisticReturns> = (props) => {
         width={"100%"}
         className="oui-commissionChart-header"
       >
-        <Text size="lg">{`${t("affiliate.commission")} (USDC)`}</Text>
+        <Text size="lg">{`${t("affiliate.commission")} (USDL)`}</Text>
         <div className="oui-commissionChart-period-select">
           <Select.options
             size={"xs"}

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo } from "react";
 import type { SubAccount } from "@paxeer-network/hooks";
@@ -57,7 +58,7 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
             className="oui-text-xs oui-font-semibold oui-text-base-contrast-80"
           >
             <TokenIcon name={item.token} size="2xs" />
-            {item.token}
+            {tokenDisplayName(item.token)}
           </Flex>
         </Flex>
         <Flex
@@ -102,7 +103,7 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
               {item.indexPrice}
             </Text.numeral>
             <div className="oui-text-end oui-text-2xs oui-text-base-contrast-36">
-              USDC
+              USDL
             </div>
           </Flex>
         </Flex>
@@ -170,7 +171,7 @@ const AssetMobileItem: React.FC<AssetMobileItemProps> = (props) => {
               {item.collateralContribution}
             </Text.collateral>
             <div className="oui-text-end oui-text-2xs oui-text-base-contrast-36">
-              USDC
+              USDL
             </div>
           </Flex>
         </Flex>
@@ -313,7 +314,7 @@ export const AssetsTableMobile: React.FC<useAssetsScriptReturn> = (props) => {
                 assets.children.map((child) => (
                   <AssetMobileItem
                     item={child}
-                    key={`${child.token}-${child.account_id}`}
+                    key={`${tokenDisplayName(child.token)}-${child.account_id}`}
                   />
                 ))}
             </React.Fragment>

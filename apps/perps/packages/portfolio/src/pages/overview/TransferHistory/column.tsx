@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React from "react";
 import { useAccount } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -27,7 +28,7 @@ export const useColumns = () => {
           return (
             <Flex gapX={2}>
               <TokenIcon name={val} size="xs" />
-              <span>{val}</span>
+              <span>{tokenDisplayName(val)}</span>
             </Flex>
           );
         },

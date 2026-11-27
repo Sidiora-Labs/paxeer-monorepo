@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { Fragment, isValidElement, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -29,7 +30,7 @@ type ConvertMobileItemProps = {
 // Amounts in convert history are denominated in the row's received_asset
 // (USDC for forward, the target collateral for reverse conversions).
 const amountWithAsset = (amount: number | undefined, asset?: string) =>
-  asset ? `${amount ?? "-"} ${asset}` : `${amount ?? "-"}`;
+  asset ? `${amount ?? "-"} ${tokenDisplayName(asset)}` : `${amount ?? "-"}`;
 
 type ConvertMobileFieldProps = {
   label: string;
@@ -248,9 +249,12 @@ const ConverHistoryItemDetailsDialog =
             <Fragment key={detail.transaction_id ?? index}>
               <div className="oui-flex oui-flex-col oui-gap-2">
                 <div className="oui-flex oui-items-center oui-gap-1">
-                  <TokenIcon name={detail.converted_asset} size="xs" />
+                  <TokenIcon
+                    name={tokenDisplayName(detail.converted_asset)}
+                    size="xs"
+                  />
                   <div className="oui-text-xs oui-text-base-contrast-80">
-                    {detail.converted_asset}
+                    {tokenDisplayName(detail.converted_asset)}
                   </div>
                 </div>
                 <div className="oui-grid oui-grid-cols-3 oui-gap-2">

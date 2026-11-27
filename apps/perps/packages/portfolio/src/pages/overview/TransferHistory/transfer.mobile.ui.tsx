@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { useMemo } from "react";
 import { produce } from "immer";
 import { useAccount } from "@paxeer-network/hooks";
@@ -120,7 +121,7 @@ export const TransferHistoryMobileUI: React.FC<
             <Flex direction="row" itemAlign="center" gap={1}>
               <TokenIcon name={item.token} size="2xs" />
               <Text size="xs" className="oui-text-base-contrast-80">
-                {item.token}
+                {tokenDisplayName(item.token)}
               </Text>
             </Flex>
           </Flex>

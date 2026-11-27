@@ -44,8 +44,8 @@
     },
     {
       "path": "packages/ui-orders/src/components/orderList/mobile/bracketOrderPrice/bracketOrderPrice.ui.tsx",
-      "sourceSha256": "8f5116184454e6484851e551261e7294b6b928f132a6e73433b500e98061d98d",
-      "runtimeSha256": "dcd2f3f243af8990da67131cec830cfc21d6bb7199337ed1c3f20fbdb7ef96d0"
+      "sourceSha256": "14166000aef0eb28b37b096a3a2eb5a36dcb5679c88164c4a217c37e90fd8d08",
+      "runtimeSha256": "cac9af9b9cb0ac594a867da3c3a5257cdea69356b8fc37d4edb21af3b270b221"
     },
     {
       "path": "packages/ui-order-entry/src/orderEntry.ui.tsx",
@@ -69,8 +69,8 @@
     },
     {
       "path": "packages/ui-order-entry/src/components/pnlInput/pnlInput.ui.tsx",
-      "sourceSha256": "3ee4a675e9314de04ab35e3eb8b447a09f6a2dad517235142e1f92902dcbe6af",
-      "runtimeSha256": "967160e8ac788ded8468d44406d979bd316b3d20df55c74d93eaa97edb3bc83d"
+      "sourceSha256": "43cfeb2a2854672e2e6c39cec84f3422cf29f162aa6862aa08588fcb5404f7f6",
+      "runtimeSha256": "63de1949eecdd4af923a5539842c801bb23194cb36cfedc7e89d6826a0533a0b"
     },
     {
       "path": "packages/ui-order-entry/src/components/dialog/permissionlessMarketNotice.ui.tsx",
@@ -79,8 +79,8 @@
     },
     {
       "path": "packages/ui-order-entry/src/components/dialog/confirm.ui.tsx",
-      "sourceSha256": "9018b72080faae3c11c77f71e11067635d82a331ebf01f4a58490921133f0305",
-      "runtimeSha256": "d475c0b5728e610eeb0f2b9dc481d479199e8df5970fd17ff4bc6e1aea516475"
+      "sourceSha256": "b7f90c04cef1a93307b1be0a4e888b2a836615056685e8dc12621b65f4853f81",
+      "runtimeSha256": "de3bdb9dd56b22489056861a4fc93efec3a95fc2623460e4ced3725283842cf1"
     },
     {
       "path": "packages/ui-order-entry/src/components/marginModeSettings/marginModeSettings.ui.tsx",
@@ -94,8 +94,8 @@
     },
     {
       "path": "packages/ui-order-entry/src/components/dialog/scaledOrderConfirm/scaledOrderConfirm.ui.tsx",
-      "sourceSha256": "87e6edc7b1cd4d3f7d8e5ad03f8256c7def233428363c612914287af3b61c56f",
-      "runtimeSha256": "bd4349ef5cf0222fbb24b2de011cbbd512072f5509935d9cdc0f9848fe06303c"
+      "sourceSha256": "298b1a3f7663043adeba2caf6695280ca7fae39dadd43e19417f82e6fdea68c0",
+      "runtimeSha256": "ea3eb3e4d57cf21d132e5a6aaa5ccfd09c711c177176feadef228f2562c2e597"
     },
     {
       "path": "packages/ui-order-entry/src/components/fee/effectiveFee/effectiveFee.ui.tsx",
@@ -139,8 +139,8 @@
     },
     {
       "path": "packages/ui-positions/src/components/reversePosition/reversePosition.ui.tsx",
-      "sourceSha256": "b0aa8a4f6df7602f3ce9d6c27b64ef28d8d15ab664175e5b0c442e956669e943",
-      "runtimeSha256": "85f514a3c230ef3dbd95fb3585e3b6e02449c962684367cdc25f671f06b6e0b0"
+      "sourceSha256": "3c6eeeab4964b51ebb05b6b6fe354c51cb67291f10fe9e8d0ea1c4eb4efd60e5",
+      "runtimeSha256": "a1a04fe125e82a28bb161ce65d39de3706257346738c1a1ce50d497ac37cdd44"
     },
     {
       "path": "packages/ui-positions/src/components/reversePosition/OrderInfoCard.ui.tsx",
@@ -149,8 +149,8 @@
     },
     {
       "path": "packages/ui-positions/src/components/fundingFeeHistory/fundingFeeHistory.ui.tsx",
-      "sourceSha256": "de55f31c3533e598dcdd0af10c11fed4b5a9e1b06c4c53cf4dc55239841c25f2",
-      "runtimeSha256": "1daa10a83d9ceddc0d128a855ac773bb04cf41d091999bd2aba3259c7412bb8d"
+      "sourceSha256": "4cb4910d0c6ff6c8757071a3c85662d8965f671a4fe233efc3fdfcf6aa1b76d0",
+      "runtimeSha256": "24ccc19c32ec344feca60b5e9d57d2428be4263b7b9ec3525cc0da00b4f4ace3"
     },
     {
       "path": "packages/ui-positions/src/components/positionHistory/mobile/positionHistoryCell.ui.tsx",
@@ -174,8 +174,8 @@
     },
     {
       "path": "packages/ui-positions/src/components/positions/closePosition/closePositions.mobile.ui.tsx",
-      "sourceSha256": "a812fc99fc6f9c7d40bda2af90f6eafee8874557cbe5ae567935669b2a106c56",
-      "runtimeSha256": "38fe8a93e969f92680958e9db64aaa7b025fc5c97e6a0a4eb2d732635212a531"
+      "sourceSha256": "92b7edfed11b66200edef61468ad82b7d5b1573f11d18f2aeb857f824ccdcee1",
+      "runtimeSha256": "37ed91a9ef197ef9f6dfad95ac14ab9f533ffc40e6845463ae4add4aff1cc1fb"
     },
     {
       "path": "packages/ui-positions/src/components/positions/mobile/positionCell/positionCell.ui.tsx",
@@ -259,8 +259,8 @@
     },
     {
       "path": "packages/ui-tpsl/src/pnlInput/pnlInput.ui.tsx",
-      "sourceSha256": "163cc27200f3910de32696d34864683be7d6e3cef713d3f972e31f8a7199b2f7",
-      "runtimeSha256": "3c1129b3a302bf072ae68b3960defeee019ee4f5324f2aa5938cdd2a4c5833f3"
+      "sourceSha256": "6cebe37f04650198b7dd3d5d50842ad2e5d0259d0c35cc61f9b42b88370b6caa",
+      "runtimeSha256": "4345359060ed6197ef1666e917fde6236a8fa576f909af690a6ed6dc3236d1a1"
     },
     {
       "path": "packages/ui-tpsl/src/editBracketOrder/editBracketOrder.ui.tsx",
@@ -279,8 +279,8 @@
     },
     {
       "path": "packages/ui-tpsl/src/tpslSimpleDialog/tpslSimpleDialog.ui.tsx",
-      "sourceSha256": "68d10bbdc481bbe0d03caee92bdf8d69b73340a18fa5e78005ab7286c96adbbb",
-      "runtimeSha256": "7851abcca1249f6027561c1930f5754b7fafa587e40b691eabda8a0a6cd06f28"
+      "sourceSha256": "9aae8561df48984153aca194b6c263f42d11c7134a4332f574925aebb91d9e63",
+      "runtimeSha256": "38063e384c48f452c3ce33e1089c62dcc313fc6ec3ccf64257cf6e9d64615659"
     },
     {
       "path": "packages/ui-tpsl/src/positionTPSL/tpsl.ui.tsx",
@@ -289,8 +289,8 @@
     },
     {
       "path": "packages/ui-tpsl/src/components/tpslInputRow/tpslInputRow.ui.tsx",
-      "sourceSha256": "908b0097c07c5d8d164f8dc06bbf710173363cd96840fc7f549788acb100ade1",
-      "runtimeSha256": "ca390eb68b981a8058f7124cea320fd38a78ce544e962131f2c6cb2ae2111799"
+      "sourceSha256": "5623ea641ca2e12ba24ec544044c487e536ffd0d0d3a50009cdb20bde7bbb067",
+      "runtimeSha256": "fcff6b7adde2ba99d4c2fc29ae155d6e03d59c0a75a52891353baf48bdac69bc"
     },
     {
       "path": "packages/ui-tpsl/src/components/tpslPostionType/tpslPositionType.ui.tsx",
@@ -384,8 +384,8 @@
     },
     {
       "path": "packages/ui-scaffold/src/components/accountSummary/accountSummary.ui.tsx",
-      "sourceSha256": "9f0b8320ae5f5636740004159ab8d979f00e1e0734558f543fd3bebb2508fb53",
-      "runtimeSha256": "3417bb2c5478641671376247c16ac68c5beef0afc02a0ef79c18ed93de35907f"
+      "sourceSha256": "80c02ac4f5217ad88466b8352faba1397efb5f79f93a965e8f4749fee32c9024",
+      "runtimeSha256": "b2d76956341f56ee486067f379692077128963e44fc1c2fbb1ad97b9f8e401a6"
     },
     {
       "path": "packages/ui-scaffold/src/components/main/mainNav.ui.tsx",
@@ -499,8 +499,8 @@
     },
     {
       "path": "packages/markets/src/components/symbolInfoBarFull/symbolInfoBarFull.ui.tsx",
-      "sourceSha256": "7e0bd73664471dbca2639030c0677266c3ce171f02a22c09572a548dacf87a89",
-      "runtimeSha256": "45158ab1a9d36e1e7c845102749f93a1ebc617128c17b28a44b2bad5d438c358"
+      "sourceSha256": "72530a792a48f1161d08718ea949204fe8ce9c28b07dcf190a297043e9605326",
+      "runtimeSha256": "d78c7003c2cfbf3541e2aa65fe0a7a294119cc35bbb2920ad632f2a97b3968c4"
     },
     {
       "path": "packages/markets/src/components/symbolInfoBarFull/dataItem.ui.tsx",
@@ -734,8 +734,8 @@
     },
     {
       "path": "packages/ui/src/typography/numeral.tsx",
-      "sourceSha256": "35a7920f5cea9eb27fc81920982df7ae207910f17775e72d255f8e67c381b524",
-      "runtimeSha256": "9110430e197aba8a9b66d55c7c01f0ffd999250be6f08eb030031a77145fd4b7"
+      "sourceSha256": "28a77b38b6d0dcd16b6c1a2d504b3b5d28da37bbff94fbae17869f74a3106b31",
+      "runtimeSha256": "5cfef3ca5e03a6f075246e6d93725b5e6cea0c87893800a00d939c08389d4c9b"
     },
     {
       "path": "packages/ui/src/typography/statistic.tsx",
@@ -749,8 +749,8 @@
     },
     {
       "path": "packages/ui/src/typography/formatted.tsx",
-      "sourceSha256": "924010965a7f8b465c8443001e37f3f9026e7a91cf58e22201698508fc203244",
-      "runtimeSha256": "0b054fb4f597a0178e1bc24b57ec03e871f155dd35ad93104aa20d0852c7d986"
+      "sourceSha256": "6b5a9ca47ebd632ecdb6a08fe25bd50bcb33dd2c47a604b3d9de6ab561ab2699",
+      "runtimeSha256": "a39d8de97a618ef0219c29e98298b7c584dd2d9bf6d2c77a2463c0f2658263c9"
     },
     {
       "path": "packages/ui/src/typography/text.tsx",
@@ -839,8 +839,8 @@
     },
     {
       "path": "packages/ui/src/select/tokens.tsx",
-      "sourceSha256": "af2645835d77693a54ab9209948afb086bd5c0ba8a93229a2fc84a93d1029d96",
-      "runtimeSha256": "099872aa73471f19286e43016ea68129f20607d641699af44068702ca4b93e6c"
+      "sourceSha256": "142c05d4217c2797a0abdf5159ec7cabed9e9b1cff8525ce482f689ec9feec29",
+      "runtimeSha256": "550c467c983435d88be4b5f86e0e62b1d99357feedb423288c4461e34939e0c5"
     },
     {
       "path": "packages/ui/src/select/combine.tsx",
@@ -1244,8 +1244,8 @@
     },
     {
       "path": "packages/ui/src/icon/tokenIcon.tsx",
-      "sourceSha256": "22e13b3ad211e77fbe053a06ca0cbaea5c737e2d7cb10c31efc66b7cac851d2b",
-      "runtimeSha256": "1cabc0d616e19215c9074375f7bbba58733f331153f74036be5c6507bbca21da"
+      "sourceSha256": "8387ea2ef4739dcf041d1ef88a2694f48fc9b2505756976c2464cfa0c8c2bfd9",
+      "runtimeSha256": "9f7ed79cd45ac6f884d84d2351b3314d40343ece0c0057c6eac2c3930202803c"
     },
     {
       "path": "packages/ui/src/icon/tradingInactiveIcon.tsx",
@@ -1734,8 +1734,8 @@
     },
     {
       "path": "packages/portfolio/src/pages/overview/assets/assets.ui.tsx",
-      "sourceSha256": "70ae5a9c992c4d664d4ecb1ec7514607a2060128ad91136f823cb2d57b3564c1",
-      "runtimeSha256": "60861c9d4d1eafc03597508e808e2c5d1fafe505cd13e6084ad1de05e9244f08"
+      "sourceSha256": "4e80cac12fd57d804293280d0bfc67c350f76a9b7e4328648b54bc10344c7a57",
+      "runtimeSha256": "5c652ddbd13c48116da1d679286658b5fd5dae9b835b550bfe26eb964145c90f"
     },
     {
       "path": "packages/portfolio/src/pages/overview/VaultsHistory/transfer.ui.tsx",
@@ -1759,8 +1759,8 @@
     },
     {
       "path": "packages/portfolio/src/pages/overview/TransferHistory/transfer.mobile.ui.tsx",
-      "sourceSha256": "3ccc290b31894a1878df801d7b298eba458b69ee66fd224b4a7121aa515cab55",
-      "runtimeSha256": "fb6911b932ab823cb6955e16e752641decf1ea2a94256a367a69900388012162"
+      "sourceSha256": "d32babf74d9ef2e697b5a3ca2a21039834bed7cc52794ecae4f1160b1e1dcda5",
+      "runtimeSha256": "ec3d072d087c82130f133dd99ef356c9cde63e812291e98f01ba37582f700ebb"
     },
     {
       "path": "packages/portfolio/src/pages/overview/performance/performance.ui.tsx",
@@ -1784,8 +1784,8 @@
     },
     {
       "path": "packages/vaults/src/components/vault-card/vaultCard.ui.tsx",
-      "sourceSha256": "c2b0792903013d87ffff473bd1f948d2ada026d7e07492905f14d2ba1d2a6fa0",
-      "runtimeSha256": "50ab54466fa918d8efd6b491e43d8e7c18eca6e444b6265d0bbb913b75848193"
+      "sourceSha256": "4f84cb20079c04fd7dff108808bd1e03b9b6b5f0055e7e0efcaafd82bbbb7fbe",
+      "runtimeSha256": "252e694f63bb2a94608ed60b9a8f9a72b7bf45fddac17cb9a37fd6173771c9c8"
     },
     {
       "path": "packages/vaults/src/components/vault-operation/deposit/vault-deposit-form.ui.tsx",
@@ -1799,8 +1799,8 @@
     },
     {
       "path": "packages/vaults/src/components/vault-operation/withdraw/vault-withdraw-form.ui.tsx",
-      "sourceSha256": "9e360d47cc472e329b0efbaf726f42a31b626d5c97e23e4411e6b71492adb033",
-      "runtimeSha256": "0f8cbf616fe7b47d73e64787cc5b4a6e2aab3418b9a5a6fcc0f03bb57709a170"
+      "sourceSha256": "f2aa61a5de2616832fb21c865ed4add3ac02b1140e7849be2b4bf148e091ca24",
+      "runtimeSha256": "8b31fec8583300a393ae65fcf268997a97c1834f1e532afae930c0bec7ccdb06"
     },
     {
       "path": "packages/vaults/src/components/vault-operation/withdraw/withdraw-process.ui.tsx",
@@ -1864,8 +1864,8 @@
     },
     {
       "path": "packages/affiliate/src/pages/home/asATrader/asTrader.ui.tsx",
-      "sourceSha256": "07062c7570c567bb45e61232730c9429825d507ed28fc1c1a154eee45ced8b37",
-      "runtimeSha256": "784e9acc67ee7e9cca786de57ebcaf3c843b8ce40db8bbd227ef9db4adbb5525"
+      "sourceSha256": "a940bb0b269c819d85c2edaf60d1f2b9e3a1b65b9d054787d392c7355d7f3a0b",
+      "runtimeSha256": "47155e9d67d354b07feecd037b5786cb0abbcfc2cce1a0f2a5fa6ee224d0fae7"
     },
     {
       "path": "packages/affiliate/src/pages/home/title/title.ui.tsx",
@@ -1889,18 +1889,18 @@
     },
     {
       "path": "packages/affiliate/src/pages/home/asAnAffilate/asAnAffiliate.ui.tsx",
-      "sourceSha256": "22780d057b2b80436a3999dae966da94bf64b7ddc0d2d470592706d673a984fe",
-      "runtimeSha256": "0f4ca5b6b978c3fafef5e858b0e694fed15fc3cf4b9e9e99061e3b0f6a8f76f4"
+      "sourceSha256": "e563e1484e299705d48219aa9c646c045e3e7311edf9d960fc78eec80d07877c",
+      "runtimeSha256": "52a63bd202355fc6c645925447abac587cd67675536994a64b45367d8eb3606c"
     },
     {
       "path": "packages/affiliate/src/pages/affiliate/summary/summary.ui.tsx",
-      "sourceSha256": "da4ba4d975d0d6d3e77bb66471a593f45dbb08b3181facc50aa0cb179bc9d067",
-      "runtimeSha256": "6cd375b41bf7a81d60c06d56da8024d86c931879f051d7f2197c0eda5c47d497"
+      "sourceSha256": "2e03f4d284fbb216b2d66a8d00024cd4f487a0561ceebf1581d2b7c74840c1d3",
+      "runtimeSha256": "a19b5aff796cb0c38e531fd9be4ba853d179237433ad7b40fef3d2cfb4befaba"
     },
     {
       "path": "packages/affiliate/src/pages/affiliate/commissionAndReferees/commissionAndReferees.ui.tsx",
-      "sourceSha256": "4bf3b9e962cb96361b77f2f03e657829228709345f4de75b2ea6a7818ea79c95",
-      "runtimeSha256": "2eaef1a4a90dca3dabd24c2bf27ee59d39bd84a1a2ed16d7ad85aa84a62a6135"
+      "sourceSha256": "d0a9052d5cd7da407c39166cee75b20f27f2e6c6e76deab6713d9401a88a6238",
+      "runtimeSha256": "9dfe342471c2218f6f479910a9411b0bdac0839a6bc28f75fce13338882fcd50"
     },
     {
       "path": "packages/affiliate/src/pages/affiliate/titleStatistic/titleStatistic.ui.tsx",
@@ -1954,13 +1954,13 @@
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/summary/summary.ui.tsx",
-      "sourceSha256": "a00f98fe176293042b63808b98e4a31279e2dadf4212176b53f78669db10880f",
-      "runtimeSha256": "81d726b08cc5ce3cdb23102292953c3a9c8b00e59ccbeaa26650aef330b0e9ec"
+      "sourceSha256": "cd157463b6911d5c88c41afd649017a0963e2379e48a44b0d127d32e024b4164",
+      "runtimeSha256": "6101f7622208afcb7e7beef34a15819189bafa5a059cb79a9389233c975e5671"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/commissionChart/commissionChart.ui.tsx",
-      "sourceSha256": "d92de449f7033f0c86b40669c1d8ea2a897f47da754ad402b5a4daa3ab5523de",
-      "runtimeSha256": "d3bd636a8ee839f0e26fe045da54ce032fe0c0708b21de0304c756830450baf2"
+      "sourceSha256": "9cb62c643dcaffec1b50b084344531e616b1da5448107b6db1870c6e88ba00f2",
+      "runtimeSha256": "931926e63ef2951d05cccb5699b75ceac7334caec76522b0526af7153df7585e"
     },
     {
       "path": "packages/affiliate/src/pages/multiLevel/affiliate/referrerTable/referralCodesTable/referralCodesTable.ui.tsx",
@@ -1984,13 +1984,13 @@
     },
     {
       "path": "packages/affiliate/src/pages/trader/rebates/rebates.ui.tsx",
-      "sourceSha256": "04bb24952f1d2c27293ca59a22b7d36acc5a29ddf6558421432c632f75bf4ed0",
-      "runtimeSha256": "3e2c5e18d43d0334c34c9a7b9a8c6352f71c8ffb5f53e5ef701ffffc62136d41"
+      "sourceSha256": "1a9556409524c5398f13b73f31eaf0131b0b1136765fe8ddb6cf6e70590312fd",
+      "runtimeSha256": "4ce6f0a0797480d294afecc02716e0665a23eff0923c6b4dde1f393a87ca9c02"
     },
     {
       "path": "packages/affiliate/src/pages/trader/summary/summary.ui.tsx",
-      "sourceSha256": "e01fad81a00dca16688d25474f8e43e52e9c8e9938df83a75a7085ccd40b3691",
-      "runtimeSha256": "fbc070fdbb2997938508c93b81232be24e978449bd11bc0d9c25bc0ff3fb97de"
+      "sourceSha256": "13369a1dfc10d7dee17f652b2d44437e65fc6b319309aa728ed46ad9fc4e8986",
+      "runtimeSha256": "7eace53366c007c2c010f60e147fa3b4b4a0748174585a8e29d0dd3c84683a6e"
     },
     {
       "path": "packages/affiliate/src/pages/trader/titleStatistic/titleStatistic.ui.tsx",
@@ -2074,8 +2074,8 @@
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/rewards/rewards.desktop.ui.tsx",
-      "sourceSha256": "99894466ddd7d3f7e9784a110216154beb5b2b9b7c1eceadc67ecff22db76291",
-      "runtimeSha256": "300610daacedb807faf24c71cb7ce8f1fc0a3d910f0b9b83cb02ddc28805b5c8"
+      "sourceSha256": "2027f7841d2d506621f0abbe08424ff0fd5cc915e04eaf4c83c1b1bf31dad5cd",
+      "runtimeSha256": "2be7a701c756e9377499b565182b25d22e08561711cb1d094ac95967be106255"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/campaign.item.ui.tsx",
@@ -2114,13 +2114,13 @@
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/pricePool/normalPricePool.ui.tsx",
-      "sourceSha256": "98036cdddf8a6d12ba4005c082c71f321c19971d92d90f682dccc5889e7c7efb",
-      "runtimeSha256": "fecae5b49bb3b2c6ab4857608bbe46942cefd7bb64dc9fc802317fdca3f0720d"
+      "sourceSha256": "d664da70f3df4a79a44fddbc7e045293959e54adc8ef8a7e5bc5e0c211f4ac9c",
+      "runtimeSha256": "c40f5ed0151783cb1a4ba061e9849dfbb80875217f4f5c3f675ad201fe91fd2d"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/pricePool/pricePool.desktop.ui.tsx",
-      "sourceSha256": "c731088fe695d9cf039bfca7990f6fdfbba9995975e2dea50c8baa10cb9b149b",
-      "runtimeSha256": "5de83456f40fc6ced9df33c6c636ebd5be3247582b743cd4ffc323416b8191f1"
+      "sourceSha256": "931bad010b030fe8d11474cd0a2c1cd93c454e0fbd33d921940b5f0ad57ca1b5",
+      "runtimeSha256": "d71c3d803c4556ff4068ecc6ecc64f6408b2c3d337163bb37368fcef8c975811"
     },
     {
       "path": "packages/trading-leaderboard/src/deprecated/components/campaigns/header/campaigns.header.mobile.ui.tsx",
@@ -2139,8 +2139,8 @@
     },
     {
       "path": "packages/trading-leaderboard/src/components/rewards/rewards.desktop.ui.tsx",
-      "sourceSha256": "4f06d0214340beec531ddc4a3e2b3fdf18027a557494325a0ddc9e336542c8c0",
-      "runtimeSha256": "e7d5a4115589e3498f21fe92930bf97099857f7c4ac83a62aa2affa0624a1d5c"
+      "sourceSha256": "ffc18386d56a116d323b7badafa3bf19297e70eeceb6ccecbd5a2beb2ce89603",
+      "runtimeSha256": "ea30e5445def30a955354998a9a74d40daafdb04f8b59330143a006a1cfc2c33"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/campaign.item.ui.tsx",
@@ -2169,13 +2169,13 @@
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/pricePool/normalPricePool.ui.tsx",
-      "sourceSha256": "fbb8b8f22bb6a5f5b748b1a087bdd0bc9f2c5a23df220e5ad946c559549c1148",
-      "runtimeSha256": "1c52b2d359fa61020f02a1564c968cea86d8989a3f3fdea1d34543680c44923d"
+      "sourceSha256": "252b9298c3ca61e56560fd51b36dc6fc3fe0a7f341daf9d5eaabac332abe4881",
+      "runtimeSha256": "e5005abbba410dc0be0106a7cd33f09f74744ea2df7e9db20cf44cb578d684c5"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/pricePool/pricePool.desktop.ui.tsx",
-      "sourceSha256": "4115c5c59cccc15e3378c6cc5257b2fab25c288f04ba1e24e061ff12c653862a",
-      "runtimeSha256": "f3494dad6912eaf97402bbb60865347ef01fe857f640682e8ef0c1381b474164"
+      "sourceSha256": "aa720250792dbe1268784e306a3681f37da8c866d57a448ce6f326c8e2e3f17d",
+      "runtimeSha256": "fd1882bca7f02a788f993bbdde78e2b167b0c53231dfaca0b5ae383ef2d0eaa3"
     },
     {
       "path": "packages/trading-leaderboard/src/components/campaigns/header/campaigns.header.mobile.ui.tsx",
@@ -2199,13 +2199,13 @@
     },
     {
       "path": "packages/trading-next/src/components/mobile/portfolioSheet/portfolioSheet.ui.tsx",
-      "sourceSha256": "d793c55328199b30db6410d00711207eaa32936b0c10db4dcb5d3fb8d1f1e065",
-      "runtimeSha256": "799d986567a64f8560264c202bc98eacc8f750d810e8f828bf75c7c19c44506d"
+      "sourceSha256": "a0315edeb4cece298699e4d6abacb1c6b6a7b288951f2fa6211011db3e26393c",
+      "runtimeSha256": "6152113aa6f890e6021c8389e033b2db05c5e666f853ed8c22a9f8ce1de13fdb"
     },
     {
       "path": "packages/trading-next/src/components/mobile/tradeData/tradeData.ui.tsx",
-      "sourceSha256": "31f6d2b64dee953a0afeba2e7aacf091b0c3d3c4d4d3e7b1cefbd128f29197ad",
-      "runtimeSha256": "726007c9e2eaa0936b5b28bcdf8ab54b01938fe11cfdbc2b03e33f5028f772b5"
+      "sourceSha256": "e7ea3b2c37b3c1022a740104e6ed80dc156cc1e936fcb9f6c0777056394a4b55",
+      "runtimeSha256": "fc5dc715c826b71ed44226fc814721e24655f9cef626d1d895bebf77ebb7a3b4"
     },
     {
       "path": "packages/trading-next/src/components/mobile/tradingview/tradingview.ui.tsx",
@@ -2279,8 +2279,8 @@
     },
     {
       "path": "packages/trading-next/src/components/base/lastTrades/lastTrades.ui.tsx",
-      "sourceSha256": "50523af67a3e1c7b85c2925a9401e732a49ca537c7069890fe76a421d3f425b9",
-      "runtimeSha256": "cd079464e20154bcf0119e234863c72bac2d2ddc84a883f7810d973fe2fd76dd"
+      "sourceSha256": "917434da9321a44574f513052d8dbce14dcd36768ba259b5957448bd5fac9de9",
+      "runtimeSha256": "a44d1f2e24ed29ee8a7f8d548030a47896611fa65d892f6d7f14fda01194e6e8"
     },
     {
       "path": "packages/trading-next/src/components/desktop/orderBookAndTrades/orderBookAndTrades.ui.tsx",
@@ -2299,8 +2299,8 @@
     },
     {
       "path": "packages/trading-next/src/components/desktop/assetView/assetView.ui.tsx",
-      "sourceSha256": "636a107f5d809b0a08a470b7d6bb4241b24de1ab4f4938de4fd2d4a6375750ba",
-      "runtimeSha256": "12e29b12a1fbd8d7b67bfe24ea8e1f7f1cd4283f02b441b5e6b26c1171ba628f"
+      "sourceSha256": "c76a9728ec8165f74e715f2b8618665c4a1f1a4c1b4cb1de231b4a22b6e03f2d",
+      "runtimeSha256": "e72f2b0137fd8da6dbb1bf3873ddf5340696573a0a2b6bcb240023ba02c36161"
     },
     {
       "path": "packages/trading-next/src/components/desktop/dataList/setting/setting.ui.tsx",
@@ -2324,13 +2324,13 @@
     },
     {
       "path": "packages/trading/src/components/mobile/portfolioSheet/portfolioSheet.ui.tsx",
-      "sourceSha256": "d793c55328199b30db6410d00711207eaa32936b0c10db4dcb5d3fb8d1f1e065",
-      "runtimeSha256": "799d986567a64f8560264c202bc98eacc8f750d810e8f828bf75c7c19c44506d"
+      "sourceSha256": "a0315edeb4cece298699e4d6abacb1c6b6a7b288951f2fa6211011db3e26393c",
+      "runtimeSha256": "6152113aa6f890e6021c8389e033b2db05c5e666f853ed8c22a9f8ce1de13fdb"
     },
     {
       "path": "packages/trading/src/components/mobile/tradeData/tradeData.ui.tsx",
-      "sourceSha256": "a18db508ae37471b440e7d5fec5da03de4b238bc4f1fe0b74667660fa720de4e",
-      "runtimeSha256": "15d775939f71a735d7f0ec443ea658024781694172e1a712c9433b89ed3227ed"
+      "sourceSha256": "cfc1e4cccf145b39f8d0f7f88594be5271c07dd434ccaeaa01ad94e2dadf0458",
+      "runtimeSha256": "bf29411d4279a34649640e7e66053f38ca19c8150d1baf13b95c4dc57d375b3d"
     },
     {
       "path": "packages/trading/src/components/mobile/tradingview/tradingview.ui.tsx",
@@ -2404,8 +2404,8 @@
     },
     {
       "path": "packages/trading/src/components/base/lastTrades/lastTrades.ui.tsx",
-      "sourceSha256": "50523af67a3e1c7b85c2925a9401e732a49ca537c7069890fe76a421d3f425b9",
-      "runtimeSha256": "cd079464e20154bcf0119e234863c72bac2d2ddc84a883f7810d973fe2fd76dd"
+      "sourceSha256": "917434da9321a44574f513052d8dbce14dcd36768ba259b5957448bd5fac9de9",
+      "runtimeSha256": "a44d1f2e24ed29ee8a7f8d548030a47896611fa65d892f6d7f14fda01194e6e8"
     },
     {
       "path": "packages/trading/src/components/desktop/orderBookAndTrades/orderBookAndTrades.ui.tsx",
@@ -2424,8 +2424,8 @@
     },
     {
       "path": "packages/trading/src/components/desktop/assetView/assetView.ui.tsx",
-      "sourceSha256": "636a107f5d809b0a08a470b7d6bb4241b24de1ab4f4938de4fd2d4a6375750ba",
-      "runtimeSha256": "12e29b12a1fbd8d7b67bfe24ea8e1f7f1cd4283f02b441b5e6b26c1171ba628f"
+      "sourceSha256": "c76a9728ec8165f74e715f2b8618665c4a1f1a4c1b4cb1de231b4a22b6e03f2d",
+      "runtimeSha256": "e72f2b0137fd8da6dbb1bf3873ddf5340696573a0a2b6bcb240023ba02c36161"
     },
     {
       "path": "packages/trading/src/components/desktop/dataList/setting/setting.ui.tsx",
@@ -2479,8 +2479,8 @@
     },
     {
       "path": "packages/ui-transfer/src/components/transferForm/transferForm.ui.tsx",
-      "sourceSha256": "8d56f924baa03939aab5626680c025fc03c1a062c6d47d0dfba9966acc9379ab",
-      "runtimeSha256": "2509bcbcc2a3e47640a7ea6e6eaec6a06a62e21e4d5c9ec3eb68b207131c7499"
+      "sourceSha256": "8b5aa2cc54b9cc81c260e6aebde484ecaaaf2f69def10bb27fd64dd56fc207f0",
+      "runtimeSha256": "48583984f6c18c078b78293170b95239a922b39a6aaec950648dae93578beb9e"
     },
     {
       "path": "packages/ui-transfer/src/components/withdrawForm/withdrawForm.ui.tsx",
@@ -2528,5 +2528,7 @@
       "runtimeSha256": "3d4a0ed7f71828ea30be7f26cbc4c40dffe8db69b09387a7cfcda9a3e34bbfa8"
     }
   ],
-  "nativeBrandArtwork": ["packages/ui/src/icon/paxeer-network.tsx"]
+  "nativeBrandArtwork": [
+    "packages/ui/src/icon/paxeer-network.tsx"
+  ]
 }

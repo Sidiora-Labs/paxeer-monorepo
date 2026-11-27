@@ -203,7 +203,7 @@ export const Notional: FC<OrderCellState> = (props) => {
       label={
         <Text>
           {t("common.notional")}
-          <Text intensity={20}>(USDC)</Text>
+          <Text intensity={20}>(USDL)</Text>
         </Text>
       }
       classNames={{
@@ -254,7 +254,7 @@ export const EstTotal: FC<OrderCellState> = (props) => {
       label={
         <Text>
           {t("common.notional")}
-          <Text intensity={20}>(USDC)</Text>
+          <Text intensity={20}>(USDL)</Text>
         </Text>
       }
       classNames={{
@@ -408,7 +408,7 @@ export const TPTrigger: FC<OrderCellState> = (props) => {
               showIdentifier
               // @ts-ignore
               prefix={<Text intensity={54}>{`${t("tpsl.tpPnl")}:`}&nbsp;</Text>}
-              suffix={<Text intensity={20}>&nbsp;USDC</Text>}
+              suffix={<Text intensity={20}>&nbsp;USDL</Text>}
               coloring
             >
               {tpPnL}
@@ -466,7 +466,7 @@ export const SLTrigger: FC<OrderCellState> = (props) => {
               prefix={
                 <Text intensity={54}>{`${t("tpsl.slPnl")}:`}&nbsp;&nbsp;</Text>
               }
-              suffix={<Text intensity={20}>&nbsp;USDC</Text>}
+              suffix={<Text intensity={20}>&nbsp;USDL</Text>}
               coloring
             >
               {slPnL}
@@ -618,7 +618,7 @@ export const AvgPrice: FC<OrderCellState> = (props) => {
       label={
         <Text>
           {t("common.avgPrice")}
-          <Text intensity={20}>(USDC)</Text>
+          <Text intensity={20}>(USDL)</Text>
         </Text>
       }
       classNames={{
@@ -646,7 +646,7 @@ export const OrderPrice: FC<OrderCellState> = (props) => {
       label={
         <Text>
           {t("common.orderPrice")}
-          <Text intensity={20}>(USDC)</Text>
+          <Text intensity={20}>(USDL)</Text>
         </Text>
       }
       classNames={{
@@ -678,7 +678,7 @@ export const RealizedPnL: FC<OrderCellState> = (props) => {
       label={
         <Text>
           {t("common.realizedPnl")}
-          <Text intensity={20}>(USDC)</Text>
+          <Text intensity={20}>(USDL)</Text>
         </Text>
       }
       classNames={{

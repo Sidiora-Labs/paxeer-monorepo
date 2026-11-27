@@ -61,7 +61,7 @@ const Row = (props: {
         <Text.numeral rule={rule} dp={dp} intensity={80}>
           {value}
         </Text.numeral>
-        {showUSDC && <Text intensity={36}>USDC</Text>}
+        {showUSDC && <Text intensity={36}>USDL</Text>}
       </Flex>
     </Flex>
   );

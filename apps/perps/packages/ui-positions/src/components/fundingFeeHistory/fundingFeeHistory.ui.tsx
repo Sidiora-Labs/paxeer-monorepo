@@ -182,13 +182,13 @@ export const FundingFeeHistoryUI: FC<{
             label={
               isMobile ? (
                 <FundingFeeLabelButton
-                  label={`${feeLabel} (USDC)`}
+                  label={`${feeLabel} (USDL)`}
                   tooltip={feeTooltip}
                   size={14}
                 />
               ) : (
                 <FundingFeeLabel
-                  label={`${feeLabel} (USDC)`}
+                  label={`${feeLabel} (USDL)`}
                   tooltip={feeTooltip}
                   size={14}
                 />

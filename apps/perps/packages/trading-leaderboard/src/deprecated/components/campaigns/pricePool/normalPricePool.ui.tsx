@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useMemo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import {
@@ -78,7 +79,7 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
                   weight="semibold"
                   className="oui-text-base-contrast"
                 >
-                  {pool.currency}
+                  {tokenDisplayName(pool.currency)}
                 </Text>
               </div>
             </div>
@@ -179,7 +180,7 @@ export const NormalPricePoolUI: FC<NormalPricePoolUIProps> = ({
                       totalPrizePool.amount,
                       totalPrizePool.currency,
                     )
-                  : "0 USDC"}
+                  : "0 USDL"}
               </Text.gradient>
             </div>
           </div>

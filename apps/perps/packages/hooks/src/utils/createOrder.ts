@@ -76,7 +76,7 @@ export function checkNotional(props: {
           .mul(price)
           .add(quote_tick ?? 0)
           .toFixed(quote_dp);
-        return `The order value should be greater or equal to ${newMinNotional} USDC`;
+        return `The order value should be greater or equal to ${newMinNotional} USDL`;
       }
 
       return undefined;

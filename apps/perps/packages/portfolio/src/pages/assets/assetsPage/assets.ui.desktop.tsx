@@ -67,7 +67,7 @@ const TotalValueInfo: React.FC<
           {totalValue ?? "--"}
         </Text.numeral>
         <Text as="div" weight="bold" className="oui-leading-6">
-          USDC
+          USDL
         </Text>
       </Flex>
     </Flex>

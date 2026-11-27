@@ -92,7 +92,7 @@ export const AccountSelect: React.FC<AccountSelectProps> = (props) => {
           </Flex>
         </Flex>
         <Flex gapX={3}>
-          <Text.numeral size="2xs" intensity={54} unit=" USDC">
+          <Text.numeral size="2xs" intensity={54} unit=" USDL">
             {asset || 0}
           </Text.numeral>
           {isActive && (

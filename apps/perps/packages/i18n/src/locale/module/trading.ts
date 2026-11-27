@@ -40,9 +40,9 @@ export const trading = {
   "trading.orderBook.middlePrice.tooltip":
     "A stabilized reference price calculated as the median of the best bid, best ask, and 24-hour closing price.",
 
-  "trading.faucet.getTestUSDC": "Get test USDC",
+  "trading.faucet.getTestUSDC": "Get test USDL",
   "trading.faucet.getTestUSDC.success":
-    "{{quantity}} USDC will be added to your balance. Please note this may take up to 3 minutes. Please check back later.",
+    "{{quantity}} USDL will be added to your balance. Please note this may take up to 3 minutes. Please check back later.",
 
   "trading.asset.startTrading": "Start trading",
   "trading.asset.startTrading.description":

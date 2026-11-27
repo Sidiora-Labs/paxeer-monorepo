@@ -323,7 +323,7 @@ const LpInfoItem: FC<{
         {...textProps}
         dp={2}
         suffix={
-          <span className="oui-ms-1 oui-text-base-contrast-36">USDC</span>
+          <span className="oui-ms-1 oui-text-base-contrast-36">USDL</span>
         }
       >
         {value}

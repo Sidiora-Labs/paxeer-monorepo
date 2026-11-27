@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useMemo } from "react";
 import { Select, Text, cn } from "@paxeer-network/ui";
 
@@ -11,7 +12,7 @@ export type QuantityUnitProps = {
 const valueRenderer = (value: string) => {
   return (
     <Text size="2xs" intensity={36}>
-      {value}
+      {tokenDisplayName(value)}
     </Text>
   );
 };
