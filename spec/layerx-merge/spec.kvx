@@ -215166,7 +215166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1309]
 title = "Let the provider of the embedded wallet of the launchpad web name the nonce of a send itself, read as the count of the wallet at the latest block within a limit of time, and bring the two case files of the directory in line with it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
