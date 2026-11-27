@@ -11,6 +11,7 @@ import { usePrivateAccountQuery } from '@/widgets/profile/use-private-account-qu
 import { accountRequest } from '@/widgets/profile/account-transport';
 import { formatTokenAmount, formatUsdl } from '@/utils/format';
 import { userFacingMessage } from '@/core/user-facing-error';
+import { rewardProgramTitle } from '@/widgets/rewards/reward-disclosure';
 
 type RewardsResponse = V2ContractTypes['RewardsResponse'];
 type Reward = V2ContractTypes['Reward'];
@@ -63,16 +64,16 @@ export default function CreatorRewardsCard({ poolAddress }: { poolAddress: strin
         totals.length ? (
           <dl className="flex flex-col gap-1 rounded-sm bg-surface-2 px-3 py-1">
             {totals.map(row => (
-              <KeyValueRow key={row.programId} label={row.programId} value={amount(row.claimable, row.usdl)} trailing={<span className="text-xs text-text-faint">claimable</span>} />
+              <KeyValueRow key={row.programId} label={rewardProgramTitle(row.programId)} value={amount(row.claimable, row.usdl)} trailing={<span className="text-xs text-text-faint">claimable</span>} />
             ))}
             {totals.map(row => (
-              <KeyValueRow key={`${row.programId}-earned`} label={`${row.programId} earned`} value={amount(row.earned, row.usdl)} />
+              <KeyValueRow key={`${row.programId}-earned`} label={`${rewardProgramTitle(row.programId)} earned`} value={amount(row.earned, row.usdl)} />
             ))}
           </dl>
         ) : <EmptyState variant="inline" title="No creator rewards yet" body="Rewards build up as people trade your coin." />
       ) : null}
       <p className="text-xs text-text-faint">Totals include rewards from all your coins.</p>
-      <UnavailableState variant="inline" title="Your rewards from this coin" operation="IF_REWARDS.sharePct" status={null} />
+      <UnavailableState variant="inline" title="Your rewards from this coin" plural operation="IF_REWARDS.sharePct" status={null} />
     </section>
   );
 }
