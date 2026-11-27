@@ -214740,7 +214740,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1297]
 title = "Give the cases of the delegated path of the wallet gateway that create keys limits that follow the slower machine"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214769,7 +214769,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1296]
 title = "Bring the case of the lease loss during the wait for a receipt in step with the order of the reads of the wallet gateway, and cover the loss before the recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214798,7 +214798,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1295]
 title = "Start the chain of the comment service in the script test of the web, so that the case file of the tab Replies passes without a chain from outside"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
