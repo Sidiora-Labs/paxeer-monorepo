@@ -183045,7 +183045,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1308]
 title = "Let the provider of the embedded wallet of the trading workspace name the nonce of a send itself, read as the count of the wallet at the latest block, so that the wallet service no longer has to read the count at the pending tag"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
