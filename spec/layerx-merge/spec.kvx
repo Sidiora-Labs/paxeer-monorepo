@@ -17626,6 +17626,12 @@ value = "One. In the verification of task 22.39.1290 the command of the cases of
 basis = "Gotcha 5029."
 affects = []
 
+[decision.4086]
+title = "Every scroll area of the trading workspace draws the thin bar of the workspace, and rows of tabs and labels of controls scroll without a bar"
+value = "One. apps/perps/apps/web/src/styles/globals.css gives every element of the document, and the document itself, the bar that the class custom-scrollbar has in apps/perps/packages/ui/src/tailwind/scrollBar.ts: six pixels in both directions, a track without colour, a thumb in the token base-7 and in the token base-5 under the pointer, a corner without colour. The rules stand where the two classes still win over them. Two. A browser that does not know the pseudo-elements of these rules gets the two standard properties instead, scrollbar-width with the value thin and scrollbar-color with the same two colours, inside a condition on the support of the selector of the pseudo-element; inside the same condition the class hide-scrollbar gets scrollbar-width with the value none. A browser that knows the pseudo-elements gets neither the value thin nor a colour by the standard properties, since it then draws by them and leaves the six pixels. Three. The parts of lines 103, 119, 125, 134 and 138 of apps/perps/apps/web/src/styles/globals.css keep their scroll and draw no bar, in every browser. The parts of lines 115 and 142 keep their scroll and draw the thin bar. No rule of task 22.44.39 is removed and none turns to hidden. Four. Not changed: the rules of the two classes in apps/perps/packages/ui/src/tailwind/scrollBar.ts and in apps/perps/packages/markets/src/style/index.css, every file of the packages, the colours, sizes and places of the reference source (decision 3705), every text. The colour scheme of the document is not declared in this task: it also changes how the browser draws form controls and the frames of other documents, and is decided on its own. Target: on the trade view at 1440 by 900 in a browser that draws its bars no bar is thicker than six pixels, the row of tabs above the list of markets draws none, and the container inside the container of the page no longer overflows sideways. Task 22.39.1298. "
+basis = "Gotcha 5030. Decision 3705."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47286,6 +47292,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1298]
+title = "Draw one thin dark bar on every scroll area of the trading workspace and none on its rows of tabs and the labels of its controls"
+reqs = ["22998.1"]
+touches = ["apps/perps/apps/web/src/styles", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/scroll-areas.test.ts && grep -e everyScrollAreaDrawsTheThinBar apps/perps/tests/scroll-areas.test.ts > /dev/null && grep -e theStandardPropertiesStandBehindTheCondition apps/perps/tests/scroll-areas.test.ts > /dev/null && grep -e rowsAndControlsKeepTheirScrollAndDrawNoBar apps/perps/tests/scroll-areas.test.ts > /dev/null"
+do_1 = "do_1 Gotcha 5030, decision 4086, decision 3705. Read apps/perps/apps/web/src/styles/globals.css whole, apps/perps/packages/ui/src/tailwind/scrollBar.ts whole, apps/perps/packages/markets/src/style/index.css whole and the two configuration files of the stylesheet build in apps/perps/apps/web. This task changes how a bar is drawn and which small parts draw one. It moves no part, changes no colour of a surface, no size and no text, and changes no file of the packages."
+symbols = []
 
 [capability.22.39.1297]
 title = "Give the cases of the delegated path of the wallet gateway that create keys limits that follow the slower machine"
@@ -182859,6 +182874,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1298]
+title = "Draw one thin dark bar on every scroll area of the trading workspace and none on its rows of tabs and the labels of its controls"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1298"]
+interfaces = []
+do_1 = "do_1 Gotcha 5030, decision 4086, decision 3705. Read apps/perps/apps/web/src/styles/globals.css whole, apps/perps/packages/ui/src/tailwind/scrollBar.ts whole, apps/perps/packages/markets/src/style/index.css whole and the two configuration files of the stylesheet build in apps/perps/apps/web. This task changes how a bar is drawn and which small parts draw one. It moves no part, changes no colour of a surface, no size and no text, and changes no file of the packages."
+do_2 = "do_2 Decision 4086 points one and two, in apps/perps/apps/web/src/styles/globals.css. Write the rules of the bar for every element and for the document with the values of the class custom-scrollbar of apps/perps/packages/ui/src/tailwind/scrollBar.ts, and the condition with the standard properties for a browser without the pseudo-elements. Then read the stylesheet the build produces and check that the two classes still win where an element carries one: the class hide-scrollbar draws no bar, and the class custom-scrollbar of apps/perps/packages/markets/src/style/index.css keeps its own width in the lists of the markets."
+do_3 = "do_3 Decision 4086 point three, in apps/perps/apps/web/src/styles/globals.css. Each of the five parts keeps its rule of the overflow and gets the rules that hide its bar: the display none of the bar for a browser with the pseudo-elements and scrollbar-width with the value none for the others. A row of tabs, a label or a card still scrolls by wheel, touch and keyboard."
+do_4 = "do_4 Write the case file apps/perps/tests/scroll-areas.test.ts with three cases, named everyScrollAreaDrawsTheThinBar, theStandardPropertiesStandBehindTheCondition and rowsAndControlsKeepTheirScrollAndDrawNoBar. The cases read apps/perps/apps/web/src/styles/globals.css through postcss, the parser of the stylesheet build, which the root of the workspace lists among its development packages, and not by a search of text. The first finds the rules of the bar for every element, with six pixels in both directions and the colours of the two tokens. The second finds the value thin and the colour of the standard properties only inside the condition, and the value none for the class hide-scrollbar inside it. The third finds for each of the five parts both its rule of the overflow and the rules that hide its bar, and finds the rules of lines 115 and 142 still with the value auto. Run apps/perps/tests/web-shell.test.ts once by hand as well, since it reads the same stylesheet; it is not part of the verification."
+do_5 = "do_5 Measure by hand before the counted runs, for at most twenty minutes. The surface file tools/ui-check/surfaces/trading.json names the command that builds the web application and the command that starts it. Start it that way and open the trade view at 1440 by 900 and at 1920 by 1080 with the browser library of the browser cases of the workspace (apps/perps/playwright.config.ts), with the bars drawn: the browser without a window hides bars by default, so take that default off. Read for every element that can scroll how thick its bar is and how far its content overflows, and compare with the targets of decision 4086. Give in the final message the count of bars drawn per view and size, the thickest bar, each target that does not hold, and each part that still draws a bar with the direction and the count of pixels its content overflows. Correct none of these overflows in this task. If the application does not start within ten minutes, leave the measure, say so and go on."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/apps/web/src/styles", "apps/perps/tests"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/scroll-areas.test.ts && grep -e everyScrollAreaDrawsTheThinBar apps/perps/tests/scroll-areas.test.ts > /dev/null && grep -e theStandardPropertiesStandBehindTheCondition apps/perps/tests/scroll-areas.test.ts > /dev/null && grep -e rowsAndControlsKeepTheirScrollAndDrawNoBar apps/perps/tests/scroll-areas.test.ts > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
