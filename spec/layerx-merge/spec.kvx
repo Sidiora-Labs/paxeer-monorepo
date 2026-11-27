@@ -17656,6 +17656,12 @@ value = "One. Names first. Each step of the function of gotcha 5034 point two th
 basis = "Gotcha 5034. Decision 4088."
 affects = []
 
+[decision.4091]
+title = "The helper of the local journey of the agent kit starts the package manager for the contracts package the way the fixture of the web does; the row stays, nothing is skipped, and the verification puts the package manager of the public job first on the program path"
+value = "One. The helper. The function startLaunchpadChain runs the install and the compile of contracts/launchpad the way the fixture of the web does, gotcha 5035 point four: through corepack pnpm, with the directory of the contracts package named by --dir and with --ignore-workspace on both commands. The install keeps --frozen-lockfile and --ignore-scripts. The aim: the two commands no longer depend on which pnpm stands first on the program path. Everything else of the function stays as it is. Two. Proof before and after. Task 22.39.1303 puts pnpm 9.15.0 first on the program path, as the public job has it, and runs the cases of the kit before the change and after it. It gives both results in the final message. If the run before the change does not show the message of gotcha 5035 point one, the task says so plainly, gives what it saw, and makes the change of point one all the same. Three. If the form of point one does not pass with pnpm 9.15.0 first on the program path, the task finds inside the helper the form of the two commands that passes both in that state and with the program path as the environment gives it, and names the form and its cause in the final message. Four. Not done. The row of the kit stays in the workflow as it is. The case is not skipped or marked, and it still compiles the contracts; no compiled output of the contracts enters the tree. contracts/launchpad with its workspace file and its lock file, the workflow, the checks below tests/ci, the fixture of the web and the package manager that any package file names do not change. Five. The verification runs the cases of the kit with pnpm 9.15.0 first on the program path and with the three go variables of gotcha 5035 point five, so the run of the task stands in the state of the public job as far as a run of a task can. Node 22 and go 1.27.3 are not reproduced there. Six. After the task. The next record of the public job decides whether the row passes. A second cause that this record shows gets a task of its own. If the runs of the task show a cause after the compile that lies outside the paths, the task changes nothing there and names case, file and first message. "
+basis = "Gotcha 5035. Decision 4089."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47316,6 +47322,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1303]
+title = "Make the local journey of the agent kit compile the contracts with the package manager the contracts package names, and prove it with the package manager of the public job first on the program path"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/agent-kit/test", "services/wallet/gateway/test/support"]
+tests = []
+verification_contract = "anvil --version > /dev/null && npm install --prefix /tmp/pm915 --no-audit --no-fund pnpm@9.15.0 > /dev/null && grep -e 9.15.0 /tmp/pm915/node_modules/pnpm/package.json > /dev/null && PATH=/tmp/pm915/node_modules/.bin:$PATH GOWORK=off GOTOOLCHAIN=local GOFLAGS=-timeout=15m pnpm --dir sdk/launchpad/packages/agent-kit run test && grep -e agentWalksTheLaunchpadOnALocalChain sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs > /dev/null"
+do_1 = "do_1 Gotcha 5035, decision 4091. Read whole: sdk/launchpad/packages/agent-kit/test/local-chain.mjs, sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs and the function prepare_fixture of apps/launchpad/web/src/widgets/create/run-creation-chain.py. This task changes sdk/launchpad/packages/agent-kit/test/local-chain.mjs and no other file. The list of paths also names services/wallet/gateway/test/support, whose files the case loads: read what the case uses there and change nothing."
+symbols = []
 
 [capability.22.39.1302]
 title = "Make the helper of the holdings cases name the step that fails, search the cause of the answer stream not found from the event broker and repair it inside the cases of the package"
@@ -214875,6 +214890,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1303]
+title = "Make the local journey of the agent kit compile the contracts with the package manager the contracts package names, and prove it with the package manager of the public job first on the program path"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1303"]
+interfaces = []
+do_1 = "do_1 Gotcha 5035, decision 4091. Read whole: sdk/launchpad/packages/agent-kit/test/local-chain.mjs, sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs and the function prepare_fixture of apps/launchpad/web/src/widgets/create/run-creation-chain.py. This task changes sdk/launchpad/packages/agent-kit/test/local-chain.mjs and no other file. The list of paths also names services/wallet/gateway/test/support, whose files the case loads: read what the case uses there and change nothing."
+do_2 = "do_2 Before the change, decision 4091 point two. Run the build. Install pnpm 9.15.0 apart from the tree: npm install --prefix /tmp/pm915 --no-audit --no-fund pnpm@9.15.0. Then run pnpm --dir sdk/launchpad/packages/agent-kit run test with the directory /tmp/pm915/node_modules/.bin in front of the program path and with GOWORK=off GOTOOLCHAIN=local GOFLAGS=-timeout=15m, as the verification writes it. Keep the number of cases that pass and that fail, and for each case that fails its name and first message. Say in the final message whether the message is the one of gotcha 5035 point one."
+do_3 = "do_3 The change, point one. In startLaunchpadChain the install (line 32) and the compile (line 36) run through corepack pnpm, with --dir for the directory of the contracts package and with --ignore-workspace, as lines 25 and 27 of apps/launchpad/web/src/widgets/create/run-creation-chain.py do. The install keeps --frozen-lockfile and --ignore-scripts. Keep the check for anvil, the limit of the output buffer and everything after the compile as they are."
+do_4 = "do_4 After the change run the command of do_2 again, in the same state, and once more with the program path as the environment gives it. Give the three results side by side in the final message. If the case does not pass with pnpm 9.15.0 first on the program path, point three holds: find the form inside the helper, and name the form and its cause."
+do_5 = "do_5 Point four holds throughout: nothing is skipped or marked, the case still compiles the contracts, and no file outside sdk/launchpad/packages/agent-kit/test/local-chain.mjs changes. A cause after the compile that lies outside the paths, point six: change nothing there and give case, file and first message in the final message. Say in the final message which parts of the state of the public job the runs did not reproduce."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/agent-kit/test", "services/wallet/gateway/test/support"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/agent-kit... run build"
+verify_cmd = "anvil --version > /dev/null && npm install --prefix /tmp/pm915 --no-audit --no-fund pnpm@9.15.0 > /dev/null && grep -e 9.15.0 /tmp/pm915/node_modules/pnpm/package.json > /dev/null && PATH=/tmp/pm915/node_modules/.bin:$PATH GOWORK=off GOTOOLCHAIN=local GOFLAGS=-timeout=15m pnpm --dir sdk/launchpad/packages/agent-kit run test && grep -e agentWalksTheLaunchpadOnALocalChain sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
