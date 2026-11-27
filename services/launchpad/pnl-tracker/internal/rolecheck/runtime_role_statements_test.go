@@ -284,6 +284,14 @@ func TestRuntimeRoleStatements(t *testing.T) {
 	if login != runtime.Role {
 		t.Fatalf("runtime statements require the pnl login: %s", login)
 	}
+	var appendAllowed, appendDefiner, appendOwned bool
+	var appendSettings []string
+	if err := conn.QueryRow(ctx, `SELECT has_function_privilege(current_user,p.oid,'EXECUTE'),p.prosecdef,pg_get_userbyid(p.proowner)=current_user,p.proconfig FROM pg_proc p WHERE p.oid='api_stream.append_portfolio(jsonb,jsonb)'::regprocedure`).Scan(&appendAllowed, &appendDefiner, &appendOwned, &appendSettings); err != nil {
+		t.Fatal(err)
+	}
+	if !appendAllowed || !appendDefiner || appendOwned || len(appendSettings) != 1 || appendSettings[0] != "search_path=pg_catalog" {
+		t.Fatalf("portfolio append authority: execute=%t definer=%t owned=%t settings=%v", appendAllowed, appendDefiner, appendOwned, appendSettings)
+	}
 	pending := map[string]WaitingStatement{}
 	for _, entry := range waiting {
 		pending[entry.Statement] = entry
