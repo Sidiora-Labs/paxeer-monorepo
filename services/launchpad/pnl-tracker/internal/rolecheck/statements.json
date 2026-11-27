@@ -2468,9 +2468,28 @@
     "role": "pnl_runtime",
     "kind": "SELECT",
     "tables": [
+      "indexer.indexer_ingest_watermarks_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "chain_id",
+      "raw_complete_height",
+      "stream_id",
+      "typed_complete_height"
+    ],
+    "sha256": "afa5f8cb4fdb2bed16522fb2ccbfd31c7a9afba525f1352bd5a5b8adc2fe38dc"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.acceptedHeadTx:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.acceptedHeadTx",
+    "call": 2,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
       "indexer.indexer_block_completeness_v1",
       "indexer.indexer_committed_heads_v1",
-      "indexer.indexer_ingest_watermarks_v1",
       "indexer.indexer_raw_logs_v1"
     ],
     "sequences": [],
@@ -2491,13 +2510,9 @@
       "h.integrity",
       "h.stream_id",
       "r.chain_id",
-      "r.height",
-      "w.chain_id",
-      "w.raw_complete_height",
-      "w.stream_id",
-      "w.typed_complete_height"
+      "r.height"
     ],
-    "sha256": "e977b9b628edc1d222035298634c7a00eae66486446284a1d03814bde9b633ac"
+    "sha256": "3ab377e0d74a883f4a80519d5f5e1f4a84143dcdb5ac24a41c05d8bac6df993c"
   },
   {
     "role": "pnl_runtime",
