@@ -17470,6 +17470,30 @@ value = "Point one. An entry whose signed figure is zero or below is not shown i
 basis = "Gotcha 5003."
 affects = []
 
+[decision.4060]
+title = "A portfolio frame carries its own revision, and the function that appends it checks that revision against the positions instead of deriving it from them"
+value = "Point one. The service keeps its numbering: the revision of a frame is the higher of the sum of the position revisions and one above the highest stored snapshot of the wallet. No file of the service changes its numbering. Point two. A new migration migrations/150012.sql replaces the function api_stream.append_portfolio in the form migrations/190006.sql has for the replacement of a function. The text of the function is the text of migrations/150002.sql with exactly the differences of points three to six. The file migrations/150002.sql itself is not changed. Point three. The checkpoint revision is the member revision of the frame. A frame whose member revision is not a plain decimal number without a sign and without a leading zero is refused with the message of line 67. Point four. The check of line 67 demands at least one position, a count of changes equal to the count of positions, a proof sequence and a summary revision of the payload equal to the revision of the frame, and a revision of the frame that does not lie below the sum of the position revisions. Its message stays. Point five. The check of line 68 compares the projection revision of the watermark with the revision of the frame. Its other comparisons and its message stay. Point six. The check of line 75 refuses a frame whose revision does not lie above the revision of the last frame of the topic. Its message stays. Point seven. Every other line of the function stays, the comparison of each position with the computed inventory included: a position keeps the revision of its own inventory row in its watermark. The owner, the security mode, the search path and the grants of the function stay. The file migrations/grants.json changes only where the approve mode of the schema tool demands it. Point eight. The entry of the migration in migrations/registry.json follows the entry of migration 190006, with the migration that defines the function today among its predecessors, and the approval is renewed under decision 3983 point three. Under decision 3978 point three no other task registers a migration beside this one. Point nine. Not changed here: the frames and snapshots already stored, the numbering of the stored snapshots, and the functions that append other frames."
+basis = "Gotcha 5004."
+affects = []
+
+[decision.4061]
+title = "The accepted head is read in two steps, and the views of the committed heads receive the height as a bound value"
+value = "Point one. The function acceptedHeadTx first reads the watermark of the stream: the lower of its raw complete height and its typed complete height. Point two. It then reads the completeness row and the committed head with that height as a bound value. The value is stated for the completeness row and for the committed head each, since the two columns differ in type and PostgreSQL does not carry the value from the one to the other. Every other condition of the statement of line 1426 of services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go stays: the stream, the hash of the block equal on both sides, the healthy integrity, the two complete flags and the count of the raw logs. Point three. Both reads run in the transaction the function receives. Point four. The results stay. A stream without a watermark and a height without a matching row give the outcome the one statement gives today when it finds no row, and a found row passes the checks that follow the statement today. Point five. The entries of the statements of the function in services/launchpad/pnl-tracker/internal/rolecheck/statements.json follow the change. Point six. Not changed here: the two views, the indexes, and the other readers of the views, which bind the height or read the newest rows with a limit."
+basis = "Gotcha 5005."
+affects = []
+
+[decision.4062]
+title = "The coverage count runs only where it can change the coverage, and with bounds of the type of the column"
+value = "Point one. A round that reaches the place of line 431 of services/launchpad/stats-*/internal/holdings/ingestion.go with the coverage complete runs neither the count nor the read of the first supply. The coverage of that round stays complete. Point two. In every other state the count runs as today, with the lower bound given in the type of the column the way line 185 of services/launchpad/stats-*/internal/holdings/replay.go gives it, so that the primary key serves the range. A creation height that does not fit that type cannot have a complete block: the round treats it as a count that does not match. Point three. The result of a round stays in every state: the coverage it returns, the revision of the coin, the stored row and the calls of the observer. Point four. The entry of the statement in services/launchpad/stats-*/internal/analytics/runtime_statements.json follows the change. Point five. Not changed here: the statement of services/launchpad/stats-*/internal/holdings/replay.go, the views, the application of transfers, and the count of a coin whose count never matches, which still runs on every round."
+basis = "Gotcha 5006."
+affects = []
+
+[decision.4063]
+title = "The function Restrict compares before it locks: a read that has nothing to write takes no row lock and commits nothing"
+value = "Point one. The function Restrict first reads the stored moderation revision of the pool with a plain select outside a transaction. Point two. Where a row is stored and its moderation revision does not lie below the given revision, the function returns without a transaction: the statement of line 290 of services/launchpad/metadata/internal/metadata/production.go would write nothing in that state. Point three. In every other state, a pool without a stored row included, the function runs as today, with its transaction, its row lock and its statement, so two writers still wait for each other and the higher revision wins. Point four. The validation of the arguments stays in front of the read. A pool that is not known gives the outcome it gives today. Point five. Every caller of Restrict and of syncModeration gains the change and none of them is changed. The catalogue of statements under services/launchpad/metadata/internal/rolecheck follows the new statement. Point six. Not changed here: the reader of the visibility, the limit of a lock wait, and the publication of documents."
+basis = "Gotcha 5007."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47130,6 +47154,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1279]
+title = "Let a read of the details of a coin take no row lock when it has nothing to write"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata/internal/metadata", "services/launchpad/metadata/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestRestrictWithoutWrite ./internal/metadata/ | grep -c -e ^---.PASS:.TestRestrictWithoutWrite) -ge 4 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 5007, decision 4063. Read the function Restrict of services/launchpad/metadata/internal/metadata/production.go, the function syncModeration of services/launchpad/metadata/internal/metadata/connected.go with its callers, the function refreshModeration of services/launchpad/metadata/internal/metadata/legacy_reads.go, the entries of the function Restrict in the catalogue of statements under services/launchpad/metadata/internal/rolecheck, and the cases of services/launchpad/metadata/internal/metadata that call Restrict on the database the environment provides. Before the first change run the case TestRuntimeRoleStatements of the directory services/launchpad/metadata/internal/rolecheck by hand and note its result."
+symbols = []
+
+[capability.22.39.1278]
+title = "Run the coverage count of the holdings only where it can change the coverage, with bounds the primary key serves"
+reqs = ["22998.1"]
+touches = ["services/launchpad/stats-workers/internal/holdings", "services/launchpad/stats-workers/internal/analytics"]
+tests = []
+verification_contract = "anvil --version > /dev/null && MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/holdings/... ./internal/analytics/... && test $(GOWORK=off go test -p 1 -count=1 -timeout 30m -v -run ^TestCoverageCount ./internal/holdings/ | grep -c -e ^---.PASS:.TestCoverageCount) -ge 4)"
+do_1 = "do_1 Gotcha 5006, decision 4062. Read the function catchUpCanonicalAtOnce of services/launchpad/stats-*/internal/holdings/ingestion.go from line 342 to its end, the statement at line 185 of services/launchpad/stats-*/internal/holdings/replay.go, the entry of the statement of line 431 in services/launchpad/stats-*/internal/analytics/runtime_statements.json, and the cases of services/launchpad/stats-*/internal/holdings that follow a coin to the watermark on the database the environment provides. Before the first change run the case TestRuntimeRoleAnalyticsTables of the directory services/launchpad/stats-*/internal/analytics by hand and note its result. If it does not pass before your change, the registry is behind the sources: enter every statement the case names again from its source, in the form and at the place the neighbouring entries have, change no source for it, move no statement into a list of exceptions, and name those statements in the final message."
+symbols = []
+
+[capability.22.39.1277]
+title = "Read the accepted head in the pnl service of the launchpad with a bound height"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "services/launchpad/pnl-tracker/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestAcceptedHeadBound ./internal/production/l16/ | grep -c -e ^---.PASS:.TestAcceptedHeadBound) -ge 4 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 5005, decision 4061. Read the function acceptedHeadTx of services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go with its caller at line 1255, the statement at line 1398, the views at line 62 of migrations/60001.sql and at line 2 of migrations/60006.sql, the entries of services/launchpad/pnl-tracker/internal/rolecheck/statements.json that name indexer.indexer_committed_heads_v1, and the cases of services/launchpad/pnl-tracker/internal/production/l16 that build committed heads, completeness rows and a watermark on the database the environment provides. Before the first change run the case TestRuntimeRoleStatements of the directory services/launchpad/pnl-tracker/internal/rolecheck by hand and note its result."
+symbols = []
+
+[capability.22.39.1276]
+title = "Accept the revision a portfolio frame carries, so a wallet with stored snapshots can commit its first fill"
+reqs = ["22998.1"]
+touches = ["migrations", "tools/qualification/audit_repairs/test_migration_registry_and_readiness.py", "sdk/launchpad/shared/db/production", "services/launchpad/pnl-tracker/internal/production/l16", "services/launchpad/pnl-tracker/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestCheckpointRevision ./internal/production/l16/ | grep -c -e ^---.PASS:.TestCheckpointRevision) -ge 5 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/) && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 30m ./db/production/cmd/launchpad-schema/... && GOWORK=off go test -count=1 -list ^TestRepositoryRegistryRequiresApproval ./db/production/cmd/launchpad-schema/ | grep -q ^TestRepositoryRegistryRequiresApproval) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py && test -f migrations/150012.sql"
+do_1 = "do_1 Gotcha 5004, decision 4060. Read the function api_stream.append_portfolio in migrations/150002.sql from line 42 to its end, migrations/190006.sql with its entry in migrations/registry.json as the form of a function replacement, the function commitFullPortfolioTx of services/launchpad/pnl-tracker/internal/production/l16/ledger.go, and the fixture of the cases of services/launchpad/pnl-tracker/internal/production/l16 that applies the migrations at line 266 of services/launchpad/pnl-tracker/internal/production/l16/coordinator_runtime_test.go."
+symbols = []
 
 [capability.22.39.1275]
 title = "Show gains only in the strip Top earners"
@@ -214371,6 +214431,126 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1279]
+title = "Let a read of the details of a coin take no row lock when it has nothing to write"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1279"]
+interfaces = []
+do_1 = "do_1 Gotcha 5007, decision 4063. Read the function Restrict of services/launchpad/metadata/internal/metadata/production.go, the function syncModeration of services/launchpad/metadata/internal/metadata/connected.go with its callers, the function refreshModeration of services/launchpad/metadata/internal/metadata/legacy_reads.go, the entries of the function Restrict in the catalogue of statements under services/launchpad/metadata/internal/rolecheck, and the cases of services/launchpad/metadata/internal/metadata that call Restrict on the database the environment provides. Before the first change run the case TestRuntimeRoleStatements of the directory services/launchpad/metadata/internal/rolecheck by hand and note its result."
+do_2 = "do_2 Change the function Restrict as decision 4063 says and bring the catalogue under services/launchpad/metadata/internal/rolecheck in step, in the form of its neighbouring entries. A case inside the paths that pins the statements of the function follows the change. Change nothing outside the paths and no migration."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in the new file services/launchpad/metadata/internal/metadata/restrict_read_test.go, with names that start with TestRestrictWithoutWrite, on the database the environment provides, as the neighbour cases do. One: TestRestrictWithoutWriteUnderALock. A pool has the stored moderation revision 3. A second connection holds the row of the pool with FOR UPDATE in an open transaction. A call of Restrict with the revision 3 returns without an error while the lock is held, and so does a call with the revision 2. Two: TestRestrictWithoutWriteKeepsTheStoredState. After those two calls the stored revision is 3 and the blocked flag is as it was. Three: TestRestrictWithoutWriteStillWritesAHigherRevision. A call with the revision 4 and the blocked flag set writes both. Four: TestRestrictWithoutWriteCreatesTheFirstRow. For a pool without a stored row a call writes the row as today. Five: TestRestrictWithoutWriteReadOfACoin. With the visibility at the stored revision and the row of the pool held by a second connection, the read of one coin that passes through the function at line 118 of services/launchpad/metadata/internal/metadata/legacy_reads.go returns its record. Where that read needs a double of the reader of the visibility, write one in the test file. Where it is not reachable without the setup of a neighbour case, move that setup into a helper of the test files and use it. The second connection of a case is released in a step that also runs after a failed case, and no case waits on wall time. Say in the final message that you saw the first case fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata/internal/metadata", "services/launchpad/metadata/internal/rolecheck"]
+tests = []
+planned_paths = ["services/launchpad/metadata/internal/metadata/restrict_read_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && GOWORK=off go build ./... && GOWORK=off go vet ./internal/metadata/... ./internal/rolecheck/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestRestrictWithoutWrite ./internal/metadata/ | grep -c -e ^---.PASS:.TestRestrictWithoutWrite) -ge 4 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1278]
+title = "Run the coverage count of the holdings only where it can change the coverage, with bounds the primary key serves"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1278"]
+interfaces = []
+do_1 = "do_1 Gotcha 5006, decision 4062. Read the function catchUpCanonicalAtOnce of services/launchpad/stats-*/internal/holdings/ingestion.go from line 342 to its end, the statement at line 185 of services/launchpad/stats-*/internal/holdings/replay.go, the entry of the statement of line 431 in services/launchpad/stats-*/internal/analytics/runtime_statements.json, and the cases of services/launchpad/stats-*/internal/holdings that follow a coin to the watermark on the database the environment provides. Before the first change run the case TestRuntimeRoleAnalyticsTables of the directory services/launchpad/stats-*/internal/analytics by hand and note its result. If it does not pass before your change, the registry is behind the sources: enter every statement the case names again from its source, in the form and at the place the neighbouring entries have, change no source for it, move no statement into a list of exceptions, and name those statements in the final message."
+do_2 = "do_2 Change the function as decision 4062 says and enter the changed statement again in services/launchpad/stats-*/internal/analytics/runtime_statements.json. A case inside the paths that pins the text of the statement follows the new text. Change nothing outside the paths and no migration."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in the new file services/launchpad/stats-*/internal/holdings/coverage_count_test.go, with names that start with TestCoverageCount, on the database the environment provides, as the neighbour cases do. One: TestCoverageCountNotRunWhenComplete. A coin has the coverage complete and no new transfer. A round returns the coverage complete, leaves the revision of the coin as it is and runs no count. The case shows that no count ran with a counter of the test files or another means of the package, and the final message names the means. Two: TestCoverageCountCompletesACoin. A coin with a coverage that is not complete, every block from its creation height to the watermark complete and the first supply in agreement gets the coverage complete in one round, and its revision rises as today. Three: TestCoverageCountKeepsAGap. With one block of the range not complete the coverage does not become complete. Four: TestCoverageCountUsesTheRange. The case reads the plan of the count statement as the function sends it, in the JSON form of EXPLAIN, with sequential scans turned off for its transaction. Both bounds of the height stand in the index condition of the node that reads the table indexer.indexer_block_completeness, and none of them stands in a filter. Where a round is not reachable from a case without the setup of a neighbour case, move that setup into a helper of the test files and use it. Say in the final message which cases you saw fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/stats-workers/internal/holdings", "services/launchpad/stats-workers/internal/analytics"]
+tests = []
+planned_paths = ["services/launchpad/stats-workers/internal/holdings/coverage_count_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/stats-* && GOWORK=off go build ./... && GOWORK=off go vet ./internal/holdings/... ./internal/analytics/...)"
+verify_cmd = "anvil --version > /dev/null && MODULES=$(cd services/launchpad && echo stats-*) && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=$MODULES && (cd services/launchpad/stats-* && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/holdings/... ./internal/analytics/... && test $(GOWORK=off go test -p 1 -count=1 -timeout 30m -v -run ^TestCoverageCount ./internal/holdings/ | grep -c -e ^---.PASS:.TestCoverageCount) -ge 4)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1277]
+title = "Read the accepted head in the pnl service of the launchpad with a bound height"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1277"]
+interfaces = []
+do_1 = "do_1 Gotcha 5005, decision 4061. Read the function acceptedHeadTx of services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go with its caller at line 1255, the statement at line 1398, the views at line 62 of migrations/60001.sql and at line 2 of migrations/60006.sql, the entries of services/launchpad/pnl-tracker/internal/rolecheck/statements.json that name indexer.indexer_committed_heads_v1, and the cases of services/launchpad/pnl-tracker/internal/production/l16 that build committed heads, completeness rows and a watermark on the database the environment provides. Before the first change run the case TestRuntimeRoleStatements of the directory services/launchpad/pnl-tracker/internal/rolecheck by hand and note its result."
+do_2 = "do_2 Change the function as decision 4061 says and bring services/launchpad/pnl-tracker/internal/rolecheck/statements.json in step, in the form of its neighbouring entries. A case inside the paths that pins the text of the changed statement follows the new text. Change nothing outside the paths and no migration."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in the new file services/launchpad/pnl-tracker/internal/production/l16/accepted_head_bound_test.go, with names that start with TestAcceptedHeadBound, on the database the environment provides, as the neighbour cases do. One: TestAcceptedHeadBoundReadsTheHead. With a watermark, a complete row and a healthy committed head at one height the function returns that height and its hash. Two: TestAcceptedHeadBoundWithoutAHead. Without a committed head at the height of the watermark, and again with a head there that is not healthy, the function returns the outcome it returns today when no row is found. Three: TestAcceptedHeadBoundWithoutAWatermark. For a stream without a watermark the function returns that same outcome. Four: TestAcceptedHeadBoundPlan. The case reads the plan of the statement that reads the committed head, in the JSON form of EXPLAIN, with a bound height and with sequential scans turned off for its transaction, so that the size of the tables of the case does not decide the plan. Every node of the plan that reads the table indexer.indexer_committed_heads carries an index condition that names the column height. The case also reads, the same way, the plan of the statement of line 1426 as it stands at commit d07a1cbcf3, kept as a text in the test file, and finds in it a node on that table without such a condition. If that second half does not hold on the database of the environment, leave the second half out and name the plan it showed in the final message. Say in the final message which cases you saw fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16", "services/launchpad/pnl-tracker/internal/rolecheck"]
+tests = []
+planned_paths = ["services/launchpad/pnl-tracker/internal/production/l16/accepted_head_bound_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./internal/production/l16/... ./internal/rolecheck/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestAcceptedHeadBound ./internal/production/l16/ | grep -c -e ^---.PASS:.TestAcceptedHeadBound) -ge 4 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1276]
+title = "Accept the revision a portfolio frame carries, so a wallet with stored snapshots can commit its first fill"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1276"]
+interfaces = []
+do_1 = "do_1 Gotcha 5004, decision 4060. Read the function api_stream.append_portfolio in migrations/150002.sql from line 42 to its end, migrations/190006.sql with its entry in migrations/registry.json as the form of a function replacement, the function commitFullPortfolioTx of services/launchpad/pnl-tracker/internal/production/l16/ledger.go, and the fixture of the cases of services/launchpad/pnl-tracker/internal/production/l16 that applies the migrations at line 266 of services/launchpad/pnl-tracker/internal/production/l16/coordinator_runtime_test.go."
+do_2 = "do_2 Write migrations/150012.sql as points two to seven of decision 4060 say and register it as point eight says. Let the fixture of line 266 of services/launchpad/pnl-tracker/internal/production/l16/coordinator_runtime_test.go apply migration 150012 after migration 150002. Change no file of the service that is not a test file. Then renew the approval under decision 3983 point three as the last change under migrations. Create an empty database on the PostgreSQL server of the test environment and check that the server reports the major version 18. From the module sdk/launchpad/shared run the approve mode of the tool (go run ./db/production/cmd/launchpad-schema approve --migrations with the path of the directory migrations of the working tree) with the variable LAUNCHPAD_ADMIN_DATABASE_URL naming that database. Take the registry as the tool writes it. Then remove the database. Check in the difference of the working tree that the registry gained exactly the one entry, that no other migration file changed, that server_major_version is 18, that every entry holds the new approval digest, and bring the count and the inventory digest of tools/qualification/audit_repairs/test_migration_registry_and_readiness.py in step with the registry and change nothing else in that file. Where the main line brings a further registration while this task runs, take the main line, run the approve mode again on the joined tree and bring the file tools/qualification/audit_repairs/test_migration_registry_and_readiness.py in step again."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases in the new file services/launchpad/pnl-tracker/internal/production/l16/checkpoint_revision_test.go, with names that start with TestCheckpointRevision, on the database the environment provides, built the way the neighbour cases of the package build a wallet with fills. One: TestCheckpointRevisionFirstFillAfterStoredSnapshots. A wallet holds stored snapshots with the revisions 1 to 3 and no inventory row. Its first fill commits: the frame carries the revision 4 and the position carries the revision 1. Where the commit of a fill stores a snapshot, that snapshot carries the revision of the frame. Two: TestCheckpointRevisionSecondFill. A second fill of the same wallet commits with the frame revision 5. Three: TestCheckpointRevisionWithoutStoredSnapshots. A wallet without stored snapshots commits its first two fills with the frame revisions 1 and 2. Four: TestCheckpointRevisionBelowTheSum. The function refuses a frame whose revision lies below the sum of the position revisions, with the message of line 67 of migrations/150002.sql. Five: TestCheckpointRevisionSummaryDiffers. The function refuses a frame whose summary revision differs from the revision of the frame, with the same message. Say in the final message that you saw the first case fail while the fixture did not yet apply the new migration. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["migrations", "tools/qualification/audit_repairs/test_migration_registry_and_readiness.py", "sdk/launchpad/shared/db/production", "services/launchpad/pnl-tracker/internal/production/l16", "services/launchpad/pnl-tracker/internal/rolecheck"]
+tests = []
+planned_paths = ["migrations/150012.sql", "services/launchpad/pnl-tracker/internal/production/l16/checkpoint_revision_test.go"]
+build_cmd = "anvil --version > /dev/null && (cd sdk/launchpad/shared && GOWORK=off go vet ./db/production/...) && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./internal/production/l16/... ./internal/rolecheck/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 20m -v -run ^TestCheckpointRevision ./internal/production/l16/ | grep -c -e ^---.PASS:.TestCheckpointRevision) -ge 5 && GOWORK=off go test -count=1 -timeout 15m -run ^TestRuntimeRoleStatements ./internal/rolecheck/) && (cd sdk/launchpad/shared && GOWORK=off go test -p 1 -count=1 -timeout 30m ./db/production/cmd/launchpad-schema/... && GOWORK=off go test -count=1 -list ^TestRepositoryRegistryRequiresApproval ./db/production/cmd/launchpad-schema/ | grep -q ^TestRepositoryRegistryRequiresApproval) && python3 -m pytest -q tools/qualification/audit_repairs/test_migration_registry_and_readiness.py && test -f migrations/150012.sql"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
