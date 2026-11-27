@@ -89,6 +89,7 @@ perps_may_be_empty() {
 	PAXEER_RPC_URL | PAXEER_RPC_URLS) ;;           # packages/paxeer-backend/src/core/rpc.ts
 	PAXSCAN_API_URL | PAXSCAN_WS_URL) ;;           # packages/paxeer-backend/src/core/paxscan/config.ts
 	DIRECT_PRICE_FEED_ORIGINS) ;;                  # packages/paxeer-backend/src/core/feeds.ts
+	DISABLE_REALTIME_FOR_RENDER) ;;                # empty keeps live streams enabled
 	*_PRECOMPILE) ;;                               # packages/paxeer-backend/src/core/network/precompiles.ts
 	RELEASE | SENTRY_DSN | SENTRY_ENV) ;;          # optional client release and error reporting
 	RELEASE_SPOT_OPEN) ;;                          # packages/paxeer-backend/src/core/nav.ts
