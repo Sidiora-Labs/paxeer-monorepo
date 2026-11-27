@@ -167,7 +167,7 @@ var RuntimeStatements = []Statement{
 			object("relation", "metadata.assets", "hash id pool state", "SELECT"),
 		},
 	},
-	{ID: "RejectAsset", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "upload", Call: 3, Kind: "UPDATE", Role: runtimeRole,
+	{ID: "RejectAsset", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "upload", Call: 6, Kind: "UPDATE", Role: runtimeRole,
 		Objects: []Object{
 			object("relation", "metadata.asset_details_v2", "asset_id rejected_until", "SELECT UPDATE"),
 			object("relation", "metadata.assets", "id scanner_engine scanner_revision state", "SELECT UPDATE"),
@@ -179,6 +179,28 @@ var RuntimeStatements = []Statement{
 			object("relation", "metadata.asset_details_v2", "asset_id investigation_hold rejected_until", "SELECT"),
 			object("relation", "metadata.assets", "id object_key state", "SELECT"),
 			object("function", "pg_catalog.clock_timestamp", "", "EXECUTE"),
+		},
+	},
+	{ID: "FindConnectedAsset", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "FindConnectedAsset", Call: 0, Kind: "SELECT", Role: runtimeRole,
+		Objects: []Object{
+			object("relation", "metadata.assets", "hash id object_key pool scanner_engine scanner_revision size state", "SELECT"),
+		},
+	},
+	{ID: "connected.upload.2", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "upload", Call: 2, Kind: "SELECT", Role: runtimeRole,
+		Objects: []Object{
+			object("relation", "metadata.assets", "id", "SELECT"),
+		},
+	},
+	{ID: "connected.upload.3", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "upload", Call: 3, Kind: "SELECT", Role: runtimeRole,
+		Objects: []Object{
+			object("function", "pg_catalog.hashtextextended", "", "EXECUTE"),
+			object("function", "pg_catalog.pg_advisory_lock", "", "EXECUTE"),
+		},
+	},
+	{ID: "connected.upload.4", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "upload", Call: 4, Kind: "SELECT", Role: runtimeRole,
+		Objects: []Object{
+			object("function", "pg_catalog.hashtextextended", "", "EXECUTE"),
+			object("function", "pg_catalog.pg_advisory_unlock", "", "EXECUTE"),
 		},
 	},
 	{ID: "CreateAssetRecord", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "CreateConnectedAsset", Call: 0, Kind: "INSERT", Role: runtimeRole,
@@ -467,7 +489,7 @@ var RuntimeStatements = []Statement{
 			object("function", "pg_catalog.pg_advisory_unlock", "", "EXECUTE"),
 		},
 	},
-	{ID: "connected.upload.2", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "upload", Call: 2, Kind: "SELECT", Role: runtimeRole,
+	{ID: "connected.upload.5", Package: "internal/metadata", File: "services/launchpad/metadata/internal/metadata/connected.go", Function: "upload", Call: 5, Kind: "SELECT", Role: runtimeRole,
 		Objects: []Object{
 			object("relation", "metadata.assets", "id state", "SELECT"),
 		},
