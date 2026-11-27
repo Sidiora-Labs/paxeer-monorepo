@@ -17560,6 +17560,48 @@ value = "One. The verification of task 22.44.147 keeps the test of the record, t
 basis = "Gotcha 5018."
 affects = []
 
+[decision.4075]
+title = "The page of the client contracts says what the web shows of squads on the main line"
+value = "One. The sentence about the squad rankings panel, from line 18 of services/launchpad/discovery/contracts/clients.md, is written anew to the state of the main line: the web renders no ranking of squads until a service ranks them (task 22.39.1244). The task reads apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx and the files beside it and words the sentence to what it finds. A link in the sentence leads to a file that exists on the main line. Two. The sentence about the squad operations of the SDK stays unless the task finds it untrue; then the final message names what was found. Three. The anchors launchpad-web-app and launchpad-sdk-sdk of the page stay, and so does every other sentence of the page. Four. Not changed: the case, the page services/launchpad/discovery/contracts/services.md and every file of the web. Target: the verification of task 22.39.1289 passes. Task 22.39.1289. "
+basis = "Gotcha 5019."
+affects = []
+
+[decision.4076]
+title = "The functions that read the retry fields of an answer live in a module that imports no package"
+value = "One. A new module apps/launchpad/web/src/core/retry-fields.ts holds the type RetryFields and the functions retryFields and readRetryFields, word for word, with the helper they use. It imports no package and no module that imports one. Two. apps/launchpad/web/src/core/transient-retry.ts exports the three names from the new module and takes the helper from it where it uses it, so no text stands twice. Every other importer stays as it is: apps/launchpad/web/src/widgets/community-safety/safety-client.ts, apps/launchpad/web/src/widgets/profile/utility-rows.tsx, apps/launchpad/web/src/widgets/trading/udf-datafeed.ts and the cases of apps/launchpad/web/src/core/transient-retry.test.ts. Three. The client apps/launchpad/web/src/core/clients/livestream-api.ts imports retryFields from the new module and no longer names transient-retry. Four. A case holds the rule. The new file apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts has the case livestreamClientImportsNoPackage: starting at the client it reads each source file, follows every import that starts with @/ or is relative, and requires that no file it reaches imports anything else. An import of types only in the form import type, which the type stripping of node removes whole, does not count. Five. Not changed: the two cases of the services, their scripts, and what the functions return. Target: the verification of task 22.39.1290 passes. Task 22.39.1290. "
+basis = "Gotcha 5020."
+affects = []
+
+[decision.4077]
+title = "The in-process stores of the metadata cases answer the read of the function Restrict as the database would"
+value = "One. Each of the two stores answers the read of line 278 of services/launchpad/metadata/internal/metadata/production.go from its own state: no row where it holds no such pool; false where the pool has no document or the moderation revision of the document is below the given revision; true otherwise. A store that lacks a field for it gains one in the form of its neighbouring fields. Two. Where a case still fails after that because the store refuses a further statement the service sends on the path of the case, the store answers that statement too, from its state, in the form of its neighbouring branches. The update of gotcha 5021 is such a candidate. The final message names each such statement. Three. Only files whose name ends with _test.go change. Where a case can pass only with a change of the service, the task stops and names case, file and reason. Four. No case gains a skip mark and none is removed. An expectation of a case changes only where it pins the count or the order of the statements of the function Restrict, which task 22.39.1279 changed; the final message names each such change. Target: the verification of task 22.39.1291 passes. It runs the two packages whole. Task 22.39.1291. "
+basis = "Gotcha 5021."
+affects = []
+
+[decision.4078]
+title = "The transcript of the reward history is renewed with its recorder for migration 150012"
+value = "One. The renewal. Task 22.39.1292 renews the transcript services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json with its recorder services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py for the tree of the main line as the task finds it (variable PNL_TEST_POSTGRES_DSN, option --dsn-env, line 158). No member of the transcript is written by hand. Where the recorder fails, the task repairs it inside its paths and the final message names the cause. Two. The expected difference. It is given to check the result against and not to write: the member applied gains migration 150012 with the checksum of the registry, and the member sources gains migrations/150012.sql. The migration creates or replaces a function of the schema api_stream; where the transcript records the functions of that schema, the member objects follows, and the final message gives the count of the objects before and after. Where the difference holds more than that, the final message names each further line and its cause. A further registration that the main line brought meanwhile is such a cause and belongs in the transcript. Three. Nothing else changes. The binding, the bootstrap and the cases of the package stay word for word. Where a case of the package still fails after the renewal, its cause is repaired inside the paths of the task and named in the final message; no case gains a skip mark and no case is removed. Four. The rule of decision 4012 point four stands as written. Five. Target: the verification of task 22.39.1292 passes. It runs the lint stage of the pnl module and the cases of its package internal/production/l18, and requires a case with the name prefix TestRewardHistoryPlanBinding. Task 22.39.1292. "
+basis = "Gotcha 5022."
+affects = []
+
+[decision.4079]
+title = "The list of the runtime statements of the social service is refreshed with its own program, and the new statement gets what the case of the role requires"
+value = "One. The refresh. The task runs the refresh the directory names itself, line 14 of services/launchpad/social/internal/rolecheck/generate.go with the program under services/launchpad/social/internal/rolecheck/cmd, on the tree of the main line as the task finds it, and writes no entry by hand. Two. The expected difference. It is given to check the result against and not to write: the function Publisher.Record gains one entry for the new statement, of the kind INSERT, which names the tables interaction_visibility_revision and interaction_comments, and the entries of the function after it move by one ordinal. Where the difference holds more than that, the final message names each further entry and its cause. A statement that the main line brought meanwhile is such a cause and belongs in the list. Three. The case TestRuntimeRoleStatements requires for every statement of the connected runtime what it requires for the others, and leaves none waiting. The new statement gets that in the form of its neighbour, the entry with the ordinal 3 of the same function. Four. Where the runtime role lacks a right the new statement needs, that is a finding outside the paths: the task stops and names statement, right and role. Five. Not changed: services/launchpad/social/internal/interactions/outbox.go, every migration, and the cases of the directory. No case gains a skip mark and none is removed. Target: the verification of task 22.39.1293 passes. It runs the lint stage of the social module and the cases of the directory whole. Task 22.39.1293. "
+basis = "Gotcha 5023."
+affects = []
+
+[decision.4080]
+title = "The expected deployment names the writer of the swap record, and the limit of the case with six trades follows its work"
+value = "One. The expected object of line 129 of apps/launchpad/web/src/core/network/deployment-regeneration.test.ts gains the property swapRecordWriter with the address of the launchpad module of the derived deployment, the member launchpadPrecompile, as line 150 of apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts sets it. Nothing else of the case changes. Two. The case swapRecordFromAnotherAddressIsNotCounted keeps its six trades and gets a limit of 120000 ms, written 120_000 the way its neighbours write theirs. Reason: a trade of the file took about 8 seconds in the recorded run, so six take about 48, and the limit leaves room for a loaded machine. The other cases of the file keep their limits. Three. Not changed: apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts and every file other than the two case files. Target: the verification of task 22.39.1294 passes. Task 22.39.1294. "
+basis = "Gotcha 5024."
+affects = []
+
+[decision.4081]
+title = "The script test of the web starts the chain of the comment service itself"
+value = "One. apps/launchpad/web/scripts/prepare-test-environment.py gains a stage that starts a chain with the id 125 with its method anvil, on a port that is free at that moment, and sets the variable L34_ANVIL_URL in the environment of the test program to the address of that chain. It sets the variable whatever the surrounding environment holds: the method never uses a chain it did not start (comment at line 101). Two. The chain ends with the script, like the other chains the script starts. Three. The case file and the case of the social service stay as they are. Where the comment service needs more of the chain than the method gives, the stage gives it in the script and the final message says so. Four. Not changed: the workflow files, the social service and every case of the web. Target: the verification of task 22.39.1295 passes. It runs the case file with the variable removed from the environment, so the file passes only when the script provides the chain. Task 22.39.1295. "
+basis = "Gotcha 5025."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47220,6 +47262,69 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1295]
+title = "Start the chain of the comment service in the script test of the web, so that the case file of the tab Replies passes without a chain from outside"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/scripts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && env -u L34_ANVIL_URL pnpm --dir apps/launchpad/web run test src/widgets/profile/replies-tab.test.tsx"
+do_1 = "do_1 Gotcha 5025, decision 4081. Read apps/launchpad/web/scripts/prepare-test-environment.py whole, apps/launchpad/web/src/widgets/profile/replies-tab.test.tsx from line 40 to line 80 and services/launchpad/social/internal/internaltest/canonical.go whole. Run the file by hand first with the variable removed and see its setup fail: env -u L34_ANVIL_URL pnpm --dir apps/launchpad/web run test src/widgets/profile/replies-tab.test.tsx."
+symbols = []
+
+[capability.22.39.1294]
+title = "Bring two cases of the web in step with the writer of the swap record of a trade"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/core/network/deployment-regeneration.test.ts", "apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/core/network/deployment-regeneration.test.ts src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q 120_000 apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q swapRecordWriter apps/launchpad/web/src/core/network/deployment-regeneration.test.ts"
+do_1 = "do_1 Gotcha 5024, decision 4080. Read apps/launchpad/web/src/core/network/deployment-regeneration.test.ts whole, apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts whole and apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts from line 133 to line 170."
+symbols = []
+
+[capability.22.39.1293]
+title = "Refresh the list of the runtime statements of the social service for the statement that raises the visibility revision of the comments of a wallet"
+reqs = ["22998.1"]
+touches = ["services/launchpad/social/internal/rolecheck"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off go test -count=1 -timeout 40m ./internal/rolecheck/)"
+do_1 = "do_1 Gotcha 5023, decision 4079. Read services/launchpad/social/internal/rolecheck/generate.go whole, the program under services/launchpad/social/internal/rolecheck/cmd, services/launchpad/social/internal/rolecheck/generate_test.go and services/launchpad/social/internal/rolecheck/statements_test.go whole, the function Record of services/launchpad/social/internal/interactions/outbox.go from line 75 with the new statement at line 125, and the entries of services/launchpad/social/internal/rolecheck/statements.json whose function is Publisher.Record. Run the two cases by hand first and see them fail: (cd services/launchpad/social && GOWORK=off go test -count=1 -timeout 40m -run ^TestStatementLocationsPreserveAndRelocateRuntimeSQL ./internal/rolecheck/) and the same command with ^TestRuntimeRoleStatements."
+symbols = []
+
+[capability.22.39.1292]
+title = "Renew the transcript of the reward history of the pnl module with its recorder for migration 150012"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l18"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/production/l18/... && GOWORK=off go test -count=1 -list ^TestRewardHistoryPlanBinding ./internal/production/l18/ | grep -q ^TestRewardHistoryPlanBinding)"
+do_1 = "do_1 Gotcha 5022, decision 4078, and before them gotcha 4943 and decision 4018. Read services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py whole, of services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go the function rewardHistoryPlanBinding (line 142), the case at line 166 of services/launchpad/pnl-tracker/internal/production/l18/reward_history_plan_test.go, the file migrations/150012.sql and the entry of migration 150012 in migrations/registry.json."
+symbols = []
+
+[capability.22.39.1291]
+title = "Let the in-process stores of the metadata cases answer the read that the function Restrict sends before its transaction"
+reqs = ["22998.1"]
+touches = ["services/launchpad/metadata/internal/app", "services/launchpad/metadata/internal/metadata"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && GOWORK=off go test -count=1 -timeout 20m ./internal/app/ ./internal/metadata/)"
+do_1 = "do_1 Gotcha 5021, decision 4077. Read the function Restrict of services/launchpad/metadata/internal/metadata/production.go from line 273, the store of services/launchpad/metadata/internal/app/metadata_maintenance_test.go up to line 641, the store of services/launchpad/metadata/internal/metadata/visibility_revocation_test.go up to line 613, and the six cases the gotcha names. Run the two packages by hand first and note which cases fail and with which first message: (cd services/launchpad/metadata && GOWORK=off go test -count=1 -timeout 20m ./internal/app/ ./internal/metadata/)."
+symbols = []
+
+[capability.22.39.1290]
+title = "Keep the imports of the livestream client of the web free of packages, so that the two cases that load it under node pass"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/core"]
+tests = []
+verification_contract = "anvil --version > /dev/null && ! grep -q transient-retry apps/launchpad/web/src/core/clients/livestream-api.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) && (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract ./internal/streams/) && pnpm --dir apps/launchpad/web run test src/core/transient-retry.test.ts src/core/clients/livestream-api.imports.test.ts && grep -q livestreamClientImportsNoPackage apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"
+do_1 = "do_1 Gotcha 5020, decision 4076. Read apps/launchpad/web/src/core/clients/livestream-api.ts whole, apps/launchpad/web/src/core/transient-retry.ts whole, the script services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/consumer.mjs and the part of services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go from line 717 that writes the script of its subcase. Run the two cases by hand first and note the results: (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) and (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract ./internal/streams/). Where the packages of the workspace are installed and built the two may pass already; the static part of the verification and the new case hold the rule."
+symbols = []
+
+[capability.22.39.1289]
+title = "Bring the page of the client contracts of the discovery module in step with the web, which renders no ranking of squads"
+reqs = ["22998.1"]
+touches = ["services/launchpad/discovery/contracts"]
+tests = []
+verification_contract = "anvil --version > /dev/null && (cd services/launchpad/discovery && GOWORK=off go test -count=1 -timeout 15m -v -run ^TestMissingInterfaceContractPages . | grep -e ^---.PASS:.TestMissingInterfaceContractPages > /dev/null)"
+do_1 = "do_1 Gotcha 5019, decision 4075. Read services/launchpad/discovery/contracts/clients.md whole, the case TestMissingInterfaceContractPages of services/launchpad/discovery/squad_mutation_persistence_test.go from line 720, and apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx. Run the case by hand first and see it fail for the link of line 18: (cd services/launchpad/discovery && GOWORK=off go test -count=1 -timeout 15m -run ^TestMissingInterfaceContractPages .)."
+symbols = []
 
 [capability.22.39.1288]
 title = "Set the two value limits of a user in the definition of the wallet gateway"
@@ -214587,6 +214692,211 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1295]
+title = "Start the chain of the comment service in the script test of the web, so that the case file of the tab Replies passes without a chain from outside"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1295"]
+interfaces = []
+do_1 = "do_1 Gotcha 5025, decision 4081. Read apps/launchpad/web/scripts/prepare-test-environment.py whole, apps/launchpad/web/src/widgets/profile/replies-tab.test.tsx from line 40 to line 80 and services/launchpad/social/internal/internaltest/canonical.go whole. Run the file by hand first with the variable removed and see its setup fail: env -u L34_ANVIL_URL pnpm --dir apps/launchpad/web run test src/widgets/profile/replies-tab.test.tsx."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Add the stage as decision 4081 says, in the form of the neighbouring stages. Change nothing outside the paths. The final message names the rule by which the stage takes its port, and the time the case file took in the last run by hand. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/scripts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/social && GOWORK=off go build ./... && GOWORK=off go vet ./internal/interactions/...)"
+verify_cmd = "anvil --version > /dev/null && env -u L34_ANVIL_URL pnpm --dir apps/launchpad/web run test src/widgets/profile/replies-tab.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1294]
+title = "Bring two cases of the web in step with the writer of the swap record of a trade"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1294"]
+interfaces = []
+do_1 = "do_1 Gotcha 5024, decision 4080. Read apps/launchpad/web/src/core/network/deployment-regeneration.test.ts whole, apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts whole and apps/launchpad/web/src/widgets/trading/transaction-controls/providers.ts from line 133 to line 170."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Make the two changes of decision 4080 and no other. Run each of the two files by name with the script test of the web. The final message gives the time each case of apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts took in the last run by hand. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/core/network/deployment-regeneration.test.ts", "apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/core/network/deployment-regeneration.test.ts src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q 120_000 apps/launchpad/web/src/widgets/trading/transaction-controls/swap-record-writer.test.ts && grep -q swapRecordWriter apps/launchpad/web/src/core/network/deployment-regeneration.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1293]
+title = "Refresh the list of the runtime statements of the social service for the statement that raises the visibility revision of the comments of a wallet"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1293"]
+interfaces = []
+do_1 = "do_1 Gotcha 5023, decision 4079. Read services/launchpad/social/internal/rolecheck/generate.go whole, the program under services/launchpad/social/internal/rolecheck/cmd, services/launchpad/social/internal/rolecheck/generate_test.go and services/launchpad/social/internal/rolecheck/statements_test.go whole, the function Record of services/launchpad/social/internal/interactions/outbox.go from line 75 with the new statement at line 125, and the entries of services/launchpad/social/internal/rolecheck/statements.json whose function is Publisher.Record. Run the two cases by hand first and see them fail: (cd services/launchpad/social && GOWORK=off go test -count=1 -timeout 40m -run ^TestStatementLocationsPreserveAndRelocateRuntimeSQL ./internal/rolecheck/) and the same command with ^TestRuntimeRoleStatements."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Run the refresh as decision 4079 point one says. It needs the python packages that services/launchpad/social/internal/rolecheck/requirements.txt names and the PostgreSQL of the test environment. Read the difference of services/launchpad/social/internal/rolecheck/statements.json against point two, and give the new statement what point three requires. Then run the cases of the directory. The final message names the entries that were added or moved, the command of the refresh as it ran, and every file other than services/launchpad/social/internal/rolecheck/statements.json that changed. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/social/internal/rolecheck"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/social && GOWORK=off go build ./... && GOWORK=off go vet ./internal/rolecheck/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=social && (cd services/launchpad/social && GOWORK=off go test -count=1 -timeout 40m ./internal/rolecheck/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1292]
+title = "Renew the transcript of the reward history of the pnl module with its recorder for migration 150012"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1292"]
+interfaces = []
+do_1 = "do_1 Gotcha 5022, decision 4078, and before them gotcha 4943 and decision 4018. Read services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py whole, of services/launchpad/pnl-tracker/internal/production/l18/rewards_database_test.go the function rewardHistoryPlanBinding (line 142), the case at line 166 of services/launchpad/pnl-tracker/internal/production/l18/reward_history_plan_test.go, the file migrations/150012.sql and the entry of migration 150012 in migrations/registry.json."
+do_2 = "do_2 Run the case of line 166 alone first and see it fail with the id 150012: (cd services/launchpad/pnl-tracker && GOWORK=off go test -count=1 -timeout 15m -run ^TestRewardHistoryPlanBindingRepository ./internal/production/l18/). Then run the recorder from the root of the tree, python3 services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/record_catalog.py, with the variable PNL_TEST_POSTGRES_DSN of the test environment. Read the difference of services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json against decision 4078 point two and write no member by hand. Then run the cases of the package."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Point three says what stays. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. Where the main line brings a further registration or changes a source of the transcript while this task runs, take the main line and run the recorder again. The final message names the ids the member applied gained, the sources that were added or changed, the count of the objects before and after, the command of the recorder as it ran, and every file other than services/launchpad/pnl-tracker/internal/production/l18/testdata/reward_history/catalog.json that changed. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l18"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && GOWORK=off go test -p 1 -count=1 -timeout 30m ./internal/production/l18/... && GOWORK=off go test -count=1 -list ^TestRewardHistoryPlanBinding ./internal/production/l18/ | grep -q ^TestRewardHistoryPlanBinding)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1291]
+title = "Let the in-process stores of the metadata cases answer the read that the function Restrict sends before its transaction"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1291"]
+interfaces = []
+do_1 = "do_1 Gotcha 5021, decision 4077. Read the function Restrict of services/launchpad/metadata/internal/metadata/production.go from line 273, the store of services/launchpad/metadata/internal/app/metadata_maintenance_test.go up to line 641, the store of services/launchpad/metadata/internal/metadata/visibility_revocation_test.go up to line 613, and the six cases the gotcha names. Run the two packages by hand first and note which cases fail and with which first message: (cd services/launchpad/metadata && GOWORK=off go test -count=1 -timeout 20m ./internal/app/ ./internal/metadata/)."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Change the stores as decision 4077 says. After each change run the cases of the gotcha by name. The final message names each statement a store answers now, with file and line, and each case that failed before and passes now. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/metadata/internal/app", "services/launchpad/metadata/internal/metadata"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/metadata && GOWORK=off go build ./... && GOWORK=off go vet ./internal/app/... ./internal/metadata/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=metadata && (cd services/launchpad/metadata && GOWORK=off go test -count=1 -timeout 20m ./internal/app/ ./internal/metadata/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1290]
+title = "Keep the imports of the livestream client of the web free of packages, so that the two cases that load it under node pass"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1290"]
+interfaces = []
+do_1 = "do_1 Gotcha 5020, decision 4076. Read apps/launchpad/web/src/core/clients/livestream-api.ts whole, apps/launchpad/web/src/core/transient-retry.ts whole, the script services/launchpad/livestream/internal/streams/testdata/stream_contract_sdk/consumer.mjs and the part of services/launchpad/gateway/internal/proxy/proof_launchpad_gateway_test.go from line 717 that writes the script of its subcase. Run the two cases by hand first and note the results: (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) and (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract ./internal/streams/). Where the packages of the workspace are installed and built the two may pass already; the static part of the verification and the new case hold the rule."
+do_2 = "do_2 Make the change of decision 4076 points one to three. Change nothing in what the functions return, and nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Add the case of decision 4076 point four. It reads the source files as text; it starts no service and reaches no network. Show once by hand that the case fails when the client imports @/core/transient-retry again, and say so in the final message. If the case finds a further package among the imports the client reaches, bring that import to the rule inside the paths the same way and name it in the final message. The cases need the PostgreSQL and the message broker of the test environment and the anvil program, which the variables of the packages name. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/core"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/core/retry-fields.ts", "apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go build ./...) && (cd services/launchpad/livestream && GOWORK=off go build ./...)"
+verify_cmd = "anvil --version > /dev/null && ! grep -q transient-retry apps/launchpad/web/src/core/clients/livestream-api.ts && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json && (cd services/launchpad/gateway && GOWORK=off go test -count=1 -timeout 20m -run ^TestProofLaunchpadGateway ./internal/proxy/) && (cd services/launchpad/livestream && GOWORK=off go test -count=1 -timeout 20m -run ^TestStreamContract ./internal/streams/) && pnpm --dir apps/launchpad/web run test src/core/transient-retry.test.ts src/core/clients/livestream-api.imports.test.ts && grep -q livestreamClientImportsNoPackage apps/launchpad/web/src/core/clients/livestream-api.imports.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1289]
+title = "Bring the page of the client contracts of the discovery module in step with the web, which renders no ranking of squads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1289"]
+interfaces = []
+do_1 = "do_1 Gotcha 5019, decision 4075. Read services/launchpad/discovery/contracts/clients.md whole, the case TestMissingInterfaceContractPages of services/launchpad/discovery/squad_mutation_persistence_test.go from line 720, and apps/launchpad/web/src/widgets/leaderboard/leaderboard-view.tsx. Run the case by hand first and see it fail for the link of line 18: (cd services/launchpad/discovery && GOWORK=off go test -count=1 -timeout 15m -run ^TestMissingInterfaceContractPages .)."
+do_2 = "do_2 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Change the page as decision 4075 says and nothing else. Then check every relative link of both pages once by hand. The final message gives the sentence before and after. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/discovery/contracts"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/discovery && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && (cd services/launchpad/discovery && GOWORK=off go test -count=1 -timeout 15m -v -run ^TestMissingInterfaceContractPages . | grep -e ^---.PASS:.TestMissingInterfaceContractPages > /dev/null)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
