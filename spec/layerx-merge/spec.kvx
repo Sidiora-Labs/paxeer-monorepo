@@ -215384,7 +215384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1321]
 title = "Let the stand-in of the chain measurement case of the shared launchpad code write its watermark with a context that does not end with the request, and add a case with a request that has ended"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
