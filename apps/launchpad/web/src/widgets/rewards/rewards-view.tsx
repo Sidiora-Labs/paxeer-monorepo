@@ -12,7 +12,7 @@ import {accountRequest,assertAccount,requireAccount} from '../profile/account-tr
 import type {AccountSession} from '../profile/account-transport';
 import {usePrivateAccountQuery} from '../profile/use-private-account-query';
 import {exactAmount} from '../profile/account-disclosure';
-import {rewardProgramView,rewardPrograms} from './reward-disclosure';
+import {rewardAmountWords,rewardProgramTitle,rewardProgramView,rewardPrograms} from './reward-disclosure';
 import {useRuntimeAuthority} from '@/core/runtime-authority';
 import {isRewardClaimRejected,validatedRewardClaim} from './reward-claim-state';
 import {useRewardClaimRecovery} from './reward-claim-recovery';
@@ -26,8 +26,28 @@ type Claim={scope:string;rewardId:string;kind:'preparing'|'review'|'wallet'|'pen
 const claimLabel:Record<Claim['kind'],string>={preparing:'Getting your claim ready...',review:'Review your claim',wallet:'Confirm in your wallet',pending:'Claiming...',confirmed:'Claimed!',reverted:'Claim failed',failed:"Couldn't claim",uncertain:'Not sure if your claim went through'};
 /** The reward programs in plain words; backend detail rides on title / data-technical outside production only. */
 export function RewardProgramList({env,headingLevel=3}:{env?:string;headingLevel?:2|3}){const Heading=`h${headingLevel}` as const;return <div className="flex flex-col gap-3">{rewardPrograms.map(program=>{const view=rewardProgramView(program,env);return <article key={view.type} data-program={view.type} title={view.technical??undefined} data-technical={view.technical??undefined} className="sl-hairline p-3"><Heading className="text-sm font-semibold text-text">{view.title}</Heading><p className="mt-1 text-xs text-text-muted">{view.summary}</p><dl className="mt-1 flex flex-col"><KeyValueRow label="Status" value={view.status}/></dl></article>;})}</div>;}
-export function RewardAmountsTable({claimable,claimed}:{claimable:string;claimed:string}) {
- return <div className="relative min-w-0 overflow-x-auto"><table className="w-full min-w-max text-right text-sm"><caption className="sr-only">Reward amounts in the coin's smallest unit</caption><thead className="bg-canvas text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-muted"><tr><th scope="col" className="h-table-header-height">Claimable</th><th scope="col" className="h-table-header-height">Claimed</th></tr></thead><tbody><tr className="sl-hairline"><td data-numeric className="whitespace-nowrap py-2 text-num-md font-semibold tabular-nums text-text">{claimable}</td><td data-numeric className="whitespace-nowrap py-2 text-num-md font-semibold tabular-nums text-text">{claimed}</td></tr></tbody></table></div>;
+export function RewardAmountsTable({claimable,claimed,caption="Reward amounts in the coin's smallest unit"}:{claimable:string;claimed:string;caption?:string}) {
+ return <div className="relative min-w-0 overflow-x-auto"><table className="w-full min-w-max text-right text-sm"><caption className="sr-only">{caption}</caption><thead className="bg-canvas text-2xs font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-muted"><tr><th scope="col" className="h-table-header-height">Claimable</th><th scope="col" className="h-table-header-height">Claimed</th></tr></thead><tbody><tr className="sl-hairline"><td data-numeric className="whitespace-nowrap py-2 text-num-md font-semibold tabular-nums text-text">{claimable}</td><td data-numeric className="whitespace-nowrap py-2 text-num-md font-semibold tabular-nums text-text">{claimed}</td></tr></tbody></table></div>;
+}
+
+export interface RewardCardProps {
+ reward: Reward;
+ headingLevel: 2 | 3;
+ claimBlocked: boolean;
+ onClaim: (reward: Reward) => void;
+}
+
+export function RewardCard({reward:row,headingLevel,claimBlocked,onClaim}:RewardCardProps) {
+ const Heading=`h${headingLevel}` as const;
+ const claimable=BigInt(row.claimableRaw);
+ const amounts=rewardAmountWords(row.assetAddress,row.claimableRaw,row.claimedRaw);
+ return <article data-reward-id={row.rewardId} className="flex flex-col gap-3 rounded-lg bg-surface-1 p-4">
+  <div className="flex flex-wrap items-center justify-between gap-2"><Heading className="text-base font-semibold text-text">{rewardProgramTitle(row.programId)}</Heading><StatusBadge status={claimable>0n?'open':'neutral'}>{claimable>0n?'Claimable':'Nothing to claim'}</StatusBadge></div>
+  <dl className="flex flex-col">{amounts.usdl?<KeyValueRow label="Paid in" value="USDL"/>:<KeyValueRow label="Coin" value={<span className="font-mono text-xs" title={row.assetAddress} aria-label={row.assetAddress}>{shortAddress(row.assetAddress)}</span>}/>}</dl>
+  <RewardAmountsTable claimable={amounts.claimable} claimed={amounts.claimed} caption={amounts.usdl?'Reward amounts in USDL':undefined}/>
+  {!amounts.usdl&&<p className="text-xs text-text-faint">Amounts are shown in the coin's smallest unit</p>}
+  <div><Button variant="primary" size="sm" disabled={claimable===0n||claimBlocked} onClick={()=>void onClaim(row)}>Claim</Button></div>
+ </article>;
 }
 export interface RewardsViewProps{headingLevel?:1|2;titleClassName?:string}
 export function prepareRewardClaim(rewardId:string,scope:AccountSession){return accountRequest<RewardClaimResponse>(pnlApiUrl('/v2/me/rewards:prepare-claim'),{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({recipient:scope.session.wallet,rewardIds:[rewardId]})},scope);}
@@ -119,7 +139,7 @@ export default function RewardsView({headingLevel=1,titleClassName}:RewardsViewP
   {rewards.isPending&&<Skeleton variant="rows" rows={3} label="rewards" className="rounded-lg bg-surface-1 p-4"/>}
   {rewards.error&&(isSignedOutError(rewards.error)?<SignedOutState headingLevel={subheadingLevel} title="Sign in to see your rewards" body="Sign in with your wallet to see your rewards again" className="rounded-lg bg-surface-1"/>:<ErrorState headingLevel={subheadingLevel} title="Rewards can't load right now" message="Something went wrong, try again" onRetry={()=>void rewards.refetch()} className="rounded-lg bg-surface-1"/>)}
   {rewards.data&&rewards.data.data.items.length===0&&<EmptyState headingLevel={subheadingLevel} icon={Gift} title="No rewards yet" body="Cup prizes, creator fees and bounty payouts show up here as soon as you earn them" action={<Button href="/bounties" variant="secondary" size="sm">Browse bounties</Button>} className="rounded-lg bg-surface-1"/>}
-  {rewards.data&&rewards.data.data.items.length>0&&<ul className="flex flex-col gap-2">{rewards.data.data.items.map(row=>{const claimable=BigInt(row.claimableRaw);return <li key={row.rewardId}><article data-reward-id={row.rewardId} className="flex flex-col gap-3 rounded-lg bg-surface-1 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><Subheading className="text-base font-semibold text-text">{row.programId}</Subheading><StatusBadge status={claimable>0n?'open':'neutral'}>{claimable>0n?'Claimable':'Nothing to claim'}</StatusBadge></div><dl className="flex flex-col"><KeyValueRow label="Coin" value={<span className="font-mono text-xs" title={row.assetAddress} aria-label={row.assetAddress}>{shortAddress(row.assetAddress)}</span>}/></dl><RewardAmountsTable claimable={row.claimableRaw} claimed={row.claimedRaw}/><p className="text-xs text-text-faint">Amounts are shown in the coin's smallest unit</p><div><Button variant="primary" size="sm" disabled={claimable===0n||claimBlocked} onClick={()=>void prepare(row)}>Claim</Button></div></article></li>;})}</ul>}
+  {rewards.data&&rewards.data.data.items.length>0&&<ul className="flex flex-col gap-2">{rewards.data.data.items.map(row=><li key={row.rewardId}><RewardCard reward={row} headingLevel={subheadingLevel} claimBlocked={claimBlocked} onClaim={prepare}/></li>)}</ul>}
   {(rewards.data?.nextCursor||cursor)&&<div className="flex flex-wrap gap-2">{rewards.data?.nextCursor&&<Button variant="secondary" size="sm" onClick={()=>setCursor(rewards.data?.nextCursor??undefined)}>Next page</Button>}{cursor&&<Button variant="ghost" size="sm" onClick={()=>setCursor(undefined)}>First page</Button>}</div>}
   {current&&<section data-claim-state={current.kind} data-claim-hash={current.hash} aria-live="polite" aria-label="Claim progress" className="flex flex-col gap-3 rounded-lg bg-surface-2 p-4">
    <Subheading className="text-base font-semibold text-text">{claimLabel[current.kind]}</Subheading>
