@@ -215354,7 +215354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1319]
 title = "Give every wait of the chain of the agent kit cases a limit and an error that says what the chain knows, add cases for the wait that start no chain, and let what a case started end with the case"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
