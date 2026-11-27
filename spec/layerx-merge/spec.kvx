@@ -214992,7 +214992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1290]
 title = "Keep the imports of the livestream client of the web free of packages, so that the two cases that load it under node pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
