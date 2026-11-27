@@ -214915,7 +214915,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1301]
 title = "Give the agent kit its row in the public job of the launchpad packages, leave the one case that needs a prepared host out of the web row, and bring the checks in step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
