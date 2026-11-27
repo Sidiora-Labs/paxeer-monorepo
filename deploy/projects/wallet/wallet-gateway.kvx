@@ -21,6 +21,8 @@ CORS_ORIGINS = "env:WALLET_WALLET_GATEWAY_CORS_ORIGINS"
 SUPABASE_URL = "env:WALLET_WALLET_GATEWAY_SUPABASE_URL"
 WALLET_MASTER_KEY = "env:WALLET_WALLET_GATEWAY_WALLET_MASTER_KEY"
 AGENT_JWT_SECRET = "env:WALLET_WALLET_GATEWAY_AGENT_JWT_SECRET"
+POLICY_MAX_TX_VALUE_WEI = "env:WALLET_WALLET_GATEWAY_POLICY_MAX_TX_VALUE_WEI"
+POLICY_MAX_DAILY_VALUE_WEI = "env:WALLET_WALLET_GATEWAY_POLICY_MAX_DAILY_VALUE_WEI"
 LAYERX_TRUSTED_PROXIES = "env:WALLET_WALLET_GATEWAY_LAYERX_TRUSTED_PROXIES"
 WALLET_IDENTITY_BINDING_TENANT = "env:WALLET_WALLET_GATEWAY_WALLET_IDENTITY_BINDING_TENANT"
 WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE = "/run/secrets/wallet_identity_binding_key"
@@ -55,6 +57,10 @@ WALLET_WALLET_GATEWAY_SUPABASE_URL = "operator"
 WALLET_WALLET_GATEWAY_WALLET_MASTER_KEY = "generated"
 # Secret that signs agent tokens, as a string of at least 32 characters.
 WALLET_WALLET_GATEWAY_AGENT_JWT_SECRET = "generated"
+# Maximum value per user transaction, as a nonnegative decimal integer in wei.
+WALLET_WALLET_GATEWAY_POLICY_MAX_TX_VALUE_WEI = "operator"
+# Maximum total value per user over 24 hours, as a nonnegative decimal integer in wei.
+WALLET_WALLET_GATEWAY_POLICY_MAX_DAILY_VALUE_WEI = "operator"
 # Trusted edge proxies, as a comma-separated list of IP addresses or CIDR ranges.
 WALLET_WALLET_GATEWAY_LAYERX_TRUSTED_PROXIES = "operator"
 # Identity-binding tenant, as a nonempty string of at most 1024 characters.
