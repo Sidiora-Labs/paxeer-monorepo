@@ -9,8 +9,14 @@ import type {MetadataV2Data,MetadataMediaImage} from '@/core/clients/metadata';
 import {MetadataImageEditor} from './editor';
 import {createMetadataImageTransport,type CreatorImageAuthority} from './transport';
 
+export function selectMetadataImage(image:MetadataMediaImage|null|undefined,safeImage:boolean,failedAddress:string|null|undefined):MetadataMediaImage|null{
+ return safeImage&&image&&image.variants['512']!==failedAddress?image:null;
+}
+
 export function MetadataView({tokenAddress,tradePanel,data,pending,error,image}:{tokenAddress:string;tradePanel:ReactNode;data:MetadataV2Data|null|undefined;pending:boolean;error:boolean;image?:MetadataMediaImage|null}){
+ const [failedAddress,setFailedAddress]=useState<string|null>(null);
  const safeImage=!error&&!!image&&image.assetId===data?.token.logoAssetId;
+ const displayedImage=selectMetadataImage(image,safeImage,failedAddress);
  const safeLink=(value:string)=>{try{const url=new URL(value);return url.protocol==='https:'&&!url.username&&!url.password}catch{return false}};
  return <section aria-label="Coin details" className="flex min-w-0 flex-col gap-3 text-sm text-text-muted">
   <div aria-label="Trading" className="order-first min-w-0">{tradePanel}</div>
@@ -24,7 +30,7 @@ export function MetadataView({tokenAddress,tradePanel,data,pending,error,image}:
     <p className="[overflow-wrap:anywhere] text-xs text-text-faint">Onchain name: {displayCoinText(data.token.name,tokenAddress)}</p>
     <p className="break-words">{data.description}</p>
     {data.socialLinks.filter(link=>safeLink(link.url)).map(link=><a key={link.url} href={link.url} rel="noopener noreferrer" target="_blank" className="self-start rounded-sm text-xs text-text-muted underline underline-offset-2">{link.label}</a>)}
-    {safeImage && image ? <img src={image.variants['512']} srcSet={`${image.variants['256']} 256w, ${image.variants['512']} 512w, ${image.variants['1024']} 1024w`} sizes="(max-width: 512px) 100vw, 512px" width={image.width} height={image.height} className="max-w-full rounded-md" style={{maxWidth:'100%',height:'auto'}} alt="Coin image" /> : null}
+    {displayedImage ? <img src={displayedImage.variants['512']} srcSet={`${displayedImage.variants['256']} 256w, ${displayedImage.variants['512']} 512w, ${displayedImage.variants['1024']} 1024w`} sizes="(max-width: 512px) 100vw, 512px" width={displayedImage.width} height={displayedImage.height} className="max-w-full rounded-md" style={{maxWidth:'100%',height:'auto'}} alt="Coin image" onError={()=>setFailedAddress(displayedImage.variants['512'])} /> : null}
    </> : null}
   </div>
  </section>

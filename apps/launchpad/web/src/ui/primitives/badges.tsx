@@ -382,6 +382,7 @@ export function StageBadge({
   const Icon = meta.icon;
   return (
     <span
+      data-keeps-size=""
       role={decorative ? undefined : 'img'}
       aria-label={decorative ? undefined : meta.label}
       aria-hidden={decorative || undefined}
