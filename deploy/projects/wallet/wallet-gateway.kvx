@@ -20,6 +20,7 @@ DATABASE_URL = "${{wallet-postgres.DATABASE_URL}}"
 CORS_ORIGINS = "env:WALLET_WALLET_GATEWAY_CORS_ORIGINS"
 SUPABASE_URL = "env:WALLET_WALLET_GATEWAY_SUPABASE_URL"
 WALLET_MASTER_KEY = "env:WALLET_WALLET_GATEWAY_WALLET_MASTER_KEY"
+AGENT_JWT_SECRET = "env:WALLET_WALLET_GATEWAY_AGENT_JWT_SECRET"
 LAYERX_TRUSTED_PROXIES = "env:WALLET_WALLET_GATEWAY_LAYERX_TRUSTED_PROXIES"
 WALLET_IDENTITY_BINDING_TENANT = "env:WALLET_WALLET_GATEWAY_WALLET_IDENTITY_BINDING_TENANT"
 WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE = "/run/secrets/wallet_identity_binding_key"
@@ -52,6 +53,8 @@ WALLET_WALLET_GATEWAY_CORS_ORIGINS = "operator"
 WALLET_WALLET_GATEWAY_SUPABASE_URL = "operator"
 # Wallet envelope encryption key, as base64 encoding of exactly 32 random bytes.
 WALLET_WALLET_GATEWAY_WALLET_MASTER_KEY = "generated"
+# Secret that signs agent tokens, as a string of at least 32 characters.
+WALLET_WALLET_GATEWAY_AGENT_JWT_SECRET = "generated"
 # Trusted edge proxies, as a comma-separated list of IP addresses or CIDR ranges.
 WALLET_WALLET_GATEWAY_LAYERX_TRUSTED_PROXIES = "operator"
 # Identity-binding tenant, as a nonempty string of at most 1024 characters.

@@ -31,7 +31,7 @@ export default function MobileTradeDrawer({ poolAddress }: MobileTradeDrawerProp
 
   return (
     <>
-      <div data-mobile-trade-cta={viewer ? 'trade' : 'sign-in'} className="fixed inset-x-0 bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-edge-width)+var(--sl-cookie-banner-height,0px))] z-40 rounded-t-md sl-floating px-4 py-2 md:bottom-[calc(var(--sl-space-4)+var(--sl-cookie-banner-height,0px))] md:left-rail-width lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, var(--sl-space-1))' }}>
+      <div data-mobile-trade-cta={viewer ? 'trade' : 'sign-in'} className="fixed inset-x-0 bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-edge-width)+var(--sl-cookie-banner-height,0px))] z-40 rounded-t-md sl-floating sl-floating-opaque px-4 py-2 md:bottom-[calc(var(--sl-space-4)+var(--sl-cookie-banner-height,0px))] md:left-rail-width lg:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, var(--sl-space-1))' }}>
         <Button
           variant={viewer ? 'primary' : 'inverse'}
           size="lg"
