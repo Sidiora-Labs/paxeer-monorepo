@@ -215113,7 +215113,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1313]
 title = "Name a reward on the rewards page and on the creator card of the launchpad web by the plain title of its program, show the amounts of a reward of the quote token in USDL, and let the notice of the creator card read in the plural"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
