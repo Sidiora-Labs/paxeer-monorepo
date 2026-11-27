@@ -17710,6 +17710,12 @@ value = "One. The rule of the count. In the function send of apps/wallet/src/wid
 basis = "Gotcha 5043. Gotcha 5040. Decision 4096."
 affects = []
 
+[decision.4100]
+title = "A menu trigger of the launchpad web that shows its label takes the form of a trigger with a body, its label stands on one line, and the trigger without label and body stays a square"
+value = "One. The rule. The trigger of the function DropdownMenu of apps/launchpad/web/src/ui/primitives/overlays.tsx takes its form from what it shows. A trigger that shows its label gets the form that lines 173 and 174 give to a trigger with a body today, the least height of the control of its size, the side padding and the text size, whether a body is passed or not. Its width follows its content. A trigger that shows no label and has no body stays the square of lines 176 and 177 with the caret alone. A trigger that has a body and shows no label stays as it is. Two. The label. The element of the label (line 181) carries the class whitespace-nowrap in every form, so that the label stands on one line, as line 132 of the brief asks. apps/launchpad/web/src/ui/primitives/controls.tsx uses that class already. Three. The caret. A trigger that shows its label and has no body has exactly one caret. It follows the label and has the size of line 191, the size of the caret that follows the label of a trigger with a body. The caret of the square keeps the size of line 185. A trigger with a body renders what it renders today: the label, the body and the caret of line 191 where the label is shown, the body alone where it is not. Four. The names. The accessible name and the title of the trigger stay as lines 159 and 160 set them. The classes that a caller passes for the trigger are still added last. Five. The cases. A new file apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx holds them, each under its name. They render the menu with the tools that apps/launchpad/web/src/ui/primitives/primitives.test.tsx uses and read the class list of the trigger and the elements inside it. menu_trigger_with_a_label_and_no_body_is_not_a_square: with the label shown and no body, in the small size and in the default size, the class list of the trigger holds neither size-control-height-sm nor size-control-height-md, and it holds the least height class of its size, min-h-control-height-sm or min-h-control-height-md. menu_trigger_label_stands_on_one_line: the element of the label carries the class whitespace-nowrap, with a body and without one. menu_trigger_with_a_label_has_one_caret_after_it: with the label shown and no body the trigger holds the text of the label and exactly one svg element, and the svg element follows the element of the label. menu_trigger_without_label_and_body_stays_a_square: without label and body the class list of the trigger holds the square class of its size, the trigger holds no text, and its accessible name is the label. menu_trigger_with_a_body_keeps_its_form: with the label shown and a body the class list holds the least height class of its size, and the trigger holds the label, the body and the caret in this order. Six. Not done. No caller of the menu changes; apps/launchpad/web/src/widgets/profile/profile-tabs.tsx and apps/launchpad/web/src/widgets/home/dashboard-board.tsx stay as they are. The four existing case files of the directory do not change. The surface that the menu opens, its items, its position and its keys do not change. No text of the web changes, and no other control of the directory changes. Seven. After the task. A render of the profile of an owner at the widths 1440 and 390 on a deployment built with the change shows the size of the trigger and of its label. A label that is higher than one line there, or a row of tabs that loses its place, gets a task of its own. "
+basis = "Gotcha 5044."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47370,6 +47376,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1312]
+title = "Give the menu trigger of the launchpad web that shows its label the form of a trigger with a body, keep its label on one line, and prove the forms of the trigger with named cases"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/ui/primitives"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/ui/primitives && grep -e menu_trigger_with_a_label_and_no_body_is_not_a_square apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null && grep -e menu_trigger_label_stands_on_one_line apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null && grep -e menu_trigger_with_a_label_has_one_caret_after_it apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null && grep -e menu_trigger_without_label_and_body_stays_a_square apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null && grep -e menu_trigger_with_a_body_keeps_its_form apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null"
+do_1 = "do_1 Gotcha 5044, decision 4100. Read whole: apps/launchpad/web/src/ui/primitives/overlays.tsx and apps/launchpad/web/src/widgets/profile/profile-tabs.tsx. Read in apps/launchpad/web/src/ui/primitives/primitives.test.tsx the samples of the menu (line 213) and the case of line 1039, and in apps/launchpad/web/src/ui/primitives/controls.tsx the row of tabs with the place of line 305. This task changes apps/launchpad/web/src/ui/primitives/overlays.tsx and adds apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx. No other file changes."
+symbols = []
 
 [capability.22.39.1311]
 title = "Let the name registration and the swap of the wallet application go on at a node that refuses the pending tag, with the count at the tag latest and the search through the numbered blocks, and keep the pending tag first where a node serves it"
@@ -215077,6 +215092,40 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1312]
+title = "Give the menu trigger of the launchpad web that shows its label the form of a trigger with a body, keep its label on one line, and prove the forms of the trigger with named cases"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1312"]
+interfaces = []
+do_1 = "do_1 Gotcha 5044, decision 4100. Read whole: apps/launchpad/web/src/ui/primitives/overlays.tsx and apps/launchpad/web/src/widgets/profile/profile-tabs.tsx. Read in apps/launchpad/web/src/ui/primitives/primitives.test.tsx the samples of the menu (line 213) and the case of line 1039, and in apps/launchpad/web/src/ui/primitives/controls.tsx the row of tabs with the place of line 305. This task changes apps/launchpad/web/src/ui/primitives/overlays.tsx and adds apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx. No other file changes."
+do_2 = "do_2 Before the change, a run by hand. It comes before the change, it is part of the work of this task and it is not left out. Run the build. Write the case menu_trigger_with_a_label_and_no_body_is_not_a_square first and run it against the present source with pnpm --dir apps/launchpad/web run test src/ui/primitives/menu-trigger-label.test.tsx. It does not pass. Keep for the final message the class list of the trigger that it shows."
+do_3 = "do_3 The form, points one and four. In the class list of the trigger (lines 171 to 178) the form of lines 173 and 174 goes to every trigger that has a body or shows its label, and the square of lines 176 and 177 goes to the trigger that has neither. Nothing else of the class list changes."
+do_4 = "do_4 The label and the caret, points two and three. The element of line 181 gets the class whitespace-nowrap. A trigger that shows its label and has no body renders the label and then one caret in the size of line 191. The caret of line 185 stays for the trigger without label and body. A trigger with a body renders what it renders today."
+do_5 = "do_5 The cases of point five in apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx, each under its name: menu_trigger_with_a_label_and_no_body_is_not_a_square, menu_trigger_label_stands_on_one_line, menu_trigger_with_a_label_has_one_caret_after_it, menu_trigger_without_label_and_body_stays_a_square and menu_trigger_with_a_body_keeps_its_form. Each name stands in the title of its case. No case needs a network beyond the machine of the run."
+do_6 = "do_6 Point six holds throughout. Give in the final message the result of do_2, the result of each of the five cases, and the class list of the trigger after the change in each of the four forms: label without body, label with body, body without label, and neither."
+do_7 = "do_7 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are part of the work of this task and are not left out; they are made with the commands themselves, they are not the counted runs and they use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/ui/primitives"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/ui/primitives && grep -e menu_trigger_with_a_label_and_no_body_is_not_a_square apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null && grep -e menu_trigger_label_stands_on_one_line apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null && grep -e menu_trigger_with_a_label_has_one_caret_after_it apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null && grep -e menu_trigger_without_label_and_body_stays_a_square apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null && grep -e menu_trigger_with_a_body_keeps_its_form apps/launchpad/web/src/ui/primitives/menu-trigger-label.test.tsx > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
