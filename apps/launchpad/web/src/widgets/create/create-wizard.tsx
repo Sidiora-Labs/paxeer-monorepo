@@ -1311,7 +1311,7 @@ export default function CreateWizard() {
               </NoticeBar>
             ) : null}
             {action ? (
-              <div data-create-action className="sl-floating fixed inset-x-4 bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom)+var(--sl-space-2))] z-[var(--sl-z-sticky)] flex flex-col gap-2 rounded-lg p-3 md:static md:bg-transparent md:p-0">
+              <div data-create-action className="sl-floating sl-floating-opaque fixed inset-x-4 bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom)+var(--sl-space-2))] z-[var(--sl-z-sticky)] flex flex-col gap-2 rounded-lg p-3 md:static md:bg-transparent md:p-0">
                 <p className="flex flex-wrap justify-between gap-2 text-xs text-text-muted md:hidden"><span>Creation fee: {formatUsdl(read?.cost.protocolFeeRaw ?? '1000000')}</span><span>{read ? `${formatTokenAmount(read.cost.gasEstimatePaxRaw, 18, { maxFraction: 6, compact: false })} PAX gas` : 'Plus network fee in PAX'}</span>{draft?.firstBuyRaw !== '0' ? <span>First buy: {formatUsdl(draft?.firstBuyRaw ?? '0')}</span> : null}</p>
                 <Button
                   variant={!address ? 'inverse' : 'primary'}

@@ -455,7 +455,7 @@ export default function ChainWizard() {
             {paramsError && !result ? <Button disabled={busy || !connected} onClick={() => setValidation(value => value + 1)}>Retry chain costs</Button> : null}
             {error ? <p role="alert" className="text-sm text-danger">{error}</p> : null}
             {notice ? <p role="status" className="text-sm text-text-muted">{notice}</p> : null}
-            <div data-chain-action className="sl-floating fixed inset-x-4 bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom)+var(--sl-space-2))] z-[var(--sl-z-sticky)] flex flex-col gap-2 rounded-lg p-3 md:static md:bg-transparent md:p-0">
+            <div data-chain-action className="sl-floating sl-floating-opaque fixed inset-x-4 bottom-[calc(var(--sl-bottom-nav-height)+env(safe-area-inset-bottom)+var(--sl-space-2))] z-[var(--sl-z-sticky)] flex flex-col gap-2 rounded-lg p-3 md:static md:bg-transparent md:p-0">
               {!result ? <p className="flex flex-wrap justify-between gap-2 text-xs text-text-muted md:hidden"><span>{params ? `Total: ${formatEther(params[1] + params[2])} PAX` : 'Awaiting chain costs'}</span><span>{marketFee !== null ? `${formatUnits(marketFee, 6)} USDL, plus gas` : 'Awaiting market fee'}</span></p> : null}
               {!address ? <Button variant="inverse" type="button" onClick={() => openModal('Connect your wallet to launch a chain')}>Connect wallet</Button>
             : chainId !== 125 ? <Button type="button" onClick={() => void switchChainAsync({ chainId: 125 }).catch(() => setError('Switch to Paxeer in your wallet to continue.'))}>Switch to Paxeer</Button> : null}

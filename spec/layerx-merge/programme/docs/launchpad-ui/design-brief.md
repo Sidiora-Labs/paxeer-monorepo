@@ -95,10 +95,12 @@ Rules:
   that starts transparent at the middle of the row and reaches 10 percent
   opacity at the right edge (`--sl-tint-accent-row-wash`,
   `--sl-tint-danger-row-wash`). A row without a change carries none.
-- Floating layers (bar of destinations at phone widths, sheets, menus, toasts,
-  the sticky trade bar) use surface 2 at 82 percent opacity over a 16 pixel
-  backdrop blur with a hairline; where blur is not supported the layer is the
-  opaque surface 2.
+- Floating layers (sheets, menus, toasts) use surface 2 at 82 percent opacity
+  over a 16 pixel backdrop blur with a hairline; where blur is not supported
+  the layer is the opaque surface 2. The bar of destinations, the sticky trade
+  bar, the cookie notice and the action bar of a create view are opaque, the
+  bar of destinations in surface 1 and the others in surface 2, each with its
+  hairline.
 - Brand colours of wallets appear only on their own marks.
 
 ## 3. Type
@@ -250,10 +252,10 @@ The shell keeps its parts, their places and their heights.
   quiet icon buttons, its entries as chips (account, side in its direction
   colour, amount, coin). With nothing to show it holds one muted line in xs
   and no stressed call to action.
-- **Bar of destinations (phone widths).** Surface 1 at 82 percent with the
-  blur of section 2 and a hairline above it. An item is an icon with its label
-  in 2xs; the current item is in text colour, the others are muted; the create
-  action is the accent disc. Content ends above the bar.
+- **Bar of destinations (phone widths).** Opaque surface 1 with a hairline
+  above it. An item is an icon with its label in 2xs; the current item is in
+  text colour, the others are muted; the create action is the accent disc.
+  Content ends above the bar.
 - **Footer.** One muted line in xs at tablet width and above: the legal links
   at the left, the figures of the platform at the right. At phone widths two
   lines at the end of the content.
