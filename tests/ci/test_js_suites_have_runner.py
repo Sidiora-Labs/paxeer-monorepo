@@ -148,9 +148,12 @@ def command_packages(command, directory, manifests, seen=None):
         if words[0] == "python3":
             web_wrapper = ROOT / "apps/launchpad/web/scripts/prepare-test-environment.py"
             if (
-                len(words) == 7
+                len(words) == 9
                 and (ROOT / directory / words[1]).resolve() == web_wrapper
-                and words[2:] == ["--", "pnpm", "exec", "vitest", "run"]
+                and words[2:] == [
+                    "--", "pnpm", "exec", "vitest", "run", "--exclude",
+                    "src/widgets/coin/coin-layout.browser.test.ts",
+                ]
             ):
                 source = web_wrapper.read_text()
                 assert (
@@ -391,6 +394,7 @@ def test_js_launchpad_and_wallet_runners_recognised():
         Loader=yaml.BaseLoader,
     )["jobs"]["launchpad-test"]
     expected_launchpad = {
+        "sdk/launchpad/packages/agent-kit/package.json",
         "sdk/launchpad/packages/candles-sdk/package.json",
         "sdk/launchpad/packages/indexer-sdk/package.json",
         "sdk/launchpad/packages/metadata-sdk/package.json",
@@ -404,7 +408,7 @@ def test_js_launchpad_and_wallet_runners_recognised():
         "apps/launchpad/mobile/package.json",
     }
     rows = matrix_rows(launchpad)
-    assert len(rows) == 11
+    assert len(rows) == 12
     assert {manifest_at(row["package"]) for row in rows} == expected_launchpad
     wallet_package = "sdk/wallet/package.json"
     expected = expected_launchpad | {wallet_package}
@@ -422,7 +426,20 @@ def test_js_launchpad_and_wallet_runners_recognised():
         test_step = test_steps[0]
         command = expand_matrix(test_step["run"], row)
         directory = expand_matrix(test_step["working-directory"], row)
-        if row["package"] != "apps/launchpad/web":
+        if row["package"] == "apps/launchpad/web":
+            assert directory == "apps/launchpad/web"
+            assert shlex.split(command) == [
+                "python3", "scripts/prepare-test-environment.py", "--",
+                "pnpm", "exec", "vitest", "run", "--exclude",
+                "src/widgets/coin/coin-layout.browser.test.ts",
+            ]
+            for rejected in (
+                command.split(" --exclude", 1)[0],
+                command + " --exclude src/another.test.ts",
+                command.replace("coin-layout.browser.test.ts", "another.test.ts"),
+            ):
+                assert not command_packages(rejected, directory, manifests), rejected
+        else:
             assert directory == "apps/launchpad"
             assert shlex.split(command) == [
                 "pnpm", "--filter", "./../../" + row["package"],
