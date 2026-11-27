@@ -214572,7 +214572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1282]
 title = "Keep words whole and figures on one line in the holders table of a coin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214602,7 +214602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1281]
 title = "Take an answer of the history read of the chart from an earlier height as an older observation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214632,7 +214632,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1280]
 title = "Keep the loaded holders when a refresh of the full list is refused"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
