@@ -183120,7 +183120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1314]
 title = "Let the quote of a new position in the trading workspace name the account as its sender, hold back only a market order for a failed quote, and keep the message of the classifier instead of the text of the chain library"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
