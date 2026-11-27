@@ -214512,7 +214512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1284]
 title = "Let the picture of a coin give way when it cannot be read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214542,7 +214542,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1283]
 title = "Keep the drawn size of the stage badge of a coin tile in a narrow window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
