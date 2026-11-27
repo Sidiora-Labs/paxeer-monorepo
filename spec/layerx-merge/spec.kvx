@@ -182895,7 +182895,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1299]
 title = "Fit the list of markets beside the chart and the desktop order book of the trading workspace into their boxes so that neither scrolls or draws a bar"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
