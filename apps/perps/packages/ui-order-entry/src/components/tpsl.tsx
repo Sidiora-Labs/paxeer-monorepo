@@ -305,7 +305,7 @@ const TPSLTriggerPriceInput = (props: {
   const { t } = useTranslation();
   const { errorMsgVisible } = useOrderEntryContext();
   const { tipsEle } = usePnlInputContext();
-  const [placeholder, setPlaceholder] = useState<string>("USDC");
+  const [placeholder, setPlaceholder] = useState<string>("USDL");
 
   const [tipVisible, setTipVisible] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -356,7 +356,7 @@ const TPSLTriggerPriceInput = (props: {
   };
 
   const onBlur = () => {
-    setPlaceholder("USDC");
+    setPlaceholder("USDL");
     setTipVisible(false);
     setIsFocused(false);
     props.onChange(innerValue);

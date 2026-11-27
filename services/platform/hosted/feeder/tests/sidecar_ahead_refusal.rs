@@ -87,6 +87,7 @@ fn ahead_refusal_removes_entry_and_waits_without_signing_past_it() -> TestResult
     assert_eq!(tx_observation_sequences(&state.txs[2]), [(0, 2), (1, 2)]);
     assert_eq!(state.sequence_refusals, 1);
     assert_eq!(sidecar.pending_count(), 1);
+    assert!(state.evm_observation_reads.is_empty());
     Ok(())
 }
 

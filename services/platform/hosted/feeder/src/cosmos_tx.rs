@@ -309,6 +309,11 @@ pub fn feed_account(account: &[u8; 20]) -> String {
     bech32_encode(ACCOUNT_PREFIX, account)
 }
 
+#[must_use]
+pub fn validator_operator(validator: &[u8; 20]) -> String {
+    bech32_encode(&format!("{ACCOUNT_PREFIX}valoper"), validator)
+}
+
 /// Everything one submission transaction carries besides the feed key.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Submission {

@@ -49,7 +49,7 @@ export const useOperationScript = (props: OperationScript) => {
 
     if (props.type === OperationType.DEPOSIT) {
       if (new Decimal(amount).lt(10)) {
-        toast.error("Deposit amount is less than the minimum 10 USDC.");
+        toast.error("Deposit amount is less than the minimum 10 USDL.");
         return;
       }
     }

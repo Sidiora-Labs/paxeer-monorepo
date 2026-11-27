@@ -6,7 +6,7 @@ export const leverage = {
   "leverage.updated": "Leverage updated",
   "leverage.adjustedLeverage": "Adjust leverage",
   "leverage.maxPositionLeverage.tips":
-    "* Maximum position at current leverage: <0>{{amount}}</0> USDC",
+    "* Maximum position at current leverage: <0>{{amount}}</0> USDL",
   "leverage.maxAvailableLeverage.tips":
     "* Highest available leverage <0>{{leverage}}</0>. Selecting higher leverage increases your liquidation risk.",
   "leverage.overRequiredMargin.tips":

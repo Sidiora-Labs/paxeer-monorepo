@@ -23,7 +23,7 @@ export const Summary: FC<SummaryReturns> = (props) => {
       <CommissionData {...props} />
       <Flex direction={"column"} width={"100%"} gap={2}>
         <Row
-          title={`${t("affiliate.referralVol")} (USDC)`}
+          title={`${t("affiliate.referralVol")} (USDL)`}
           value={props.referralVol}
           dp={2}
           {...props}
@@ -80,7 +80,7 @@ const CommissionData: FC<SummaryReturns> = (props) => {
       className="oui-max-h-[104px]"
     >
       <Text intensity={54} className="oui-text-base 2xl:oui-text-lg">
-        {`${t("affiliate.commission")} (USDC)`}
+        {`${t("affiliate.commission")} (USDL)`}
       </Text>
       <Flex
         direction={"row"}

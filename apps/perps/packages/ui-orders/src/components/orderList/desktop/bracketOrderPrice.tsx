@@ -43,7 +43,7 @@ export const BracketOrderPrice = (props: { order: API.AlgoOrderExt }) => {
               prefix={
                 <Text intensity={80}>{`${t("tpsl.tpPnl")}:`} &nbsp;</Text>
               }
-              suffix={<Text intensity={20}>{" USDC"}</Text>}
+              suffix={<Text intensity={20}>{" USDL"}</Text>}
               dp={quote_dp}
               color="buy"
               showIdentifier
@@ -57,7 +57,7 @@ export const BracketOrderPrice = (props: { order: API.AlgoOrderExt }) => {
               prefix={
                 <Text intensity={80}>{`${t("tpsl.slPnl")}:`} &nbsp;</Text>
               }
-              suffix={<Text intensity={20}>{" USDC"}</Text>}
+              suffix={<Text intensity={20}>{" USDL"}</Text>}
               dp={quote_dp}
               color="sell"
             >

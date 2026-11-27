@@ -375,7 +375,7 @@ export const SymbolInfoBarFull: React.FC<SymbolInfoBarFullProps> = (props) => {
                 <Text.numeral rule="human" dp={2}>
                   {openInterest}
                 </Text.numeral>
-                <Text intensity={36}>{` USDC`}</Text>
+                <Text intensity={36}>{` USDL`}</Text>
               </>
             }
             hint={t("markets.openInterest.tooltip")}

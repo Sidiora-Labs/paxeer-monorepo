@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { useContext } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { cn, Flex, Text } from "@paxeer-network/ui";
@@ -35,7 +36,7 @@ export const CollateralContribution: React.FC<{
           {value}
         </Text.numeral>
         <Text size="2xs" intensity={36} className="oui-select-none">
-          {collateralUnit?.symbol ?? "USDC"}
+          {tokenDisplayName(collateralUnit?.symbol ?? "USDC")}
         </Text>
       </Flex>
     </Flex>

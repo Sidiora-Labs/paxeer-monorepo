@@ -59,7 +59,7 @@ export const AffiliateCardMobile: FC<AffiliateCardMobileProps> = (props) => {
       <Flex className="oui-mt-auto oui-w-full oui-flex-row oui-items-center oui-gap-1">
         <img
           src="/assets/static/symbol_logo/USDC.png"
-          alt="USDC"
+          alt="USDL"
           className="oui-size-5"
         />
         <Text

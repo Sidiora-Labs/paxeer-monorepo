@@ -56,8 +56,8 @@ export const orders = {
   "orders.tpsl.cancelAll.forSymbol.description":
     "Are you sure you want to cancel all TP/SL orders for {{symbol}}?",
 
-  "orders.price.greaterThan": "Price can not be greater than {{max}} USDC.",
-  "orders.price.lessThan": "Price can not be less than {{min}} USDC.",
+  "orders.price.greaterThan": "Price can not be greater than {{max}} USDL.",
+  "orders.price.lessThan": "Price can not be less than {{min}} USDL.",
 
   "orders.quantity.lessThan": "Quantity should be less than {{quantity}}",
   "orders.quantity.lessThanPosition":

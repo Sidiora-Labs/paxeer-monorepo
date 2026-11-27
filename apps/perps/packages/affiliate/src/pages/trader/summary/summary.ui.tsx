@@ -25,7 +25,7 @@ export const Summary: FC<SummaryReturns> = (props) => {
         <SummaryFilter {...props} />
         <CommissionData {...props} />
       </Flex>
-      <Row title={`${t("affiliate.trader.tradingVol")} (USDC)`} {...props} />
+      <Row title={`${t("affiliate.trader.tradingVol")} (USDL)`} {...props} />
     </Flex>
   );
 };
@@ -109,7 +109,7 @@ const CommissionData: FC<SummaryReturns> = (props) => {
       gap={3}
     >
       <Text intensity={54} className="oui-text-base 2xl:oui-text-lg">
-        {`${t("affiliate.trader.rebates")} (USDC)`}
+        {`${t("affiliate.trader.rebates")} (USDL)`}
       </Text>
       <Flex
         direction={"row"}

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { OrderSide } from "@paxeer-network/types";
@@ -77,7 +78,7 @@ export const ReversePosition: FC<ReversePositionProps> = (props) => {
         {markPrice}
       </Text.numeral>
       <Text size="sm" intensity={36}>
-        {quote}
+        {tokenDisplayName(quote)}
       </Text>
     </Flex>
   );

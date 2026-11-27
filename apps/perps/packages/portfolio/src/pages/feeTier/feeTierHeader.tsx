@@ -88,7 +88,7 @@ export const FeeTierHeader: React.FC<FeeTierHeaderProps> = (props) => {
         ),
       },
       {
-        label: `${t("portfolio.feeTier.header.30dVolume")} (USDC)`,
+        label: `${t("portfolio.feeTier.header.30dVolume")} (USDL)`,
         interactive: false,
         value: (
           <Text.numeral

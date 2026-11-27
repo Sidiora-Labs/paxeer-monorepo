@@ -218,7 +218,7 @@ export class Assets {
     /** vault address */
     vaultAddress: string;
   }): Promise<never> {
-    throw new Error("Paxeer vaults accept USDC, USDT and USDL collateral.");
+    throw new Error("Paxeer vaults accept USDL and USDT collateral.");
   }
 
   async getDepositData(inputs: {
@@ -322,7 +322,7 @@ export class Assets {
     token?: string;
     vaultAddress: string;
   }): Promise<never> {
-    throw new Error("Paxeer vaults accept USDC, USDT and USDL collateral.");
+    throw new Error("Paxeer vaults accept USDL and USDT collateral.");
   }
 
   async withdraw(inputs: {

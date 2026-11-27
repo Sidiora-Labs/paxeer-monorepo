@@ -104,7 +104,7 @@ export const PositionTPSLConfirm = (props: PositionTPSLConfirmProps) => {
     colorType: "TP" | "SL";
   }) => {
     if (!isEnable) {
-      return <Text className="oui-text-base-contrast-36">-- USDC</Text>;
+      return <Text className="oui-text-base-contrast-36">-- USDL</Text>;
     }
     if (!price) {
       if (isOrderPrice) {
@@ -117,7 +117,7 @@ export const PositionTPSLConfirm = (props: PositionTPSLConfirmProps) => {
     }
     return (
       <Text.numeral
-        unit={"USDC"}
+        unit={"USDL"}
         rule={"price"}
         className={cn(
           "oui-text-base-contrast",

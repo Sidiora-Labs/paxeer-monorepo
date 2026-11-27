@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { fetchWithPolicy as fetch } from "@paxeer-network/paxeer-backend/core/net/fetch";
-import type { ContractFunctionReturnType } from "viem";
+import type { Address, ContractFunctionReturnType } from "viem";
+import { getConnectedAddress } from "@paxeer-network/paxeer-backend/core/viem/clients";
+import { makeError } from "@paxeer-network/paxeer-backend/core/errors/classify";
 import { PerpsPrecompileABI } from "@paxeer-network/paxeer-backend/core/network/abi/PerpsPrecompile";
 import { PRECOMPILES } from "@paxeer-network/paxeer-backend/core/network/precompiles";
 import {
@@ -308,13 +310,17 @@ export function useQuoter(marketDataUrl = REST_API_URL) {
   }
 
   async function quoteOpenPosition(params: {
+    account?: Address;
     marketId: bigint;
     collateralToken: `0x${string}`;
     collateralAmount: bigint;
     leverage: bigint;
     isLong: boolean;
   }): Promise<OpenPositionQuote> {
+    const account = params.account ?? getConnectedAddress();
+    if (!account) throw makeError("WALLET_NOT_CONNECTED");
     const result = await readContract({
+      account,
       address: PRECOMPILES.perps,
       abi: PerpsPrecompileABI,
       functionName: "quoteOpenPosition",

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useEffect, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Box, Flex, Text } from "@paxeer-network/ui";
@@ -73,7 +74,7 @@ export const ExclusiveDeposit: FC<ExclusiveDepositProps> = ({ active }) => {
 
   const minText =
     confirmed && typeof minimumDeposit === "number"
-      ? `${minimumDeposit} ${tokenName}`
+      ? `${minimumDeposit} ${tokenDisplayName(tokenName)}`
       : "--";
 
   const estText = confirmed

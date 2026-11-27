@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { SVGProps } from "react";
 import { OrderValidationResult } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -44,7 +45,7 @@ export function AdvancedTPSLResult(props: {
               <Text.numeral
                 suffix={
                   <Text className="oui-ms-1 oui-text-base-contrast-36">
-                    {symbolInfo.quote}
+                    {tokenDisplayName(symbolInfo.quote)}
                   </Text>
                 }
                 className="oui-text-base-contrast"
@@ -59,7 +60,7 @@ export function AdvancedTPSLResult(props: {
                 <Text.numeral
                   suffix={
                     <Text className="oui-ms-1 oui-text-base-contrast-36">
-                      {symbolInfo.quote}
+                      {tokenDisplayName(symbolInfo.quote)}
                     </Text>
                   }
                   className="oui-text-base-contrast"
@@ -76,7 +77,7 @@ export function AdvancedTPSLResult(props: {
               <Text.numeral
                 suffix={
                   <Text className="oui-ms-1 oui-text-base-contrast-36">
-                    {symbolInfo.quote}
+                    {tokenDisplayName(symbolInfo.quote)}
                   </Text>
                 }
                 coloring
@@ -125,7 +126,7 @@ export function AdvancedTPSLResult(props: {
               <Text.numeral
                 suffix={
                   <Text className="oui-ms-1 oui-text-base-contrast-36">
-                    {symbolInfo.quote}
+                    {tokenDisplayName(symbolInfo.quote)}
                   </Text>
                 }
                 className="oui-text-base-contrast"
@@ -140,7 +141,7 @@ export function AdvancedTPSLResult(props: {
                 <Text.numeral
                   suffix={
                     <Text className="oui-ms-1 oui-text-base-contrast-36">
-                      {symbolInfo.quote}
+                      {tokenDisplayName(symbolInfo.quote)}
                     </Text>
                   }
                   className="oui-text-base-contrast"
@@ -159,7 +160,7 @@ export function AdvancedTPSLResult(props: {
                 coloring
                 suffix={
                   <Text className="oui-ms-1 oui-text-base-contrast-36">
-                    {symbolInfo.quote}
+                    {tokenDisplayName(symbolInfo.quote)}
                   </Text>
                 }
                 dp={2}

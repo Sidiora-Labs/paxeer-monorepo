@@ -12,7 +12,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use layerx_oracle_feeder::chainflow::{FetchError, Ticker};
 use layerx_oracle_feeder::cosmos_tx::{self, encode_tx, Observation, Submission};
-use layerx_oracle_feeder::{address_word, hex_decode, hex_encode, Journal, Sequencer};
+use layerx_oracle_feeder::{address_word, hex_encode, Journal, Sequencer};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -30,10 +30,9 @@ pub const PRICEFEED: [u8; 20] = {
 };
 /// `getValidatorByFeedAccount(address)`.
 pub const GET_VALIDATOR_BY_FEED_ACCOUNT_SELECTOR: [u8; 4] = [0x00, 0x7e, 0xb8, 0x55];
-/// `getObservation(uint256,address)`.
-pub const GET_OBSERVATION_SELECTOR: [u8; 4] = [0x48, 0xf8, 0x36, 0x66];
 /// gRPC query path of the auth module's account query.
 pub const ACCOUNT_QUERY_PATH: &str = "/cosmos.auth.v1beta1.Query/Account";
+pub const OBSERVATION_QUERY_PATH: &str = "/paxprotocol.paxchain.pricefeed.Query/Observation";
 const BASE_ACCOUNT_TYPE_URL: &str = "/cosmos.auth.v1beta1.BaseAccount";
 const PRICEFEED_CODESPACE: &str = "pricefeed";
 const CODE_NOT_VALIDATOR: u64 = 5;
@@ -41,8 +40,6 @@ const CODE_UNREGISTERED_FEEDER: u64 = 10;
 const CODE_RATE_LIMITED: u64 = 11;
 /// Text of the auth signature check's sequence refusal.
 const SEQUENCE_MISMATCH: &str = "account sequence mismatch";
-/// `getObservation` answers a static five-word tuple.
-const OBSERVATION_ANSWER_BYTES: usize = 5 * 32;
 pub const PENDING_SUBMISSION_BLOCK_LIMIT: u64 = 10;
 
 enum TxLookup {
@@ -117,6 +114,23 @@ impl Rpc {
         )
     }
 
+    pub fn query_observation(
+        &self,
+        market_id: u64,
+        validator: &str,
+        height: u64,
+    ) -> Result<String, String> {
+        self.consensus(
+            "abci_query",
+            &json!({
+                "path": OBSERVATION_QUERY_PATH,
+                "data": hex_encode(&observation_request(market_id, validator)),
+                "height": height.to_string(),
+                "prove": false,
+            }),
+        )
+    }
+
     /// `broadcast_tx_sync` of the `TxRaw` bytes.
     ///
     /// # Errors
@@ -162,16 +176,12 @@ impl Rpc {
     /// # Errors
     /// Transport failures, JSON-RPC errors and a non-string answer.
     pub fn call_pricefeed(&self, data: &[u8]) -> Result<String, String> {
-        self.call_pricefeed_at(data, "latest")
-    }
-
-    fn call_pricefeed_at(&self, data: &[u8], height: &str) -> Result<String, String> {
         let answer = self.evm.call(
             "eth_call",
             &json!([{
                 "to": format!("0x{}", hex_encode(&PRICEFEED)),
                 "data": format!("0x{}", hex_encode(data)),
-            }, height]),
+            }, "latest"]),
         )?;
         answer
             .as_str()
@@ -202,14 +212,16 @@ pub fn validator_by_feed_account_call(feed_account: &[u8; 20]) -> Vec<u8> {
     data
 }
 
-/// `getObservation(marketId, validator)` calldata.
 #[must_use]
-pub fn observation_call(market_id: u64, validator: &[u8; 20]) -> Vec<u8> {
-    let mut data = GET_OBSERVATION_SELECTOR.to_vec();
-    let mut id = [0; 32];
-    id[24..].copy_from_slice(&market_id.to_be_bytes());
-    data.extend_from_slice(&id);
-    data.extend_from_slice(&address_arg(validator));
+pub fn observation_request(market_id: u64, validator: &str) -> Vec<u8> {
+    let mut data = Vec::new();
+    if market_id != 0 {
+        data.push(0x08);
+        put_varint(&mut data, market_id);
+    }
+    data.push(0x12);
+    put_varint(&mut data, validator.len() as u64);
+    data.extend_from_slice(validator.as_bytes());
     data
 }
 
@@ -233,37 +245,6 @@ pub fn check_registration(
             hex_encode(&registered)
         ))
     }
-}
-
-/// The stored sequence of a `getObservation` answer.
-///
-/// # Errors
-/// Refuses an answer other than five words with a `uint64` first word.
-pub fn observation_sequence(answer: &str) -> Result<u64, String> {
-    let bytes = hex_decode(answer.strip_prefix("0x").unwrap_or(answer))?;
-    if bytes.len() != OBSERVATION_ANSWER_BYTES || bytes[..24].iter().any(|byte| *byte != 0) {
-        return Err("malformed getObservation answer".to_owned());
-    }
-    let mut sequence = [0; 8];
-    sequence.copy_from_slice(&bytes[24..32]);
-    Ok(u64::from_be_bytes(sequence))
-}
-
-/// Raises the journal so the next sequence of `symbol` is at least
-/// `getObservation sequence + 1`.
-///
-/// # Errors
-/// Refuses a malformed `getObservation` answer.
-pub fn sync_sequence(journal: &mut Journal, symbol: &str, answer: &str) -> Result<(), String> {
-    let stored = observation_sequence(answer)?;
-    if stored >= journal.next_observation_sequence(symbol) {
-        journal
-            .markets
-            .entry(symbol.to_owned())
-            .or_default()
-            .sequence = stored;
-    }
-    Ok(())
 }
 
 /// Auth account of the feed key as `abci_query` answered it.
@@ -415,6 +396,50 @@ pub fn parse_account(body: &str, feeder: &str) -> Result<Account, String> {
         sequence: varint_field(&account, 4),
         height,
     })
+}
+
+pub fn parse_observation(body: &str, requested_height: u64) -> Result<u64, String> {
+    let result = rpc_result(body)?;
+    let response = result.get("response").ok_or("abci_query: no response")?;
+    let height = json_u64(response.get("height")).ok_or("abci_query: malformed height")?;
+    if height != requested_height {
+        return Err(format!(
+            "abci_query: observation height {height}, requested {requested_height}"
+        ));
+    }
+    let code = match response.get("code") {
+        None => 0,
+        Some(value) => json_u64(Some(value)).ok_or("abci_query: malformed code")?,
+    };
+    let codespace = response
+        .get("codespace")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if code == 22 && codespace == "sdk" {
+        return Ok(0);
+    }
+    if code != 0 {
+        return Err(format!(
+            "abci_query: code {code} {codespace}: {}",
+            response.get("log").and_then(Value::as_str).unwrap_or("")
+        ));
+    }
+    let value = STANDARD
+        .decode(
+            response
+                .get("value")
+                .and_then(Value::as_str)
+                .ok_or("abci_query: no value")?,
+        )
+        .map_err(|e| format!("abci_query: value: {e}"))?;
+    let response_fields = fields(&value)?;
+    if response_fields
+        .iter()
+        .any(|(number, field)| *number == 1 && !matches!(field, Field::Varint(_)))
+    {
+        return Err("abci_query: malformed observation sequence".to_owned());
+    }
+    Ok(varint_field(&response_fields, 1))
 }
 
 /// What a `broadcast_tx_sync` answered, or why no answer came.
@@ -580,18 +605,21 @@ fn read_observation(
     config: &Config,
     rpc: &Rpc,
     market: &MarketConfig,
-    validator: &[u8; 20],
-    height: &str,
+    validator: &str,
+    height: u64,
 ) -> Result<u64, String> {
     let mut plan = RetryPlan::new(config.retry_backoff_ms, config.retry_max_attempts);
     let mut last = None;
     while let Some(attempt) = plan.next(last.as_ref()) {
         thread::sleep(Duration::from_millis(attempt.delay_ms));
-        match rpc.call_pricefeed_at(&observation_call(market.market_id, validator), height) {
+        match rpc
+            .query_observation(market.market_id, validator, height)
+            .and_then(|answer| parse_observation(&answer, height))
+        {
             Err(error) if error.contains("rejected due to rate limit") => {
                 last = Some(Outcome::Transport(error));
             }
-            result => return result.and_then(|answer| observation_sequence(&answer)),
+            result => return result,
         }
     }
     match last {
@@ -697,6 +725,7 @@ pub struct Sidecar {
     secret: Zeroizing<[u8; 32]>,
     feed_account: [u8; 20],
     feeder: String,
+    validator_operator: String,
     journal: Journal,
     progress: Progress,
     wait_for_pending: bool,
@@ -722,7 +751,7 @@ pub fn start(
         &feed_account,
     )?;
     let journal = Journal::load(state_dir, 0)?;
-    let mut sidecar = Sidecar::new(secret, feed_account, journal);
+    let mut sidecar = Sidecar::new(secret, feed_account, validator, journal);
     sidecar.progress = Progress::load(state_dir)?;
     if sidecar.progress.pending.is_empty() {
         sidecar.sync_committed(config, rpc, state_dir)?;
@@ -734,11 +763,17 @@ pub fn start(
 
 impl Sidecar {
     #[must_use]
-    pub fn new(secret: Zeroizing<[u8; 32]>, feed_account: [u8; 20], journal: Journal) -> Self {
+    pub fn new(
+        secret: Zeroizing<[u8; 32]>,
+        feed_account: [u8; 20],
+        validator: [u8; 20],
+        journal: Journal,
+    ) -> Self {
         Self {
             secret,
             feed_account,
             feeder: cosmos_tx::feed_account(&feed_account),
+            validator_operator: cosmos_tx::validator_operator(&validator),
             journal,
             progress: Progress::default(),
             wait_for_pending: false,
@@ -765,9 +800,8 @@ impl Sidecar {
         account: Account,
         mut journal: Journal,
     ) -> Result<Journal, String> {
-        let validator = config.validator()?;
         journal.next_account_sequence = account.sequence;
-        let height = format!("0x{:x}", account.height);
+        let height = account.height;
         let next = AtomicUsize::new(0);
         let (sender, receiver) = mpsc::channel();
         thread::scope(|scope| {
@@ -780,7 +814,13 @@ impl Sidecar {
                             let index = next.fetch_add(1, Ordering::Relaxed);
                             config.markets.get(index).map(|market| (index, market))
                         } {
-                            let result = read_observation(config, rpc, market, &validator, &height);
+                            let result = read_observation(
+                                config,
+                                rpc,
+                                market,
+                                &self.validator_operator,
+                                height,
+                            );
                             if sender.send((index, result)).is_err() {
                                 break;
                             }
@@ -1439,16 +1479,12 @@ mod tests {
     }
 
     fn sidecar(journal: Journal) -> Sidecar {
-        Sidecar::new(Zeroizing::new([1; 32]), FEED_ACCOUNT, journal)
+        Sidecar::new(Zeroizing::new([1; 32]), FEED_ACCOUNT, VALIDATOR, journal)
     }
 
     fn ticker(config: &Config, symbol: &str) -> Result<Ticker, FetchError> {
         let body = TICKER_BTC.replace("PERP_BTC_USDC", &format!("PERP_{symbol}_USDC"));
         config.chainflow.parse_ticker(&body, symbol, NOW)
-    }
-
-    fn word(value: u64) -> String {
-        format!("{value:064x}")
     }
 
     #[test]
@@ -1597,8 +1633,12 @@ mod tests {
             format!("007eb855{}{}", "00".repeat(12), hex_encode(&FEED_ACCOUNT))
         );
         assert_eq!(
-            hex_encode(&observation_call(0, &VALIDATOR)),
-            format!("48f83666{}{}{}", word(0), "00".repeat(12), "22".repeat(20))
+            observation_request(0, &cosmos_tx::validator_operator(&VALIDATOR)),
+            [
+                vec![0x12, 0x31],
+                cosmos_tx::validator_operator(&VALIDATOR).into_bytes()
+            ]
+            .concat()
         );
         let mut journal = Journal::default();
         journal.markets.insert(
@@ -1609,9 +1649,17 @@ mod tests {
             },
         );
         assert_eq!(journal.next_observation_sequence("BTC"), 5);
-        let answer = format!("0x{}{}{}{}{}", word(9), word(1), word(1), word(1), word(1));
-        sync_sequence(&mut journal, "BTC", &answer)?;
-        sync_sequence(&mut journal, "ETH", &format!("0x{}", "0".repeat(320)))?;
+        let answer = json!({"result":{"response":{"height":"811","value":STANDARD.encode([0x08, 9, 0x12, 1, b'1', 0x1a, 1, b'1', 0x20, 1, 0x28, 1])}}}).to_string();
+        let sequence = parse_observation(&answer, 811)?;
+        assert_eq!(sequence, 9);
+        journal.markets.get_mut("BTC").unwrap().sequence = sequence;
+        assert_eq!(
+            parse_observation(
+                &json!({"result":{"response":{"height":"811","value":""}}}).to_string(),
+                811
+            )?,
+            0
+        );
         assert!(!journal.markets.contains_key("ETH"));
         let mut sidecar = sidecar(journal);
         let observations = sidecar
@@ -1630,7 +1678,12 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![(0, 10), (1, 1)]
         );
-        assert!(sync_sequence(&mut Journal::default(), "BTC", "0x").is_err());
+        assert!(parse_observation(
+            &json!({"result":{"response":{"height":"811","value":STANDARD.encode([0x08])}}})
+                .to_string(),
+            811
+        )
+        .is_err());
 
         let registered = format!("0x{}{}", "00".repeat(12), "22".repeat(20));
         assert_eq!(

@@ -13,7 +13,7 @@ export const portfolio = {
   "portfolio.overview.performance.pnl": "{{period}} PnL",
   "portfolio.overview.performance.pnl.tooltip":
     "PnL = Current account value − Start account value − Total deposits + Total withdrawals − Total transfer-in + Total transfer-out",
-  "portfolio.overview.performance.volume": "{{period}} Volume (USDC)",
+  "portfolio.overview.performance.volume": "{{period}} Volume (USDL)",
   "portfolio.overview.performance.volume.tooltip":
     "Trading volume over the selected period.",
   "portfolio.overview.performance.dailyPnl": "Daily PnL",

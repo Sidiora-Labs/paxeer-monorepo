@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { memo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { inputFormatter } from "@paxeer-network/ui";
@@ -22,7 +23,7 @@ export const ScaledPriceInput = memo((props: ScaledPriceInputProps) => {
     <>
       <CustomInput
         label={t("orderEntry.startPrice")}
-        suffix={quote}
+        suffix={tokenDisplayName(quote)}
         id="order_start_price_input"
         className="oui-orderEntry-scaledOrder-startPriceInput"
         value={props.start_price}
@@ -39,7 +40,7 @@ export const ScaledPriceInput = memo((props: ScaledPriceInputProps) => {
       />
       <CustomInput
         label={t("orderEntry.endPrice")}
-        suffix={quote}
+        suffix={tokenDisplayName(quote)}
         id="order_end_price_input"
         className="oui-orderEntry-scaledOrder-endPriceInput"
         value={props.end_price}

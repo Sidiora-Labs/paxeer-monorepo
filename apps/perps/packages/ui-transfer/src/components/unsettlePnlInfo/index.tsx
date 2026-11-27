@@ -91,7 +91,7 @@ export const UnsettlePnlInfo = (props: UnsettlePnlInfoProps) => {
         >
           {unsettledPnl ?? "--"}
         </Text.numeral>
-        <Text>USDC</Text>
+        <Text>USDL</Text>
       </Flex>
       <Flex itemAlign="center" gap={1} className="oui-cursor-pointer">
         <RefreshIcon className="oui-text-primary" />

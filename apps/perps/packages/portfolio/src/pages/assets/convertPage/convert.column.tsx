@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -135,7 +136,7 @@ export const ConvertedAssetColumn = ({
           >
             <Flex itemAlign="center" gap={1}>
               <TokenIcon size="xs" name={asset} />
-              <Text.formatted>{asset}</Text.formatted>
+              <Text.formatted>{tokenDisplayName(asset)}</Text.formatted>
             </Flex>
             <div>
               <Text.formatted>{quantities[asset]}</Text.formatted>
@@ -164,7 +165,7 @@ export const ConvertedAssetColumn = ({
       </div>
       <Tooltip content={tooltipContent}>
         <Text.formatted className="oui-cursor-pointer oui-underline oui-decoration-line-16 oui-decoration-dashed oui-underline-offset-4">
-          {assets.slice(0, 3).join(", ")}{" "}
+          {assets.slice(0, 3).map(tokenDisplayName).join(", ")}{" "}
           {assets.length > 3 && `+${assets.length - 3}`}
         </Text.formatted>
       </Tooltip>
@@ -212,7 +213,7 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
               <Text.numeral dp={6} padding={false}>
                 {qty}
               </Text.numeral>{" "}
-              {record.received_asset}
+              {tokenDisplayName(record.received_asset)}
             </span>
           );
         },
@@ -232,7 +233,7 @@ export const useConvertColumns = (options: ConvertColumnsOptions) => {
               <Text.numeral dp={6} padding={false}>
                 {totalHaircut}
               </Text.numeral>{" "}
-              {record.received_asset}
+              {tokenDisplayName(record.received_asset)}
             </span>
           );
         },
@@ -322,7 +323,7 @@ export const useConvertDetailColumns = (
           return (
             <Flex itemAlign="center" gap={2}>
               <TokenIcon name={asset} />
-              {asset}
+              {tokenDisplayName(asset)}
             </Flex>
           );
         },
@@ -351,7 +352,7 @@ export const useConvertDetailColumns = (
               <Text.numeral dp={6} padding={false}>
                 {qty}
               </Text.numeral>{" "}
-              {detail.received_asset}
+              {tokenDisplayName(detail.received_asset)}
             </span>
           );
         },
@@ -367,7 +368,7 @@ export const useConvertDetailColumns = (
               <Text.numeral dp={6} padding={false}>
                 {haircut}
               </Text.numeral>{" "}
-              {detail.received_asset}
+              {tokenDisplayName(detail.received_asset)}
             </span>
           );
         },

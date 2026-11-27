@@ -86,7 +86,7 @@ const CommissionList: FC<CommissionAndRefereesReturns> = (props) => {
   const columns = useMemo(() => {
     const cols: Column[] = [
       {
-        title: `${t("affiliate.commission")} (USDC)`,
+        title: `${t("affiliate.commission")} (USDL)`,
         dataIndex: "referral_rebate",
         render: (value) => (
           <Text>
@@ -101,7 +101,7 @@ const CommissionList: FC<CommissionAndRefereesReturns> = (props) => {
         width: 216,
       },
       {
-        title: `${t("affiliate.referralVol")} (USDC)`,
+        title: `${t("affiliate.referralVol")} (USDL)`,
         dataIndex: "volume",
         render: (value) => (
           <Text>
@@ -240,7 +240,7 @@ const RefereesList: FC<CommissionAndRefereesReturns> = (props) => {
         className: "oui-w-1/5",
       },
       {
-        title: `${t("affiliate.referees.column.totalCommission")} (USDC)`,
+        title: `${t("affiliate.referees.column.totalCommission")} (USDL)`,
         dataIndex: "referral_rebate",
         render: (value) => (
           <Text>
@@ -250,7 +250,7 @@ const RefereesList: FC<CommissionAndRefereesReturns> = (props) => {
         className: "oui-w-1/5",
       },
       {
-        title: `${t("affiliate.referees.column.totalVol")} (USDC)`,
+        title: `${t("affiliate.referees.column.totalVol")} (USDL)`,
         dataIndex: "volume",
         render: (value) => (
           <Text>
@@ -300,7 +300,7 @@ const RefereesList: FC<CommissionAndRefereesReturns> = (props) => {
                   <MobileCellItem
                     title={`${t(
                       "affiliate.referees.column.totalCommission",
-                    )} (USDC)`}
+                    )} (USDL)`}
                     value={commifyOptional(e.referral_rebate, {
                       fix: 6,
                       prefix: "$",

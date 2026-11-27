@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import {
   TicketTierRule,
   TicketLinearRule,
@@ -172,7 +173,7 @@ function calculateLinearTickets(
  * Format reward amount with currency for display
  */
 export function formatRewardAmount(amount: number, currency: string): string {
-  return `${amount.toLocaleString()} ${currency}`;
+  return `${amount.toLocaleString()} ${tokenDisplayName(currency)}`;
 }
 
 /**

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { memo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { inputFormatter } from "@paxeer-network/ui";
@@ -28,7 +29,7 @@ export const ActivePriceInput = memo<ActivePriceInputProps>((props) => {
         name="order_activated_price_input"
         label={t("common.triggerPrice")}
         placeholder={`0 (${t("common.optional")})`}
-        suffix={symbolInfo.quote}
+        suffix={tokenDisplayName(symbolInfo.quote)}
         error={getErrorMsg("activated_price")}
         value={props.activated_price}
         className="oui-orderEntry-activatedPriceInput"

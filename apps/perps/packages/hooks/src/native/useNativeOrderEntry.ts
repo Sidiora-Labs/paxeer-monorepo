@@ -18,6 +18,7 @@ import {
 } from "@paxeer-network/paxeer-backend/nativeOrderPlan";
 import { highestPerpsFeeTier } from "@paxeer-network/paxeer-backend/core/perps/feeTier";
 import { toNativeSymbol } from "@paxeer-network/paxeer-backend/nativeMetadata";
+import { classifyError } from "@paxeer-network/paxeer-backend/core/errors/classify";
 export function useNativeOrderEntry(
   order: any,
   selectedLeverage: number | undefined,
@@ -65,10 +66,16 @@ export function useNativeOrderEntry(
           if (!cancelled) setQuote(value);
         })
         .catch((reason) => {
-          if (!cancelled)
+          if (!cancelled) {
+            const classified = classifyError(reason);
             setError(
-              reason instanceof Error ? reason.message : "Quote unavailable.",
+              classified.code !== "UNKNOWN"
+                ? classified.message
+                : reason instanceof Error
+                  ? reason.message
+                  : "Quote unavailable.",
             );
+          }
         });
     }, 300);
     return () => {
@@ -99,7 +106,12 @@ export function useNativeOrderEntry(
   };
   const submit = async (options?: { resetOnSuccess?: boolean }) => {
     await validate();
-    if (error) throw new Error(error);
+    if (
+      error &&
+      !order.reduce_only &&
+      (order.order_type ?? "MARKET") === "MARKET"
+    )
+      throw new Error(error);
     if (
       !order.reduce_only &&
       (order.order_type ?? "MARKET") === "MARKET" &&

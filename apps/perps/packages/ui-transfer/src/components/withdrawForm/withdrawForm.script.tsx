@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PublicKey } from "@solana/web3.js";
 import { ethers } from "ethers";
@@ -463,7 +464,9 @@ export const useWithdrawFormScript = (options: WithdrawFormScriptOptions) => {
     if (isTokenUnsupported && sourceToken?.symbol) {
       setInputStatus("error");
       setHintMessage(
-        t("transfer.withdraw.unsupported.token", { token: sourceToken.symbol }),
+        t("transfer.withdraw.unsupported.token", {
+          token: tokenDisplayName(sourceToken.symbol),
+        }),
       );
       return;
     }
