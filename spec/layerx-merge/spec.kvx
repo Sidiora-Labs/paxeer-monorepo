@@ -17662,6 +17662,12 @@ value = "One. The helper. The function startLaunchpadChain runs the install and 
 basis = "Gotcha 5035. Decision 4089."
 affects = []
 
+[decision.4092]
+title = "The helper of the client package cases gives the fetching and building of a producer a limit of its own, so that the start limit counts the start only; the proof runs with nothing fetched and nothing built, and nothing is skipped; the verification of task 22.39.1303 no longer sets GOTOOLCHAIN"
+value = "One. Two limits. In startProducer what the go tool does before the producer runs, fetching the modules and building the test program of the package with the overlay, becomes a step of its own with a limit of its own: ten minutes. The limit of 120 seconds for the start stays, and it counts from the moment the built producer is started. readProducerCases gets the same step in front of its run and keeps 120 seconds for the run of the cases. Two. The form is the choice of task 22.39.1304. Two candidates: a first run of the go tool that builds the test program of the package with the same overlay and runs no case, followed by the present command; or a build of the test program into the temporary directory of the helper, followed by the start of that program in the directory of the package. In either form the producer is built from the same overlay and the same source text as today, runs in the same directory with the same variables, and its lines that begin with SDK_SERVICE are read as today. The task proves with figures that the time of the start no longer holds the time of fetching and building. Three. Messages. A step of fetching and building that passes its limit or ends with an error ends the case with a message that names the step and carries the output of the go tool. The message of the start limit stays as it is. Four. Proof before and after. The task runs the script test of the package with GOWORK set to off and GOFLAGS set to -timeout=15m, as the public job sets them, and with a new empty directory each for the modules the go tool fetches and for what it builds, the variables GOMODCACHE and GOCACHE, so that nothing is fetched and nothing is built when the first producer starts. It does so before the change and after it. Before: the result and the duration of the case of gotcha 5036 point one. After: for each start of a producer the time of the step of fetching and building and the time of the start. If the run before the change does not show the case failing or near its limit, the task says so plainly, gives what it saw, and makes the change of point one all the same. Five. If neither form of point two can be made to pass, the task raises the two limits of 120000 milliseconds to ten minutes instead, says so plainly and names the cause in the final message. Six. Not done. No case is skipped or marked. The workflow with its key cache, the checks below tests/ci, the source texts of the producers, the sources below services/launchpad and the package file of the package do not change. No step outside the helper builds a producer ahead of the cases. Seven. The verification runs the whole script test in the state of point four, so the run of the task stands in the state of the public job as far as a run of a task can, decision 4091 point five. The version of go of the public job is not reproduced there. The next record of the public job decides whether the row passes. A second cause that this record shows gets a task of its own. Eight. The verification of task 22.39.1303 no longer sets GOTOOLCHAIN, gotcha 5036 point six; every other word of it stays. Decision 4091 point five then holds with the two go variables GOWORK and GOFLAGS. No verification that is to stand in the state of the public job sets GOTOOLCHAIN to local: the version of go is the part of that state a run of a task does not reproduce. Not changed: the build, the steps and the paths of task 22.39.1303, and what its first run changed in the helper of the kit. "
+basis = "Gotcha 5036. Decision 4091."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47322,6 +47328,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1304]
+title = "Give the fetching and building of a producer in the cases of the client package a limit of its own, so that the start limit counts the start only, and prove it with nothing fetched and nothing built"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/sdk/test"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOWORK=off GOFLAGS=-timeout=15m GOMODCACHE=$(mktemp -d) GOCACHE=$(mktemp -d) pnpm --dir sdk/launchpad/packages/sdk run test && grep -e identityOperationsReadGatewayResponses sdk/launchpad/packages/sdk/test/service-contracts.test.mjs > /dev/null"
+do_1 = "do_1 Gotcha 5036, decision 4092. Read whole: sdk/launchpad/packages/sdk/test/producer-process.mjs and sdk/launchpad/packages/sdk/test/service-contracts.test.mjs. This task changes sdk/launchpad/packages/sdk/test/producer-process.mjs and no other file."
+symbols = []
 
 [capability.22.39.1303]
 title = "Make the local journey of the agent kit compile the contracts with the package manager the contracts package names, and prove it with the package manager of the public job first on the program path"
@@ -214894,6 +214909,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1304]
+title = "Give the fetching and building of a producer in the cases of the client package a limit of its own, so that the start limit counts the start only, and prove it with nothing fetched and nothing built"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1304"]
+interfaces = []
+do_1 = "do_1 Gotcha 5036, decision 4092. Read whole: sdk/launchpad/packages/sdk/test/producer-process.mjs and sdk/launchpad/packages/sdk/test/service-contracts.test.mjs. This task changes sdk/launchpad/packages/sdk/test/producer-process.mjs and no other file."
+do_2 = "do_2 Before the change, decision 4092 point four. Run the build. Then run the script test of the package as the verification writes it: with GOWORK set to off, GOFLAGS set to -timeout=15m and a new empty directory each for GOMODCACHE and GOCACHE. Keep the number of cases that pass, that fail and that are skipped, the duration of identityOperationsReadGatewayResponses and, for each case that fails, its name and first message. Say in the final message whether the message is the one of gotcha 5036 point one."
+do_3 = "do_3 The change, points one to three. In startProducer (line 11) and in readProducerCases (line 65) put the step of fetching and building in front, with its limit of ten minutes and its message. The timer of line 40 starts when the built producer is started; the limit of line 75 counts the run of the cases. Keep the overlay, the directory, the variables, the reading of the lines, what the function returns and the removal of the temporary directory as they are; the temporary directory is also removed when the new step fails."
+do_4 = "do_4 After the change run the command of do_2 again, with new empty directories. Give for each start of a producer the time of the step of fetching and building and the time of the start, and the duration of each case of sdk/launchpad/packages/sdk/test/service-contracts.test.mjs, beside the figures of do_2. The times may be read from lines the helper prints during these runs by hand; the final revision prints no line of its own unless it is the message of a failure. Then run the script test once more without the two directory variables, with what the environment has already fetched and built, and give its result. If neither form of point two passes, point five holds."
+do_5 = "do_5 Point six holds throughout: nothing is skipped or marked, and no file outside sdk/launchpad/packages/sdk/test/producer-process.mjs changes. If the environment cannot fetch modules into an empty directory at all, say so plainly with the first message of the go tool. Say in the final message which parts of the state of the public job the runs did not reproduce."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/sdk/test"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/sdk... run build"
+verify_cmd = "anvil --version > /dev/null && GOWORK=off GOFLAGS=-timeout=15m GOMODCACHE=$(mktemp -d) GOCACHE=$(mktemp -d) pnpm --dir sdk/launchpad/packages/sdk run test && grep -e identityOperationsReadGatewayResponses sdk/launchpad/packages/sdk/test/service-contracts.test.mjs > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1303]
 title = "Make the local journey of the agent kit compile the contracts with the package manager the contracts package names, and prove it with the package manager of the public job first on the program path"
 status = "pending"
@@ -214914,7 +214962,7 @@ touches = ["sdk/launchpad/packages/agent-kit/test", "services/wallet/gateway/tes
 tests = []
 planned_paths = []
 build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/agent-kit... run build"
-verify_cmd = "anvil --version > /dev/null && npm install --prefix /tmp/pm915 --no-audit --no-fund pnpm@9.15.0 > /dev/null && grep -e 9.15.0 /tmp/pm915/node_modules/pnpm/package.json > /dev/null && PATH=/tmp/pm915/node_modules/.bin:$PATH GOWORK=off GOTOOLCHAIN=local GOFLAGS=-timeout=15m pnpm --dir sdk/launchpad/packages/agent-kit run test && grep -e agentWalksTheLaunchpadOnALocalChain sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs > /dev/null"
+verify_cmd = "anvil --version > /dev/null && npm install --prefix /tmp/pm915 --no-audit --no-fund pnpm@9.15.0 > /dev/null && grep -e 9.15.0 /tmp/pm915/node_modules/pnpm/package.json > /dev/null && PATH=/tmp/pm915/node_modules/.bin:$PATH GOWORK=off GOFLAGS=-timeout=15m pnpm --dir sdk/launchpad/packages/agent-kit run test && grep -e agentWalksTheLaunchpadOnALocalChain sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs > /dev/null"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-launchpad"
