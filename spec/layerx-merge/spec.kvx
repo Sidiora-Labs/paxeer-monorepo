@@ -182880,7 +182880,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1298]
 title = "Draw one thin dark bar on every scroll area of the trading workspace and none on its rows of tabs and the labels of its controls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
