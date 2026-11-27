@@ -88,6 +88,13 @@ export function matchesHolderSearch(row: HolderRow, displayName: string | null, 
   return displayName !== null && displayName.toLowerCase().includes(needle);
 }
 
+export function reconcileHolderFirstPage(pages: Record<string, HoldersPage>, firstPage: HoldersPage): { pages: Record<string, HoldersPage>; resetCursor: boolean; canonical: HoldersPage['canonical'] } {
+  const previous = pages.first;
+  if (previous?.response && !firstPage.response) return { pages, resetCursor: false, canonical: firstPage.canonical };
+  const sameSnapshot = previous && previous.response?.revision === firstPage.response?.revision && previous.response?.data === firstPage.response?.data && previous.nextCursor === firstPage.nextCursor && previous.legacyShare === firstPage.legacyShare;
+  return { pages: sameSnapshot ? { ...pages, first: firstPage } : { first: firstPage }, resetCursor: !sameSnapshot, canonical: firstPage.canonical };
+}
+
 /** Holder concentration chip over the table (PoolStats.top10HolderShareBps / creatorHoldingShareBps), or its dash with the reason. */
 function ShareChip({ label, spoken, share }: { label: string; spoken: string; share: { value: number | null; reason: string | null } }) {
   return (
@@ -113,15 +120,14 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   const pageKey = cursor ?? 'first';
   const firstPage = first.state === 'ready' ? first.data : null;
   const readyPage = holders.state === 'ready' ? holders.data : null;
+  const firstPageChange = useMemo(() => firstPage ? reconcileHolderFirstPage(pages, firstPage) : null, [pages, firstPage]);
   useEffect(() => {
-    if (firstPage && pages.first !== firstPage) {
-      const previous = pages.first;
-      const sameSnapshot = previous && previous.response?.revision === firstPage.response?.revision && previous.response?.data === firstPage.response?.data && previous.nextCursor === firstPage.nextCursor && previous.legacyShare === firstPage.legacyShare;
-      setPages(current => sameSnapshot ? { ...current, first: firstPage } : { first: firstPage });
-      if (!sameSnapshot) setCursor(null);
+    if (firstPageChange && pages.first !== firstPage && firstPageChange.pages !== pages) {
+      setPages(firstPageChange.pages);
+      if (firstPageChange.resetCursor) setCursor(null);
       return;
     }
-    if (readyPage && pages[pageKey] !== readyPage) setPages(current => {
+    if (pageKey !== 'first' && readyPage && pages[pageKey] !== readyPage) setPages(current => {
       const next: Record<string, HoldersPage> = {};
       let key: string | null = 'first';
       while (key !== null && key !== pageKey && current[key] && !next[key]) {
@@ -133,7 +139,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
       next[pageKey] = readyPage;
       return next;
     });
-  }, [firstPage, readyPage, pageKey, pages]);
+  }, [firstPage, firstPageChange, readyPage, pageKey, pages]);
   const loaded = useMemo(() => {
     const chain: HoldersPage[] = [];
     const visited = new Set<string>();
@@ -157,6 +163,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   const identities = useWalletIdentities(rows.map(row => row.wallet));
   const visible = useMemo(() => sortHolderRows(rows.filter(row => matchesHolderSearch(row, identities.identities[row.wallet]?.displayName ?? null, search.query)), sort.key, sort.direction), [rows, identities.identities, search.query, sort]);
   const last = loaded[loaded.length - 1] ?? null;
+  const canonical = firstPageChange?.canonical ?? last?.canonical;
   const hasMore = last?.nextCursor !== null && last?.nextCursor !== undefined && loaded.length > 0;
   const decimals = token?.decimalsQuality === 'verified' ? token.decimals : null;
   const coverage = last?.response?.data.coverage ?? null;
@@ -180,7 +187,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
       <h3 className="flex items-center gap-2 text-sm font-semibold text-text">Holders {count !== null ? <CountPill count={count} label="holders" /> : null}</h3>
       {top10 ? <ShareChip label="Top 10" spoken="Top 10 holders hold" share={top10} /> : null}
       {devShare ? <ShareChip label="Creator" spoken="Creator holds" share={devShare} /> : null}
-      {last?.canonical ? <UnavailableState variant="inline" title="The full holder list" operation={last.canonical.operation} status={last.canonical.status} notServed={last.canonical.notServed} className="basis-full" /> : null}
+      {canonical ? <UnavailableState variant="inline" title="The full holder list" operation={canonical.operation} status={canonical.status} notServed={canonical.notServed} className="basis-full" /> : null}
     </div>
     <HoldersFilters value={search} onChange={setSearch} pnlReason={pnlReason} />
     {coverage && coverage !== 'complete' ? <NoticeBar tone="warning" announce>Some holders may be missing from this list.</NoticeBar> : null}
