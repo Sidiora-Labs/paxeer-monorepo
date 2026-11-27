@@ -183075,7 +183075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1311]
 title = "Let the name registration and the swap of the wallet application go on at a node that refuses the pending tag, with the count at the tag latest and the search through the numbered blocks, and keep the pending tag first where a node serves it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
