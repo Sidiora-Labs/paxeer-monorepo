@@ -17632,6 +17632,12 @@ value = "One. apps/perps/apps/web/src/styles/globals.css gives every element of 
 basis = "Gotcha 5030. Decision 3705."
 affects = []
 
+[decision.4087]
+title = "The list of markets beside the chart and the desktop order book of the trading workspace fit their boxes, so neither scrolls and neither draws a bar"
+value = "One. apps/perps/packages/markets/src/components/sideMarkets/column.tsx gives all three columns their widths in its own lines: 92 for the market, 100 for volume and open interest, 80 for the last price and the change. The sum is 272, the room of the table in the large panel of the split layout. Only the first width changes. A market name of six letters then ends six pixels past its cell, over the left part of the second column, which is empty because the values of that column stand at its right edge: nothing is cut and no name is shortened. The three values may move between the columns where the measure by hand shows two contents that meet; the sum stays at 272 or below. The shared columns of apps/perps/packages/markets/src/components/shared/column.tsx, the width of the panel and the padding of the scroll area do not change. Two. apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx counts for the desktop order book the rows around its two lists at the heights they have: 110 pixels in place of 104, that is 44 and 32 and 36 less the two pixels of the gaps counted too many. The row of the ratio stays at 38. With 148 in place of 142 the order book is as high as the height it is handed. The count of the mobile order book stays as it is: it was not measured. Three. apps/perps/packages/trading-next/src/components/desktop/orderBookAndTrades/orderBookAndTrades.ui.tsx does not change: it is one of the files the presentation check pins, and its counts stay as the reference source has them. With point two the content of the panel ends, in the layout with tabs, nine pixels inside the padding below it, three pixels above the lower edge of the container. The layout side by side was not measured. Four. Not changed: every rule of the overflow, in the stylesheet and in the packages. The container of the order book keeps the value task 22.44.39 gave it: with a content that fits, neither value draws a bar. Whether the containers of the layout return to the value of the reference source is decided on its own, with a render check of the trading surface. Also not changed: the rules of the bars of task 22.39.1298, the classic trading package, which the web application does not render, and the colours, texts and places of the reference source (decision 3705). Target: on the trade view at 1440 by 900 and at 1920 by 1080 in a browser that draws its bars the scroll area of the list of markets is as wide as its content, all three columns stand inside the panel, the container of the order book is at least as high as its content, and neither draws a bar. Task 22.39.1299. "
+basis = "Gotcha 5031. Decisions 3705 and 4086."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47292,6 +47298,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1299]
+title = "Fit the list of markets beside the chart and the desktop order book of the trading workspace into their boxes so that neither scrolls or draws a bar"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages/markets/src/components/sideMarkets", "apps/perps/packages/trading-next/src/components/base/orderBook", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/workspace-fit.test.ts && grep -e theSideListOfMarketsFitsItsPanel apps/perps/tests/workspace-fit.test.ts > /dev/null && grep -e theDesktopOrderBookCountsItsFixedRows apps/perps/tests/workspace-fit.test.ts > /dev/null"
+do_1 = "do_1 Gotcha 5031, decision 4087, decision 3705. Read apps/perps/packages/markets/src/components/sideMarkets/column.tsx whole, apps/perps/packages/markets/src/components/marketsList/marketsList.ui.tsx whole, the column of volume and open interest in apps/perps/packages/markets/src/components/shared/column.tsx, apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx whole, apps/perps/packages/trading-next/src/components/desktop/orderBookAndTrades/orderBookAndTrades.ui.tsx whole and apps/perps/packages/trading-next/src/components/desktop/orderBook/index.desktop.tsx whole. This task changes one width, writes a second one into the same file and changes one count. It changes no rule of the overflow, no stylesheet, no colour, no text, no file the presentation check pins, no file of the classic trading package and no file of the mobile views."
+symbols = []
 
 [capability.22.39.1298]
 title = "Draw one thin dark bar on every scroll area of the trading workspace and none on its rows of tabs and the labels of its controls"
@@ -182878,9 +182893,42 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1299]
+title = "Fit the list of markets beside the chart and the desktop order book of the trading workspace into their boxes so that neither scrolls or draws a bar"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1299"]
+interfaces = []
+do_1 = "do_1 Gotcha 5031, decision 4087, decision 3705. Read apps/perps/packages/markets/src/components/sideMarkets/column.tsx whole, apps/perps/packages/markets/src/components/marketsList/marketsList.ui.tsx whole, the column of volume and open interest in apps/perps/packages/markets/src/components/shared/column.tsx, apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx whole, apps/perps/packages/trading-next/src/components/desktop/orderBookAndTrades/orderBookAndTrades.ui.tsx whole and apps/perps/packages/trading-next/src/components/desktop/orderBook/index.desktop.tsx whole. This task changes one width, writes a second one into the same file and changes one count. It changes no rule of the overflow, no stylesheet, no colour, no text, no file the presentation check pins, no file of the classic trading package and no file of the mobile views."
+do_2 = "do_2 Decision 4087 point one, in apps/perps/packages/markets/src/components/sideMarkets/column.tsx. The first column goes from 115 to 92. The second column gets its width of 100 in this file in the form the third has, so that the three widths stand in one place and a later change of the shared column does not widen the table. The third stays at 80."
+do_3 = "do_3 Decision 4087 point two, in apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx. Give the desktop a count of its own with the value 110 beside the count of line 17, and use it where the screen is not the mobile one. The mobile order book keeps the value 104 and the two values of the row of the ratio stay."
+do_4 = "do_4 Write the case file apps/perps/tests/workspace-fit.test.ts with two cases, named theSideListOfMarketsFitsItsPanel and theDesktopOrderBookCountsItsFixedRows. The cases read the sources through the parser of the language, the package typescript that the root of the workspace lists among its development packages and that the presentation check uses, and not by a search of text. The first reads the list of columns apps/perps/packages/markets/src/components/sideMarkets/column.tsx returns, finds for each of the three a width written as a number in that file, and finds their sum at or below 272, the 280 pixels of the large panel less the eight of the padding of its scroll area. The second finds in apps/perps/packages/trading-next/src/components/base/orderBook/orderBook.script.tsx the desktop count with the value 110 and the mobile count with the value 104, and finds the desktop one used where the screen is not the mobile one."
+do_5 = "do_5 Measure by hand before the counted runs, for at most twenty minutes. The surface file tools/ui-check/surfaces/trading.json names the command that builds the web application and the command that starts it. Start it that way and open the trade view at 1440 by 900 and at 1920 by 1080 with the browser library of the browser cases of the workspace (apps/perps/playwright.config.ts), with the bars drawn: the browser without a window hides bars by default, so take that default off. Read the width of the scroll area of the list of markets and the width of its content, whether the right edge of the third column stands inside the panel, whether in any row the content of one column meets the content of the next, the height of the container of the order book and the height of its content, and the count of the bars the trade view draws. Where two contents of the list meet, move the widths as point one of decision 4087 allows and measure again. Give in the final message the numbers per size, the three widths of the final revision and each target of decision 4087 that does not hold. If the application does not start within ten minutes, leave the measure, say so and go on."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages/markets/src/components/sideMarkets", "apps/perps/packages/trading-next/src/components/base/orderBook", "apps/perps/tests"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/workspace-fit.test.ts && grep -e theSideListOfMarketsFitsItsPanel apps/perps/tests/workspace-fit.test.ts > /dev/null && grep -e theDesktopOrderBookCountsItsFixedRows apps/perps/tests/workspace-fit.test.ts > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1298]
 title = "Draw one thin dark bar on every scroll area of the trading workspace and none on its rows of tabs and the labels of its controls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214992,7 +215040,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1290]
 title = "Keep the imports of the livestream client of the web free of packages, so that the two cases that load it under node pass"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
