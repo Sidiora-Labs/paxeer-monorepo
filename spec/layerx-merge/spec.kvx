@@ -214989,7 +214989,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1306]
 title = "Let a retry that waited the delay its policy named pass the gate of the retry pace of the launchpad web, and keep the refusal of earlier reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
