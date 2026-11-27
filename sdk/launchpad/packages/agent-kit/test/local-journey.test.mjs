@@ -78,7 +78,22 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   const activityHashes = [];
   async function receipt(hash, expectedFrom, expectedTo, expectedValue = 0n) {
     assert.match(hash, /^0x[0-9a-fA-F]{64}$/);
-    const mined = await provider.waitForTransaction(hash, 1, 120000);
+    const deadline = Date.now() + 120000;
+    let mined;
+    for (;;) {
+      mined = await provider.getTransactionReceipt(hash);
+      if (mined) break;
+      if (Date.now() >= deadline) {
+        const [blockNumber, transaction] = await Promise.all([
+          provider.getBlockNumber(),
+          provider.getTransaction(hash),
+        ]);
+        throw new Error(
+          `Receipt timed out for ${hash}: block ${blockNumber}, transaction known: ${transaction !== null}`,
+        );
+      }
+      await new Promise((done) => setTimeout(done, 50));
+    }
     assert.equal(mined.status, 1, hash);
     const transaction = await provider.getTransaction(hash);
     assert.equal(transaction.from.toLowerCase(), expectedFrom.toLowerCase());

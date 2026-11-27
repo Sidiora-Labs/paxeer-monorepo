@@ -17668,6 +17668,24 @@ value = "One. Two limits. In startProducer what the go tool does before the prod
 basis = "Gotcha 5036. Decision 4091."
 affects = []
 
+[decision.4093]
+title = "The cases of internal/app of the holdings service get the same guard at the creation of a consumer, with cases of its own that need no broker; nothing is skipped or run again to hide the answer"
+value = "One. The guard. One function in a test file of the package internal/app, of the same behaviour as retryInventoryStreamRequest, gotcha 5037 point two: it repeats one request only on the answer stream not found, with a pause of 10 milliseconds between two tries and for at most five seconds, and returns every other error at once. When the five seconds pass it returns an error that carries the number of tries. Two. Its use. In each of the four files of gotcha 5037 point three the creation of the consumer goes through the function. An error that remains ends the case as today, with the words create consumer in front. What each case does with the consumer afterwards stays as it is. Three. Cases of the guard, in the file of the function, without a broker: a request that answers stream not found twice and then succeeds is tried three times and succeeds; another error returns after one try; a request that always answers stream not found ends with the error of point one when its context ends, for which the case gives the function a context of a few milliseconds. Four. Proof. Task 22.39.1305 runs the cases of the four files many times against the broker of its environment and gives the number of runs that failed, before the change and after it. The verification runs the whole package five times. Five. The second stream, gotcha 5037 point four, gets no guard: no test file sends a request that names it. If the runs of the task show the answer at a request of the product, the task changes nothing there and gives the step, the request and the line of the product in the final message. Six. Not done. No case is skipped, marked or put into the list tests/ci/data/launchpad_go_test_baseline.json. No case is run again after a failure so that a later try may pass. No pause is added that is not bound to the answer of point one. No file of the product, of the shared packages, of the workflow or of the package internal/production/l16 changes. "
+basis = "Gotcha 5037. Decision 4090."
+affects = []
+
+[decision.4094]
+title = "A retry that waited the delay its policy named reaches the server: the gate of the retry pace holds a read that arrives a short rest before it opens instead of refusing it; earlier reads are refused as today, no request leaves earlier than today, and no case is loosened"
+value = "One. The rule. A read that the query layer sends after it waited the delay its policy named is not answered with the retained error. It sends a request, and no earlier than the next time of the pace. Two. The form is the choice of task 22.39.1306 between two candidates. First candidate, the gate: a read that reaches the gate within a short rest before the next time is held until the clock of the pace has reached the next time, and then goes the way every read goes: it joins the request in flight for the resource or starts one. Second candidate, the policies: the delay that the two policies of gotcha 5038 points three and six return ends a short margin after the next time of the pace. The first candidate covers every caller of the pace in one place. It is taken unless it cannot keep point three or a case outside the paths of the task then fails; in that event the second is taken and the final message says why. The short rest or margin is one named constant of at most 100 milliseconds, a tenth of the delay the pace uses when the server names none. Its value follows the measure of point five. Three. What stays. A read that arrives earlier than the short rest before the next time gets the retained error and sends no request, as today. No request for a resource leaves before the next time of its pace, so no gap between two requests is shorter than today. Reads held for the same resource share one request. A read whose caller gives it up while it is held sends no request. The count of failures of the pace, its delays, the limit of four retries and the budget of 15 seconds do not change. Four. Cases, in src/core/retry-pace.test.ts, with a clock given to the pace and without a service. The case retryAfterThePolicyDelayReachesTheServer: a read that arrives a few milliseconds before the next time, as a retry of the query layer does in gotcha 5038 point four, calls the load function once more, and not before the clock has reached the next time. The case readWellBeforeTheNextTimeGetsTheRetainedError: a read that arrives at half the delay gets the retained error, and the load function is not called. With the first candidate one more case: two reads held for one resource lead to one call of the load function. With the second candidate the first case shows instead that the delay each of the two policies returns ends the margin after the next time. Five. The measure and the proof. Before the change the task measures, in a loop that is not part of the final revision, over at least 2000 waits of the timer of the runtime, how many waits end before the clock of the pace has advanced by the length of the wait and by how many milliseconds at most. It runs the file of the case of the record at least ten times before the change, with a line added by hand to the gate that notes the rest at each read the gate refuses, and ten times after the change. It gives the number of runs that fail with the record of gotcha 5038 point one and the figures noted. If the runs before the change do not show the failure, the task says so plainly, gives what it saw, and makes the change all the same. Six. Not done. The case of the record and its file stay as they are: it still expects five reads, and no check of it is loosened. No case is skipped, marked or run again after a failure. src/core/transient-retry.ts, the service of the fixture, the workflow and every file outside src/core do not change. The places of the chart sources in gotcha 5038 point six lie outside the paths of the task: with the first candidate the gate covers them, with the second the final message names them as open. Seven. After the task. The next records of the public job decide whether the row passes. A further cause that such a record shows gets a task of its own. "
+basis = "Gotcha 5038."
+affects = []
+
+[decision.4095]
+title = "The local journey of the agent kit waits for a receipt by reading the receipt until it is there, and no longer through a wait that needs a further block; the limit of 120 seconds stays, its error says what the chain knows of the transaction, and nothing is skipped"
+value = "One. The rule. The function receipt of the journey reads the receipt of the hash again and again, with a short pause, until the receipt is there or 120 seconds have passed. It does not depend on a block that comes after the block of the transaction. Everything the function checks after the wait stays as it is. Two. The error at the limit. When the limit passes, the error names the hash, the block number of the chain at that moment and whether the chain knows the transaction, so that a later record tells a transaction that never reached a block from a wait that did not see it. Three. Proof before the change. Task 22.39.1307 shows the cause with a count, in a loop that is not part of the final revision. The loop starts the chain of the fixture. In each of at least 1000 passes it sends one transaction from the first account of the chain through the request eth_sendTransaction of the provider, takes the hash of the answer, and calls waitForTransaction with it at once, for one confirmation and with a limit of 2000 milliseconds. The loop is to have the hash as early as the journey has it from the gateway, so it uses no method that first reads the transaction back. It counts the passes in which the wait ends at its limit and, for each of them, whether the receipt was there at that moment. The loop may stop after 20 such passes. The same loop then runs with the wait of point one. If the loop shows no pass that ends at its limit, the task says so plainly, gives its figures, and makes the change of point one all the same. Four. The other wait of the fixture. The task reads the method wait of the transaction in the package and runs the loop of point three with it, with the same limit given to the method. If the count shows passes that end at the limit, the function confirmed of test/local-chain.mjs gets the wait of point one as well; if it shows none, the function stays as it is. Five. Not done. The case and its nested checks are not skipped or marked, no limit is raised, and the chain of the fixture makes its blocks as it does today. The sources of the kit, the wallet gateway with its test support, contracts/launchpad, the workflow and the checks below tests/ci do not change. The fixture of the web of gotcha 5039 point seven lies outside the paths of the task and stays; a record that shows its wait ending at its limit gets a task of its own. Six. The verification runs the cases of the kit in the state that decision 4091 point five and decision 4092 point eight give: pnpm 9.15.0 first on the program path and the two go variables GOWORK and GOFLAGS. Node 22 and go 1.27.3 of the public job are not reproduced there. Seven. After the task. The next records of the public job decide whether the row passes. A further cause that such a record shows gets a task of its own, decision 4091 point six. "
+basis = "Gotcha 5039. Decision 4091."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47328,6 +47346,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1307]
+title = "Make the local journey of the agent kit wait for a receipt by reading it until it is there, and show with a count why the present wait can end at its limit"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/packages/agent-kit/test", "services/wallet/gateway/test/support"]
+tests = []
+verification_contract = "anvil --version > /dev/null && npm install --prefix /tmp/pm915 --no-audit --no-fund pnpm@9.15.0 > /dev/null && grep -e 9.15.0 /tmp/pm915/node_modules/pnpm/package.json > /dev/null && PATH=/tmp/pm915/node_modules/.bin:$PATH GOWORK=off GOFLAGS=-timeout=15m pnpm --dir sdk/launchpad/packages/agent-kit run test && grep -e agentWalksTheLaunchpadOnALocalChain sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs > /dev/null && ! grep -e waitForTransaction sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs > /dev/null"
+do_1 = "do_1 Gotcha 5039, decision 4095. Read whole: sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs and sdk/launchpad/packages/agent-kit/test/local-chain.mjs. Read in the package ethers that contracts/launchpad installs: the function waitForTransaction of lib.commonjs/providers/abstract-provider.js, the block poller of lib.commonjs/providers/subscriber-polling.js and the method wait of the transaction. Say in the final message whether the lines read there match gotcha 5039 point four. This task changes sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs and, only in the event of decision 4095 point four, sdk/launchpad/packages/agent-kit/test/local-chain.mjs, and no other file. The list of paths also names services/wallet/gateway/test/support, whose files the case loads: read what the case uses there and change nothing."
+symbols = []
+
+[capability.22.39.1306]
+title = "Let a retry that waited the delay its policy named pass the gate of the retry pace of the launchpad web, and keep the refusal of earlier reads"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/core"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/core/retry-pace.test.ts src/core/transient-retry.test.ts src/core/market src/widgets/trading && grep -e retryAfterThePolicyDelayReachesTheServer apps/launchpad/web/src/core/retry-pace.test.ts > /dev/null && grep -e readWellBeforeTheNextTimeGetsTheRetainedError apps/launchpad/web/src/core/retry-pace.test.ts > /dev/null"
+do_1 = "do_1 Gotcha 5038, decision 4094. Read whole: apps/launchpad/web/src/core/retry-pace.ts, apps/launchpad/web/src/core/cache-policy.ts, apps/launchpad/web/src/core/transient-retry.ts, apps/launchpad/web/src/core/market/feed-retry.test.ts and, in apps/launchpad/web/src/core/retry-pace.test.ts, the two cases that give the pace a clock of their own. This task changes files below apps/launchpad/web/src/core. It does not change apps/launchpad/web/src/core/market/feed-retry.test.ts, apps/launchpad/web/src/core/transient-retry.ts, any file below apps/launchpad/web/src/core/test-fixtures or any file outside apps/launchpad/web/src/core."
+symbols = []
+
+[capability.22.39.1305]
+title = "Give the cases of internal/app of the holdings service the guard at the creation of a consumer that the cases of the package l16 have"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && for i in 1 2 3 4 5; do GOWORK=off go test -count=1 -timeout 15m ./internal/app/ || exit 1; done)"
+do_1 = "do_1 Gotcha 5037, decision 4093. Read whole: services/launchpad/pnl-tracker/internal/production/l16/inventory_stream_test.go, services/launchpad/pnl-tracker/internal/app/accounting_lifecycle_test.go, services/launchpad/pnl-tracker/internal/app/ack_barrier_test.go, services/launchpad/pnl-tracker/internal/app/inventory_catchup_test.go and the case TestJourneyCompositionBindsActualRuntimeComponents of services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go. This task changes files whose names end in _test.go below services/launchpad/pnl-tracker/internal/app. It changes no other file."
+symbols = []
 
 [capability.22.39.1304]
 title = "Give the fetching and building of a producer in the cases of the client package a limit of its own, so that the start limit counts the start only, and prove it with nothing fetched and nothing built"
@@ -214909,9 +214954,108 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.1307]
+title = "Make the local journey of the agent kit wait for a receipt by reading it until it is there, and show with a count why the present wait can end at its limit"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1307"]
+interfaces = []
+do_1 = "do_1 Gotcha 5039, decision 4095. Read whole: sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs and sdk/launchpad/packages/agent-kit/test/local-chain.mjs. Read in the package ethers that contracts/launchpad installs: the function waitForTransaction of lib.commonjs/providers/abstract-provider.js, the block poller of lib.commonjs/providers/subscriber-polling.js and the method wait of the transaction. Say in the final message whether the lines read there match gotcha 5039 point four. This task changes sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs and, only in the event of decision 4095 point four, sdk/launchpad/packages/agent-kit/test/local-chain.mjs, and no other file. The list of paths also names services/wallet/gateway/test/support, whose files the case loads: read what the case uses there and change nothing."
+do_2 = "do_2 Before the change, point three. Run the build. Write the loop apart from the final revision: it starts the chain with startLaunchpadChain and uses the provider and the first account that function returns. At least 1000 passes, or fewer when 20 passes have ended at the limit: send one transaction through the request eth_sendTransaction of the provider, take the hash of the answer, call waitForTransaction with it at once for one confirmation with a limit of 2000 milliseconds, and when the wait ends at its limit read the receipt of the hash and the block number of the chain. Give the number of passes, the number that ended at the limit and, of those, the number whose receipt was there. Say also, from the sources of the wallet gateway, which this task only reads, whether the answer of the funding request goes out before the transaction is in a block."
+do_3 = "do_3 The change, points one and two. In the function receipt (line 79) the wait of line 81 gives way to reads of the receipt of the hash with a pause of 50 milliseconds between them, until the receipt is there or 120000 milliseconds have passed. At the limit the function throws an error that names the hash, the block number of the chain and whether the chain knows the transaction. The checks of the function after the wait stay as they are. The final revision of sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs does not name waitForTransaction."
+do_4 = "do_4 Point four. Run the loop of do_2 with the method wait of the transaction: here the transaction is sent with the method sendTransaction of the account, as the function confirmed receives it, and the method wait gets one confirmation and the limit of 2000 milliseconds. Give the same three figures. Change the function confirmed (line 126 of sdk/launchpad/packages/agent-kit/test/local-chain.mjs) only if passes end at the limit; then it reads the receipt as the function receipt does."
+do_5 = "do_5 After the change run the loop of do_2 with the new wait, with the same number of passes, and give its figures beside the figures of do_2. Then run the cases of the kit three times as the verification writes them, each run as a command of its own, and give for each run the result and the duration of the nested check ownerFundingUsesMatchingSignatureAttribution. Point five holds throughout: nothing is skipped or marked, no limit is raised, the chain makes its blocks as today, and no file outside the two named files changes. Say in the final message which parts of the state of the public job the runs did not reproduce."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/packages/agent-kit/test", "services/wallet/gateway/test/support"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript ci --workspaces=false --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build --workspaces=false && (cd sdk/wallet && pnpm install --ignore-workspace --frozen-lockfile) && (cd services/wallet && pnpm install --frozen-lockfile) && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter @kindle/agent-kit... run build"
+verify_cmd = "anvil --version > /dev/null && npm install --prefix /tmp/pm915 --no-audit --no-fund pnpm@9.15.0 > /dev/null && grep -e 9.15.0 /tmp/pm915/node_modules/pnpm/package.json > /dev/null && PATH=/tmp/pm915/node_modules/.bin:$PATH GOWORK=off GOFLAGS=-timeout=15m pnpm --dir sdk/launchpad/packages/agent-kit run test && grep -e agentWalksTheLaunchpadOnALocalChain sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs > /dev/null && ! grep -e waitForTransaction sdk/launchpad/packages/agent-kit/test/local-journey.test.mjs > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1306]
+title = "Let a retry that waited the delay its policy named pass the gate of the retry pace of the launchpad web, and keep the refusal of earlier reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1306"]
+interfaces = []
+do_1 = "do_1 Gotcha 5038, decision 4094. Read whole: apps/launchpad/web/src/core/retry-pace.ts, apps/launchpad/web/src/core/cache-policy.ts, apps/launchpad/web/src/core/transient-retry.ts, apps/launchpad/web/src/core/market/feed-retry.test.ts and, in apps/launchpad/web/src/core/retry-pace.test.ts, the two cases that give the pace a clock of their own. This task changes files below apps/launchpad/web/src/core. It does not change apps/launchpad/web/src/core/market/feed-retry.test.ts, apps/launchpad/web/src/core/transient-retry.ts, any file below apps/launchpad/web/src/core/test-fixtures or any file outside apps/launchpad/web/src/core."
+do_2 = "do_2 Before the change, decision 4094 point five. Run the build. The measure: a loop of at least 2000 waits of the timer of the runtime, each between 1 and 50 milliseconds long, that notes for each wait by how much the clock of line 22 of the pace advanced. Give the number of waits that ended before the clock had advanced by their length and the largest shortfall in milliseconds. Then add by hand a line to the gate (line 48) that notes, for each read it answers with the retained error, the next time minus the clock, and run the file of the case ten times, each time as a command of its own: pnpm --dir apps/launchpad/web run test src/core/market/feed-retry.test.ts. Keep the number of runs that fail, the first message of each and the figures the line noted. The loop and the line are tools of the search and are not part of the final revision."
+do_3 = "do_3 The change, points one to three. First candidate: in the method read (line 42) a read that reaches the gate within the short rest before the next time is held until the clock of the pace has reached the next time and then goes on as every read does. The short rest is one named constant of the file. The answer of the gate to every earlier read, the count of failures, the delays and the next time (lines 72 and 74) stay as they are. If the first candidate cannot keep point three, or a case outside the paths then fails, take the second candidate in apps/launchpad/web/src/core/cache-policy.ts (line 11) and apps/launchpad/web/src/core/market/use-wallet-identities.ts (line 111) and say why in the final message."
+do_4 = "do_4 The cases, point four, in apps/launchpad/web/src/core/retry-pace.test.ts: retryAfterThePolicyDelayReachesTheServer and readWellBeforeTheNextTimeGetsTheRetainedError, and with the first candidate the case of two held reads. They give the pace a clock of their own, need no service and end within a second each."
+do_5 = "do_5 After the change run the command of do_2 ten times again and give the figures beside the figures of do_2. Then run the script test of the web once without a path, by hand, and give for each case that fails its name, its file and its first message. Point six holds throughout: the case of the record keeps its five reads, nothing is skipped, marked or run again after a failure, and no file outside apps/launchpad/web/src/core changes."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/core"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/core/retry-pace.test.ts src/core/transient-retry.test.ts src/core/market src/widgets/trading && grep -e retryAfterThePolicyDelayReachesTheServer apps/launchpad/web/src/core/retry-pace.test.ts > /dev/null && grep -e readWellBeforeTheNextTimeGetsTheRetainedError apps/launchpad/web/src/core/retry-pace.test.ts > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1305]
+title = "Give the cases of internal/app of the holdings service the guard at the creation of a consumer that the cases of the package l16 have"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1305"]
+interfaces = []
+do_1 = "do_1 Gotcha 5037, decision 4093. Read whole: services/launchpad/pnl-tracker/internal/production/l16/inventory_stream_test.go, services/launchpad/pnl-tracker/internal/app/accounting_lifecycle_test.go, services/launchpad/pnl-tracker/internal/app/ack_barrier_test.go, services/launchpad/pnl-tracker/internal/app/inventory_catchup_test.go and the case TestJourneyCompositionBindsActualRuntimeComponents of services/launchpad/pnl-tracker/internal/app/runtime_composition_test.go. This task changes files whose names end in _test.go below services/launchpad/pnl-tracker/internal/app. It changes no other file."
+do_2 = "do_2 Before the change, decision 4093 point four. Run the build. Then run, inside services/launchpad/pnl-tracker with GOWORK=off and each time as a command of its own, go test -count=1 for the package ./internal/app/ with the option -run and the name of one case of the four files, at least 20 times for each of these cases: TestAccountingConsumerTermination, TestCommitBarrierAcknowledgesOnlyAfterRelease, TestInventoryCatchUpPassRunsBesideTheConsumer and TestJourneyCompositionBindsActualRuntimeComponents. Keep the number of runs that fail and the first message of each."
+do_3 = "do_3 The guard, points one and three. Write the function and its three cases into one new test file of the package. The cases of the guard need no broker and no database."
+do_4 = "do_4 Its use, point two. Send the creation of the consumer through the function in accounting_lifecycle_test.go (line 56), ack_barrier_test.go (line 45), inventory_catchup_test.go (line 67) and runtime_composition_test.go (line 438). Keep the configuration of each consumer and everything after the creation as it is."
+do_5 = "do_5 After the change run the commands of do_2 again, the same number of times, and give the figures beside the figures of do_2. Point six holds throughout: nothing is skipped, no case is run again after a failure, and no file outside the test files of the package changes. Point five: the second stream gets no guard."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/app"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./internal/app/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && for i in 1 2 3 4 5; do GOWORK=off go test -count=1 -timeout 15m ./internal/app/ || exit 1; done)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.1304]
 title = "Give the fetching and building of a producer in the cases of the client package a limit of its own, so that the start limit counts the start only, and prove it with nothing fetched and nothing built"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214944,7 +215088,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1303]
 title = "Make the local journey of the agent kit compile the contracts with the package manager the contracts package names, and prove it with the package manager of the public job first on the program path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214977,7 +215121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1302]
 title = "Make the helper of the holdings cases name the step that fails, search the cause of the answer stream not found from the event broker and repair it inside the cases of the package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
