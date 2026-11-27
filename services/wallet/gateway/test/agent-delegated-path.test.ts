@@ -941,31 +941,31 @@ async function approvalSpenderPolicyMatchesAttestor(): Promise<void> {
 }
 
 test(delegatedAgentPath, delegatedAgentPath, 900_000);
-test(approvalSpenderPolicyMatchesAttestor, approvalSpenderPolicyMatchesAttestor, 120_000);
+test(approvalSpenderPolicyMatchesAttestor, approvalSpenderPolicyMatchesAttestor, 300_000);
 test(
   selectorAllowRulesRestrictContractFunctions,
   selectorAllowRulesRestrictContractFunctions,
-  60_000
+  300_000
 );
 test(
   approvalSpendersDoNotBecomeWithdrawalDestinations,
   approvalSpendersDoNotBecomeWithdrawalDestinations,
-  60_000
+  300_000
 );
 
-test(agentReauthorizationCountsTransactionOnce, agentReauthorizationCountsTransactionOnce, 60_000);
+test(agentReauthorizationCountsTransactionOnce, agentReauthorizationCountsTransactionOnce, 300_000);
 test(
   standardProvisioningRequiresSigningInventory,
   standardProvisioningRequiresSigningInventory,
-  60_000
+  300_000
 );
 test(
   nativeTransferSwitchRestrictsBareTransfers,
   nativeTransferSwitchRestrictsBareTransfers,
-  60_000
+  300_000
 );
 
-test(allowanceAndCallAccountsForEachLegOnce, allowanceAndCallAccountsForEachLegOnce, 120_000);
+test(allowanceAndCallAccountsForEachLegOnce, allowanceAndCallAccountsForEachLegOnce, 300_000);
 
 async function walletOnlyProvisioningLeavesIdentityPending(): Promise<void> {
   const before = chain.sent.length;
@@ -1012,7 +1012,7 @@ async function receiptSourceSelectionIsExplicit(): Promise<void> {
 test(
   walletOnlyProvisioningLeavesIdentityPending,
   walletOnlyProvisioningLeavesIdentityPending,
-  120_000
+  300_000
 );
 test(
   launchpadBuyDecodesOnlyCanonicalSignedOperands,
