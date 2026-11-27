@@ -214959,7 +214959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1304]
 title = "Give the fetching and building of a producer in the cases of the client package a limit of its own, so that the start limit counts the start only, and prove it with nothing fetched and nothing built"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214992,7 +214992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1303]
 title = "Make the local journey of the agent kit compile the contracts with the package manager the contracts package names, and prove it with the package manager of the public job first on the program path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
