@@ -42,9 +42,11 @@ func TestCommitBarrierAcknowledgesOnlyAfterRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	consumer, err := js.CreateOrUpdateConsumer(ctx, name, broker)
+	consumer, err := retryInventoryStreamRequest(ctx, func(requestCtx context.Context) (jetstream.Consumer, error) {
+		return js.CreateOrUpdateConsumer(requestCtx, name, broker)
+	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("create consumer:", err)
 	}
 	transport, err := natsdriver.NewConsumer(ctx, nc, cfg)
 	if err != nil {

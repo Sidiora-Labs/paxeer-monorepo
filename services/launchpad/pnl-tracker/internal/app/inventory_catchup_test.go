@@ -64,9 +64,11 @@ func TestInventoryCatchUpPassRunsBesideTheConsumer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	broker, err := js.CreateOrUpdateConsumer(ctx, name, brokerConfig)
+	broker, err := retryInventoryStreamRequest(ctx, func(requestCtx context.Context) (jetstream.Consumer, error) {
+		return js.CreateOrUpdateConsumer(requestCtx, name, brokerConfig)
+	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatal("create consumer:", err)
 	}
 	transport, err := natsdriver.NewConsumer(ctx, fixture.nc, config)
 	if err != nil {
