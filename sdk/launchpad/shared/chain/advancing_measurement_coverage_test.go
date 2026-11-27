@@ -20,22 +20,12 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/chain/readpolicy"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func TestChainMeasurementTracksCommittedIngestAcrossEndpointLoss(t *testing.T) {
-	ctx := context.Background()
-	adapter, backend := snapshotRuntimeFixture(t, "surface")
-	headers := map[uint64]*types.Header{100: backend.header}
-	for height := uint64(101); height <= 102; height++ {
-		header := types.CopyHeader(backend.header)
-		header.Number = new(big.Int).SetUint64(height)
-		header.ParentHash = consensusHash(headers[height-1])
-		headers[height] = header
-	}
-	pool := newMeasurementDatabase(t)
-	var started atomic.Int64
-	started.Store(time.Now().UnixNano())
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func advancingMeasurementHandler(t *testing.T, ctx context.Context, backend *snapshotRuntimeReader, pool *pgxpool.Pool, headers map[uint64]*types.Header, started *atomic.Int64) http.Handler {
+	t.Helper()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "invalid request", 400)
@@ -78,7 +68,9 @@ func TestChainMeasurementTracksCommittedIngestAcrossEndpointLoss(t *testing.T) {
 			}
 		}
 		if req.Method == "eth_getBlockByNumber" && selected.Number.Uint64() > 100 {
-			if _, err := pool.Exec(r.Context(), "UPDATE indexer.indexer_ingest_watermarks_v1 SET raw_complete_height=102,typed_complete_height=102"); err != nil {
+			writeCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			if _, err := pool.Exec(writeCtx, "UPDATE indexer.indexer_ingest_watermarks_v1 SET raw_complete_height=102,typed_complete_height=102"); err != nil {
 				t.Error(err)
 				http.Error(w, "durable source unavailable", 500)
 				return
@@ -88,7 +80,23 @@ func TestChainMeasurementTracksCommittedIngestAcrossEndpointLoss(t *testing.T) {
 		copyBackend.header = selected
 		r.Body = io.NopCloser(bytes.NewReader(raw))
 		copyBackend.ServeHTTP(w, r)
-	}))
+	})
+}
+
+func TestChainMeasurementTracksCommittedIngestAcrossEndpointLoss(t *testing.T) {
+	ctx := context.Background()
+	adapter, backend := snapshotRuntimeFixture(t, "surface")
+	headers := map[uint64]*types.Header{100: backend.header}
+	for height := uint64(101); height <= 102; height++ {
+		header := types.CopyHeader(backend.header)
+		header.Number = new(big.Int).SetUint64(height)
+		header.ParentHash = consensusHash(headers[height-1])
+		headers[height] = header
+	}
+	pool := newMeasurementDatabase(t)
+	var started atomic.Int64
+	started.Store(time.Now().UnixNano())
+	server := httptest.NewServer(advancingMeasurementHandler(t, ctx, backend, pool, headers, &started))
 	defer server.Close()
 	primary, err := NewChainMeasurementEndpoint(server.URL)
 	if err != nil {
@@ -164,5 +172,37 @@ INSERT INTO indexer.indexer_ingest_watermarks_v1 VALUES(125,'advancing',100,100)
 	result, err := FinishChainMeasurement(run, ChainMeasurementEvidence{})
 	if err == nil || result.LaneHarnessPassed || result.RawRows <= 1000 || result.FailureCode != "MISSING_ENVIRONMENT_OR_TOPOLOGY_BINDING" {
 		t.Fatalf("source evidence admission: %+v %v", result, err)
+	}
+}
+
+func TestChainMeasurementTracksCommittedIngestWhenARequestEnds(t *testing.T) {
+	ctx := context.Background()
+	_, backend := snapshotRuntimeFixture(t, "surface")
+	headers := map[uint64]*types.Header{100: backend.header}
+	for height := uint64(101); height <= 102; height++ {
+		header := types.CopyHeader(backend.header)
+		header.Number = new(big.Int).SetUint64(height)
+		header.ParentHash = consensusHash(headers[height-1])
+		headers[height] = header
+	}
+	pool := newMeasurementDatabase(t)
+	if _, err := pool.Exec(ctx, `CREATE SCHEMA indexer;
+CREATE TABLE indexer.indexer_ingest_watermarks_v1(chain_id bigint,stream_id text,raw_complete_height bigint,typed_complete_height bigint);
+INSERT INTO indexer.indexer_ingest_watermarks_v1 VALUES(125,'advancing',100,100)`); err != nil {
+		t.Fatal(err)
+	}
+	var started atomic.Int64
+	started.Store(time.Now().UnixNano())
+	handler := advancingMeasurementHandler(t, ctx, backend, pool, headers, &started)
+	requestCtx, cancel := context.WithCancel(ctx)
+	cancel()
+	request := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["0x65",false]}`)).WithContext(requestCtx)
+	handler.ServeHTTP(httptest.NewRecorder(), request)
+	var rawHeight, typedHeight int64
+	if err := pool.QueryRow(ctx, "SELECT raw_complete_height,typed_complete_height FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id='advancing'").Scan(&rawHeight, &typedHeight); err != nil {
+		t.Fatal(err)
+	}
+	if rawHeight != 102 || typedHeight != 102 {
+		t.Fatalf("committed ingest watermark: raw=%d typed=%d, want both 102", rawHeight, typedHeight)
 	}
 }
