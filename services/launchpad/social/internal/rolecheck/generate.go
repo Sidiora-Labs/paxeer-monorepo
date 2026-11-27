@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-//go:generate go run ./cmd/rolecheckgen -root ../../../../.. -select services/launchpad/social/internal/app/app.go:socialConnectedRuntime.publicResource
+//go:generate go run ./cmd/rolecheckgen -root ../../../../.. -select services/launchpad/social/internal/app/app.go:socialConnectedRuntime.publicResource,services/launchpad/social/internal/interactions/outbox.go:Publisher.Record,services/launchpad/social/internal/interactions/wallet_comments.go:HTTP.walletCommentsSnapshot
 
 // WriteStatementLocations renews inventory locations from the SQL call sites.
 // Object descriptions remain bound to identical SQL; changed SQL requires a new
@@ -80,6 +80,10 @@ func WriteStatementLocations(root string, selections ...string) error {
 		}
 		*s = matches[0]
 		s.ID = fmt.Sprintf("%s:%s:%d", prefix, s.Function, s.Ordinal)
+		locations[fmt.Sprintf("%s:%s:%d", s.File, s.Function, s.Ordinal)] = true
+	}
+	locations = map[string]bool{}
+	for _, s := range statements {
 		locations[fmt.Sprintf("%s:%s:%d", s.File, s.Function, s.Ordinal)] = true
 	}
 	for _, selection := range selections {

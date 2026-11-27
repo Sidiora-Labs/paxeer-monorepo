@@ -199,7 +199,7 @@ export default function TokenMarketLayout({ poolAddress, initialStreams, initial
           ) : null}
           <div className="min-w-0 md:col-span-2 lg:col-span-1"><RailHolders poolAddress={poolAddress} liveStats={liveStats} /></div>
           <PremiumErrorBoundary area="Stats"><StatsAuditPanel poolAddress={poolAddress} liveStats={liveStats} /></PremiumErrorBoundary>
-          <PremiumErrorBoundary area="Pool info"><PoolInfoCard poolAddress={poolAddress} /></PremiumErrorBoundary>
+          <PremiumErrorBoundary area="Pool info"><PoolInfoCard poolAddress={poolAddress} liveStats={liveStats} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Creator"><CreatorCard poolAddress={poolAddress} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Market cap"><McAthCard poolAddress={poolAddress} liveStats={liveStats} /></PremiumErrorBoundary>
           <PremiumErrorBoundary area="Description"><DescriptionCard poolAddress={poolAddress} /></PremiumErrorBoundary>

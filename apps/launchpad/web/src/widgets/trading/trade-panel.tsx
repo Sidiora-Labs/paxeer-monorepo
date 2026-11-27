@@ -232,7 +232,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
             </NoticeBar>
           ) : null}
           {/* A missing trading deployment is already the action button's state once the viewer can trade; before that it is noise in the rail. */}
-          <TradeQuoteNotices priceMoved={t.priceMoved} error={preview.showError ? t.approvalError : undefined} onRefresh={t.retryQuote} />
+          <TradeQuoteNotices priceMoved={t.priceMoved} staleQuoteCause={t.staleQuoteCause} error={preview.showError ? t.approvalError : undefined} onRefresh={t.retryQuote} />
         </div>
 
         <ActionButton state={action} side={side} onClick={onAction} />
@@ -273,6 +273,7 @@ export default function TradePanel({ poolAddress }: TradePanelProps) {
 
       {t.toastData ? (
         <TradeToast
+          tokenAsset={{ address: snapshot.data?.pool.tokenAddress ?? '', symbol: snapshot.data?.token?.symbol }}
           data={{
             ...t.toastData,
             tokenName: tokenSymbol,

@@ -15,6 +15,10 @@
   overflow: visible;
 }
 
+.coin-holders-table {
+  overflow-wrap: normal;
+}
+
 .coin-holder-share {
   display: flex;
   flex-direction: column;

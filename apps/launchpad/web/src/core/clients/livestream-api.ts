@@ -4,7 +4,7 @@
 import {plainCopy} from '@/core/user-facing-error';
 import {LIVESTREAM_SIGNATURE_HEADER,operationHeaders,signOperation,type OperationMethod} from '@/core/operation-envelope';
 import {livestreamApiBase} from '@/core/backend-origins';
-import { retryFields } from '@/core/transient-retry';
+import { retryFields } from '@/core/retry-fields';
 const API=livestreamApiBase()??'';
 export type StreamViewerQuality="verified"|"unavailable"|"stale";
 export type StreamStatus='created'|'starting'|'live'|'ending'|'ended'|'failed'|'suspended';

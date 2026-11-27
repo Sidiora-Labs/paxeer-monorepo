@@ -191,10 +191,18 @@ export function useRequiredTradeExecutionDeployment() {
     throw new Error('Attested trade execution authority unavailable');
   return deployment;
 }
+export interface TradeFeeAsset {
+  address: Address;
+  decimals: number;
+}
+export function tradeFeeAsset(isBuy: boolean, usdl: Address, token: Address, tokenDecimals: number): TradeFeeAsset {
+  return { address: isBuy ? usdl : token, decimals: isBuy ? 6 : tokenDecimals };
+}
 export interface ActualFill {
   inputRaw: bigint;
   outputRaw: bigint;
   feeRaw: bigint;
+  feeAsset: TradeFeeAsset;
   blockHeight: bigint;
   isBuy: boolean;
   pool: Address;
@@ -954,6 +962,7 @@ export class ChainTradeProvider {
       inputRaw: fill.amountIn,
       outputRaw: fill.amountOut,
       feeRaw: fill.fee,
+      feeAsset: tradeFeeAsset(isBuy, this.deployment.usdl, token, tokenDecimals),
       blockHeight: receipt.blockNumber,
       isBuy,
       pool,

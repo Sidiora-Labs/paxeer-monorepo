@@ -50,6 +50,5 @@ export default function TokenDescription({ poolAddress }: { poolAddress: string 
         </li>;
       })}
     </ul> : null}
-    <p className="text-xs text-text-faint">Metadata revision {content.revision}</p>
   </section>;
 }

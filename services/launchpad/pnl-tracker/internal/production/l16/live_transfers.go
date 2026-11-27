@@ -1423,7 +1423,11 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 func (w *LiveTransferWorker) acceptedHeadTx(ctx context.Context, tx pgx.Tx) (int64, string, error) {
 	var height int64
 	var blockHash string
-	e := tx.QueryRow(ctx, `SELECT c.height,c.block_hash FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=w.chain_id AND c.stream_id=w.stream_id AND c.height=LEAST(w.raw_complete_height,w.typed_complete_height) JOIN indexer.indexer_committed_heads_v1 h ON h.chain_id=c.chain_id AND h.stream_id=c.stream_id AND h.height=c.height AND h.block_hash=c.block_hash AND h.integrity='healthy' WHERE w.chain_id=125 AND w.stream_id=$1 AND c.fetch_complete AND c.required_decode_complete AND c.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=c.chain_id AND r.height=c.height)`, w.service.authority.sourceStream).Scan(&height, &blockHash)
+	e := tx.QueryRow(ctx, `SELECT LEAST(raw_complete_height,typed_complete_height) FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1`, w.service.authority.sourceStream).Scan(&height)
+	if e != nil {
+		return 0, "", e
+	}
+	e = tx.QueryRow(ctx, `SELECT c.height,c.block_hash FROM indexer.indexer_block_completeness_v1 c JOIN indexer.indexer_committed_heads_v1 h ON h.chain_id=c.chain_id AND h.stream_id=c.stream_id AND h.height=$3::numeric AND h.block_hash=c.block_hash AND h.integrity='healthy' WHERE c.chain_id=125 AND c.stream_id=$1 AND c.height=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND c.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=c.chain_id AND r.height=c.height)`, w.service.authority.sourceStream, height, height).Scan(&height, &blockHash)
 	if e != nil {
 		return 0, "", e
 	}

@@ -178,13 +178,15 @@ type portfolioBody struct {
 			} `json:"watermark"`
 		} `json:"summary"`
 		Positions []struct {
-			PositionID                string  `json:"positionId"`
-			TokenAddress              string  `json:"tokenAddress"`
-			BalanceRaw                string  `json:"balanceRaw"`
-			KnownRemainingCostUsdlRaw string  `json:"knownRemainingCostUsdlRaw"`
-			RemainingCostUsdlRaw      *string `json:"remainingCostUsdlRaw"`
-			RealizedPnlRaw            *string `json:"realizedPnlRaw"`
-			PricingQuality            string  `json:"pricingQuality"`
+			PositionID                string           `json:"positionId"`
+			TokenAddress              string           `json:"tokenAddress"`
+			BalanceRaw                string           `json:"balanceRaw"`
+			KnownRemainingCostUsdlRaw string           `json:"knownRemainingCostUsdlRaw"`
+			RemainingCostUsdlRaw      *string          `json:"remainingCostUsdlRaw"`
+			RealizedPnlRaw            *string          `json:"realizedPnlRaw"`
+			PricingQuality            string           `json:"pricingQuality"`
+			MarkPrice                 *json.RawMessage `json:"markPrice"`
+			UnrealizedPnlRaw          *string          `json:"unrealizedPnlRaw"`
 		} `json:"positions"`
 		Next string `json:"next"`
 	} `json:"data"`
@@ -244,6 +246,9 @@ func TestPublicPortfolioProjectsDevFoldAndPages(t *testing.T) {
 	}
 	if got := page1.PositionErrors[p.PositionID]; len(got) != 1 || got[0] != "current_valuation_unavailable" {
 		t.Fatalf("position errors = %+v", page1.PositionErrors)
+	}
+	if p.MarkPrice != nil || p.UnrealizedPnlRaw != nil {
+		t.Fatalf("development position valuation = %+v", p)
 	}
 	var page2 portfolioBody
 	mustContract(t, "ConnectedPortfolioV3Response", get(t, f.router, "/v3/wallets/"+trader+"/portfolio?limit=1&cursor="+url.QueryEscape(page1.Data.Next), ""), &page2)
