@@ -776,6 +776,10 @@
       backdrop-filter: blur(var(--sl-floating-blur));
     }
   }
+  .sl-floating-opaque {
+    background: var(--sl-surface-2);
+    backdrop-filter: none;
+  }
   .sl-row-wash-up {
     background-image: linear-gradient(to right, transparent 50%, var(--sl-tint-accent-row-wash));
   }
