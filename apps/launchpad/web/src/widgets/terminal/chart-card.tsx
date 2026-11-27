@@ -30,7 +30,7 @@ export function clockLabel(now: number): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())} (UTC${sign}${hours}${minutes ? `:${pad(minutes)}` : ''})`;
 }
 
-/** Terminal centre chart: the shared TradingView chart (toolbar, plot, resize) with fullscreen, interval quick picks and a local clock. */
+/** Terminal centre chart: the shared price chart (toolbar, plot, resize) with fullscreen, interval quick picks and a local clock. */
 export default function TerminalChartCard({ poolAddress }: { poolAddress: string }) {
   const cardRef = useRef<HTMLElement>(null);
   const snapshot = usePoolSnapshot(poolAddress);

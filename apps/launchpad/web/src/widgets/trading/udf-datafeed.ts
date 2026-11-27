@@ -328,7 +328,7 @@ function chartResolutionList(value: unknown): ResolutionString[] {
   return Object.keys(CHART_RESOLUTIONS).filter((alias) => aliases.has(alias)) as ResolutionString[];
 }
 
-/** TradingView library configuration from GET /v2/udf/config. */
+/** Chart library configuration from GET /v2/udf/config. */
 export function chartLibraryConfig(value: unknown) {
   const config = chartRecord(value, 'chart configuration');
   if (config.supports_time !== true) throw new Error('Chart configuration without server time');
@@ -342,7 +342,7 @@ export function chartLibraryConfig(value: unknown) {
   };
 }
 
-/** TradingView symbol info from GET /v2/udf/symbols (verified pool metadata). */
+/** Chart symbol information from GET /v2/udf/symbols (verified pool metadata). */
 export function chartSymbolInfo(
   value: unknown,
   poolAddress: string,

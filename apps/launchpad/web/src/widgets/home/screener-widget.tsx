@@ -8,7 +8,7 @@ import type { RankingCategory } from '@/core/market/use-rankings';
 import { SourceNotice } from '@/ui/common/source-notice';
 import { WatchlistNotice } from '@/ui/common/watchlist-notice';
 import { useWatchlist } from '@/hooks/ui/use-watchlist';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { compactCount } from '@/page-modules/token/market-presentation';
 import { RiskRow, riskLegend } from './risk-row';
 import { matchesFilter } from './trending-widget';
@@ -28,7 +28,7 @@ export const feesUnavailableReason = 'Fees are not tracked yet';
 
 export function screenerStats(row: ExploreRow): CoinCardStat[] {
   return [
-    { label: 'V', value: row.volume24hRaw ? formatUsdl(row.volume24hRaw, { compact: true, unit: false }) : null },
+    { label: 'V', value: row.volume24hRaw ? formatCompactUsd(row.volume24hRaw, { raw: true, compact: true }) : null },
     { label: 'TX', value: row.txns === null ? null : compactCount(row.txns) },
     { label: 'F', value: <span title={feesUnavailableReason} className="text-text-faint">—</span> },
   ];

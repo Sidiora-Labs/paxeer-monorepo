@@ -17,11 +17,7 @@ export function safeFixed(value: unknown, decimals = 2): string {
 }
 
 export function formatCurrency(value: number | string | undefined | null, decimals = 2): string {
-  const v = Number(value ?? 0);
-  if (v >= 1_000_000_000) return `$${(v / 1_000_000_000).toFixed(decimals)}B`;
-  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(decimals)}M`;
-  if (v >= 1_000) return `$${(v / 1_000).toFixed(decimals)}K`;
-  return `$${v.toFixed(decimals)}`;
+  return formatCompactUsd(formatNumber(value, decimals), { numeral: true });
 }
 
 export function formatNumber(value: number | string | undefined | null, decimals = 2): string {
@@ -71,17 +67,17 @@ const SUBSCRIPT_DIGITS = ['\u2080','\u2081','\u2082','\u2083','\u2084','\u2085',
 
 /** Float-based price formatting — used only when the caller already holds a human number. */
 function formatPriceFromNumber(val: number): string {
-  if (val === 0) return '$0.00';
-  if (val >= 1) return `$${val.toFixed(2)}`;
-  if (val >= 0.01) return `$${val.toFixed(4)}`;
+  if (val === 0) return formatCompactUsd('0.00', { numeral: true });
+  if (val >= 1) return formatCompactUsd(val.toFixed(2), { numeral: true });
+  if (val >= 0.01) return formatCompactUsd(val.toFixed(4), { numeral: true });
   const s = val.toFixed(20);
   const afterDot = s.slice(2);
   let zeros = 0;
   for (const ch of afterDot) { if (ch === '0') zeros++; else break; }
   const sig = afterDot.slice(zeros, zeros + 4).replace(/0+$/, '');
-  if (zeros <= 3) return `$0.${'0'.repeat(zeros)}${sig}`;
+  if (zeros <= 3) return formatCompactUsd(`0.${'0'.repeat(zeros)}${sig}`, { numeral: true });
   const sub = String(zeros).split('').map(d => SUBSCRIPT_DIGITS[Number(d)] ?? d).join('');
-  return `$0.0${sub}${sig}`;
+  return formatCompactUsd(`0.0${sub}${sig}`, { numeral: true });
 }
 
 /**
@@ -91,7 +87,7 @@ function formatPriceFromNumber(val: number): string {
  * is treated as an already-human price and formatted via the float path.
  */
 export function formatPrice(raw: string | number | undefined | null): string {
-  if (raw === undefined || raw === null || raw === '') return '$0.00';
+  if (raw === undefined || raw === null || raw === '') return formatCompactUsd('0.00', { numeral: true });
   if (typeof raw === 'number') return formatPriceFromNumber(raw);
   return formatPriceFromDecimalString(formatUnitsExact(raw, PRICE_DECIMALS));
 }
@@ -170,7 +166,7 @@ const COMPACT_STEPS: Array<{ limit: bigint; suffix: string }> = [
 ];
 
 /** Compact a scaled integer (already at `fractionDigits`) into "1.23K" style; exact up to the displayed digits. */
-function compactScaled(scaled: bigint, fractionDigits: number, maxCompactDigits = 2): string {
+function compactScaled(scaled: bigint, fractionDigits: number, maxCompactDigits = 2, trimCompact = true): string {
   const neg = scaled < 0n;
   const abs = neg ? -scaled : scaled;
   const unit = pow10(fractionDigits);
@@ -180,7 +176,7 @@ function compactScaled(scaled: bigint, fractionDigits: number, maxCompactDigits 
       const limitScaled = step.limit * unit;
       const rounded = (abs * pow10(maxCompactDigits) * 2n + limitScaled) / (limitScaled * 2n);
       const { integer, fraction } = splitScaled(rounded, maxCompactDigits);
-      const trimmed = fraction.replace(/0+$/, '');
+      const trimmed = trimCompact ? fraction.replace(/0+$/, '') : fraction;
       return `${neg ? '-' : ''}${integer}${trimmed ? '.' + trimmed : ''}${step.suffix}`;
     }
   }
@@ -195,6 +191,16 @@ export interface FormatUsdlOptions {
   fractionDigits?: number;
   /** "1.23K USDL" instead of "1,234.56 USDL". */
   compact?: boolean;
+  /** Fraction digits in the compact form. Default 2. */
+  compactDigits?: number;
+  /** Trim trailing zeros in the compact form. Default true. */
+  trimCompact?: boolean;
+  /** Omit trailing fractional zeros. Default false. */
+  trimFraction?: boolean;
+  /** Group thousands in the plain form. Default true. */
+  group?: boolean;
+  /** Show every nonzero sub-unit amount as less than one whole unit. */
+  minimumUnit?: boolean;
   /** Append the unit label. Default true. */
   unit?: boolean;
   /** Always show the sign for positive values. */
@@ -203,11 +209,14 @@ export interface FormatUsdlOptions {
 
 /** Format a raw USDL amount (6 decimals) with the unit in text. Nonzero values below the floor read "< 0.01 USDL". */
 export function formatUsdl(raw: string | bigint | null | undefined, opts: FormatUsdlOptions = {}): string {
-  const { decimals = 6, fractionDigits = 2, compact = false, unit = true, signed = false } = opts;
+  const { decimals = 6, fractionDigits = 2, compact = false, unit = true, signed = false, group = true, trimFraction = false, compactDigits = 2, trimCompact = true, minimumUnit = false } = opts;
   const suffix = unit ? ' USDL' : '';
   if (raw === null || raw === undefined) return EM_DASH;
   const value = toBigInt(raw);
   if (value === null) return EM_DASH;
+  if (minimumUnit && value !== 0n && (value < 0n ? -value : value) < pow10(decimals)) {
+    return `${value < 0n ? '> -' : '< '}1${suffix}`;
+  }
   const scaled = scaleRaw(value, decimals, fractionDigits);
   if (value !== 0n && scaled === 0n) {
     const floor = fractionDigits > 0 ? `0.${'0'.repeat(fractionDigits - 1)}1` : '1';
@@ -215,14 +224,26 @@ export function formatUsdl(raw: string | bigint | null | undefined, opts: Format
   }
   const { neg, integer, fraction } = splitScaled(scaled, fractionDigits);
   const body = compact
-    ? compactScaled(scaled < 0n ? -scaled : scaled, fractionDigits)
-    : `${groupThousands(integer)}${fraction ? '.' + fraction : ''}`;
+    ? compactScaled(scaled < 0n ? -scaled : scaled, fractionDigits, compactDigits, trimCompact)
+    : `${group ? groupThousands(integer) : integer}${fraction ? '.' + fraction : ''}`;
   const sign = neg ? '-' : signed && scaled > 0n ? '+' : '';
-  return `${sign}${body}${suffix}`;
+  const numeral = trimFraction ? body.replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1') : body;
+  return `${sign}${numeral}${suffix}`;
 }
 
-/** Compact USD display for an already-decimal value: "$1.23K", "$12.5M", "$0.42". */
-export function formatCompactUsd(value: number | string | null | undefined): string {
+export interface FormatMarketValueOptions extends Omit<FormatUsdlOptions, 'unit'> {
+  /** Interpret the input as an exact integer in its raw scale. */
+  raw: true;
+}
+
+/** Market values carry a dollar sign; raw inputs retain exact amount rounding and short forms. */
+export function formatCompactUsd(value: number | string | bigint | null | undefined, opts?: FormatMarketValueOptions | { numeral: true }): string {
+  const withUnit = (text: string) => text === EM_DASH ? text : text.replace(/^(≈|> -|[+-]?< |[+-])?/, '$1$');
+  if (opts && 'numeral' in opts) return value === null || value === undefined ? EM_DASH : withUnit(String(value));
+  if (opts?.raw) {
+    const text = formatUsdl(typeof value === 'number' ? String(value) : value, { ...opts, unit: false });
+    return withUnit(text);
+  }
   if (value === null || value === undefined || value === '') return EM_DASH;
   const v = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(v)) return EM_DASH;
@@ -231,12 +252,12 @@ export function formatCompactUsd(value: number | string | null | undefined): str
   const sign = neg ? '-' : '';
   if (abs >= 1_000) {
     const cents = BigInt(Math.round(abs * 100));
-    return `${sign}$${compactScaled(cents, 2)}`;
+    return withUnit(`${sign}${compactScaled(cents, 2)}`);
   }
-  if (abs >= 1) return `${sign}$${abs.toFixed(2)}`;
-  if (abs === 0) return '$0.00';
-  if (abs < 0.01) return `${sign}< $0.01`;
-  return `${sign}$${abs.toFixed(2)}`;
+  if (abs >= 1) return withUnit(`${sign}${abs.toFixed(2)}`);
+  if (abs === 0) return withUnit('0.00');
+  if (abs < 0.01) return withUnit(`${sign}< 0.01`);
+  return withUnit(`${sign}${abs.toFixed(2)}`);
 }
 
 export interface FormatTokenAmountOptions {

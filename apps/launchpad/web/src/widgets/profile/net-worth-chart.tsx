@@ -1,4 +1,5 @@
 'use client';
+import { formatCompactUsd } from '@/utils/format';
 
 import { cn } from '@/lib/utils';
 import { exactAmount } from './account-disclosure';
@@ -8,8 +9,8 @@ import { MaskedAmount } from './balance-visibility';
 function realizedLabel(raw: string | null): { text: string; tone: string } {
   if (raw === null) return { text: '—', tone: 'text-text-faint' };
   const value = BigInt(raw);
-  if (value < 0n) return { text: `Loss ${exactAmount(raw)}`, tone: 'text-danger' };
-  if (value > 0n) return { text: `Gain ${exactAmount(raw)}`, tone: 'text-success' };
+  if (value < 0n) return { text: `Loss ${formatCompactUsd(raw, { raw: true, fractionDigits: 6, group: false })}`, tone: 'text-danger' };
+  if (value > 0n) return { text: `Gain ${formatCompactUsd(raw, { raw: true, fractionDigits: 6, group: false })}`, tone: 'text-success' };
   return { text: 'No realized profit', tone: 'text-text-muted' };
 }
 
@@ -46,8 +47,8 @@ export default function NetWorthChart({ series }: { series: IntervalSeries }) {
                   <tr key={row.start} data-interval-start={row.start} data-interval-end={row.end} className={cn('tabular-nums text-text-muted', index % 2 === 0 && 'bg-surface-3')}>
                     <td className="px-2 py-1.5 font-mono-sl">{row.start} to {row.end}</td>
                     <td className={cn('px-2 py-1.5 font-semibold', realized.tone)}><MaskedAmount>{realized.text}</MaskedAmount></td>
-                    <td className="px-2 py-1.5"><MaskedAmount>{exactAmount(row.knownNetGainUsdlRaw)}</MaskedAmount></td>
-                    <td className="px-2 py-1.5"><MaskedAmount>{exactAmount(row.unknownProceedsUsdlRaw)}</MaskedAmount></td>
+                    <td className="px-2 py-1.5"><MaskedAmount>{formatCompactUsd(row.knownNetGainUsdlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount></td>
+                    <td className="px-2 py-1.5"><MaskedAmount>{formatCompactUsd(row.unknownProceedsUsdlRaw, { raw: true, fractionDigits: 6, group: false })}</MaskedAmount></td>
                     <td className="px-2 py-1.5"><MaskedAmount>{exactAmount(row.gasPaxRaw, 18, 'PAX')}</MaskedAmount></td>
                   </tr>
                 );

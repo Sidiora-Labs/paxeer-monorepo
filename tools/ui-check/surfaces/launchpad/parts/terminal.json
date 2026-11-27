@@ -2,9 +2,10 @@
   "name": "Sidiora Launchpad \u2014 terminal",
   "directory": "../../../../../",
   "build": "node tools/ui-check/surfaces/launchpad/build.mjs",
-  "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
+  "start": "node tools/ui-check/surfaces/launchpad/start.mjs --surface tools/ui-check/surfaces/launchpad/parts/terminal.json",
   "address": "https://sidiora.test:4173",
   "readyPath": "/",
+  "readyMs": 120000,
   "views": [
     {
       "name": "meta-ag-orders",
@@ -22,7 +23,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -46,7 +47,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -110,7 +111,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -399,7 +400,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(ul[aria-label=\"New pairs\"] li :text(\"< 0.01\"))",
+          "selector": "html:has(ul[aria-label=\"New pairs\"] li :text(\"< $0.01\"))",
           "key": "Shift"
         }
       ]

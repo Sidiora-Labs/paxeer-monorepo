@@ -199,13 +199,13 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     }
   });
 
-  it('ranks served rows, formats the metric as USDL, links each row to the public profile and refetches on window and metric changes', async () => {
+  it('ranks served rows, formats the metric in dollars, links each row to the public profile and refetches on window and metric changes', async () => {
     const { root, container, queryClient } = mount(served.origin, <LeaderboardPanel />);
     await waitFor(() => container.querySelectorAll('ol li').length === 3);
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('ol li a'));
     expect(links.map(link => link.getAttribute('href'))).toEqual([`/profile/${walletA}`, `/profile/${walletB}`, `/profile/${walletC}`]);
-    expect(links[0].textContent).toContain('+189,384.12 USDL');
-    expect(links[1].textContent).toContain('+153,149.68 USDL');
+    expect(links[0].textContent).toContain('+$189,384.12');
+    expect(links[1].textContent).toContain('+$153,149.68');
     expect(links[1].textContent).toContain('partial');
     expect(links[2].textContent).toContain('No value yet');
     expect(links[2].textContent).not.toContain('USDL');
@@ -237,7 +237,7 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     act(() => { metricSelect.value = volume!.value; metricSelect.dispatchEvent(new window.Event('change', { bubbles: true })); });
     await waitFor(() => served.paths.includes('/v2/leaderboards/volume?window=24h&limit=25'));
     await waitFor(() => container.querySelectorAll('ol li').length === 3);
-    expect(container.querySelector('ol li a')?.textContent).toContain('189,384.12 USDL');
+    expect(container.querySelector('ol li a')?.textContent).toContain('$189,384.12');
     expect(container.querySelector('ol li a')?.textContent).not.toContain('+189,384.12');
     unmount(root, container, queryClient);
   });
@@ -282,8 +282,8 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
   });
 
   it('formats metric values exactly from the raw USDL integer', () => {
-    expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '5', quality: 'complete' }, 'profit')).toBe('< 0.01 USDL');
-    expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '2500000', quality: 'complete' }, 'volume')).toBe('2.50 USDL');
+    expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '5', quality: 'complete' }, 'profit')).toBe('< $0.01');
+    expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '2500000', quality: 'complete' }, 'volume')).toBe('$2.50');
     expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '2500000', quality: 'unavailable' }, 'volume')).toBeNull();
   });
 });

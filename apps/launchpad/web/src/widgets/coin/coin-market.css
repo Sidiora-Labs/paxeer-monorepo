@@ -52,3 +52,12 @@
 @media (prefers-reduced-motion: reduce) {
   .coin-trade-arrival { animation: none; }
 }
+
+.coin-holders-table th,
+.coin-holders-table td {
+  white-space: nowrap;
+}
+
+.coin-holders-table th button {
+  white-space: nowrap;
+}

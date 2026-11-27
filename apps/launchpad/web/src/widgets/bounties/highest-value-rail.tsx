@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { BadgeCheck, Flame, Users } from 'lucide-react';
 import { Button, CountdownProgress, EmptyState, ErrorState, RankBadge, Skeleton, UnavailableState } from '@/ui/primitives';
 import { cn } from '@/lib/utils';
-import { formatCount, formatUsdl } from '@/utils/format';
+import { formatCount, formatCompactUsd } from '@/utils/format';
 import { bountiesContract, type Bounty, type BountyValuation } from './bounties-contract';
 import { useBountyValuations } from './bounty-reward';
 import { BountyTokenChip } from './bounty-token-chip';
@@ -41,7 +41,7 @@ function RewardValue({ valuation, size }: { valuation: BountyValuation | null; s
   return (
     <span data-numeric className={cn('font-bold tabular-nums text-success', size === 'lg' ? 'text-xl' : 'text-sm')}>
       {valuation.exact ? null : <span title="Estimated from the coin's market cap"><span aria-hidden="true">~</span><span className="sr-only">approximately </span></span>}
-      {formatUsdl(valuation.usdlRaw, { compact: true })}
+      {formatCompactUsd(valuation.usdlRaw, { raw: true, compact: true })}
     </span>
   );
 }
@@ -160,7 +160,7 @@ export function RecentlyPaidCard({ enabled = true, serviceDown = false, limit = 
  * cards side by side on phones.
  */
 export function BountyHighlights({ enabled = true, serviceDown = false, className }: { enabled?: boolean; serviceDown?: boolean; className?: string }) {
-  const card = 'w-[85%] shrink-0 snap-start md:w-auto';
+  const card = 'w-[var(--sl-feed-preview-width)] shrink-0 snap-start md:w-auto';
   return (
     <div className={cn('-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-px-4 px-4 [scrollbar-width:none] md:mx-0 md:scroll-px-0 md:snap-none md:flex-col md:overflow-visible md:px-0', className)}>
       <HighestValueRail enabled={enabled} serviceDown={serviceDown} className={card} />

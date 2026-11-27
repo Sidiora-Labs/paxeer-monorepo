@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Archive, ArrowDownRight, ArrowUpRight, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Avatar, Button, EmptyState, ErrorState, LoadMore, Skeleton, UnavailableState } from '@/ui/primitives';
-import { formatTokenAmount, formatUsdl, shortAddress } from '@/utils/format';
+import { formatTokenAmount, shortAddress, formatCompactUsd } from '@/utils/format';
 import { useTokenMetadataBatch } from '@/hooks/market/use-token-metadata';
 import type { TokenMetadata } from '@/widgets/home/types';
 import { poolPath } from '@/core/app-foundation/navigation';
@@ -45,7 +45,7 @@ function signClass(raw: bigint | null): string {
 function Amount({ raw, signed = false, className }: { raw: bigint | string | null; signed?: boolean; className?: string }) {
   if (raw === null) return <span className="text-text-faint" aria-label="Not available yet">&mdash;</span>;
   const value = typeof raw === 'bigint' ? raw : BigInt(raw);
-  return <MaskedAmount className={cn('tabular-nums font-bold text-num-md', signed ? signClass(value) : 'text-text', className)}>{formatUsdl(value, { signed })}</MaskedAmount>;
+  return <MaskedAmount className={cn('tabular-nums font-bold text-num-md', signed ? signClass(value) : 'text-text', className)}>{formatCompactUsd(value, { raw: true, signed })}</MaskedAmount>;
 }
 
 /** Coin page link: the launchpad pool when the metadata registry names it, else the token address (the coin route resolves a token to its pool). */

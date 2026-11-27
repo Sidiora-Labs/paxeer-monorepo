@@ -7,7 +7,7 @@ import { AtSign, Coins, ExternalLink, Globe, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AgeChip, Avatar, RankBadge, StatusBadge } from '@/ui/primitives';
 import CopyAddress from '@/ui/shared/copy-address';
-import { explorerHref, holdersPaidText, mcapText, rewardsText, usdlAmountText, type SocialKind, type SocialLink } from './holder-rewards-presentation';
+import { explorerHref, holdersPaidText, mcapText, rewardsText, usdlAmountParts, type SocialKind, type SocialLink } from './holder-rewards-presentation';
 
 export interface HolderRewardTokenCardProps {
   name: string;
@@ -110,6 +110,7 @@ export default function HolderRewardTokenCard({
 }: HolderRewardTokenCardProps) {
   const name = displayCoinText(rawName, tokenAddress);
   const symbol = displayCoinText(rawSymbol, tokenAddress);
+  const distributed = usdlAmountParts(distributedRaw);
   const cardBg = surface === 'canvas' ? 'bg-surface-1' : 'bg-surface-2';
 
   if (loading) {
@@ -141,7 +142,7 @@ export default function HolderRewardTokenCard({
       <span className="min-w-0 truncate" title={name}>{name}</span>
       <span className="sr-only">
         {distributedRaw ? `, ${rewardsText(distributedRaw)} distributed to holders` : ', rewards not available yet'}
-        {mcapRaw ? `, market cap ${mcapText(mcapRaw)} USDL` : ', market cap not available yet'}
+        {mcapRaw ? `, market cap ${mcapText(mcapRaw)}` : ', market cap not available yet'}
       </span>
     </>
   );
@@ -174,13 +175,13 @@ export default function HolderRewardTokenCard({
         <div className="flex min-w-0 flex-col gap-1">
           <dt className="text-2xs leading-[calc(var(--sl-leading-2xs)/var(--sl-text-2xs))] font-semibold uppercase tracking-[var(--sl-tracking-label)] text-text-faint">Holder rewards</dt>
           <dd data-numeric className={cn('min-w-0 overflow-x-auto whitespace-nowrap text-xl leading-[calc(var(--sl-leading-xl)/var(--sl-text-xl))] font-bold tabular-nums', distributedRaw === null ? 'text-text-faint' : 'text-text')}>
-            {distributedRaw === null ? <span aria-label="Not available yet">{'—'}</span> : <>{usdlAmountText(distributedRaw)}<span className="ml-1 text-xs font-semibold text-text-faint">USDL</span></>}
+            {distributedRaw === null ? <span aria-label="Not available yet">{'—'}</span> : <>{distributed.amount}<span className="ml-1 text-xs font-semibold text-text-faint">{distributed.unit}</span></>}
           </dd>
         </div>
         <div className="flex min-w-0 flex-wrap items-baseline gap-1.5 text-xs leading-[calc(var(--sl-leading-xs)/var(--sl-text-xs))]">
           <dt className="text-text-faint">Market cap</dt>
           <dd data-numeric className={cn('min-w-0 max-w-full overflow-x-auto whitespace-nowrap text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))] font-bold tabular-nums', mcapRaw === null ? 'text-text-faint' : 'text-text')}>
-            {mcapRaw === null ? <span aria-label="Not available yet">{'—'}</span> : `${mcapText(mcapRaw)} USDL`}
+            {mcapRaw === null ? <span aria-label="Not available yet">{'—'}</span> : `${mcapText(mcapRaw)}`}
           </dd>
         </div>
       </dl>

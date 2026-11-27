@@ -89,7 +89,7 @@ function holdersFiguresStayOnOneLine() {
     const markup = renderHolders(displayName);
     const figures = markup.querySelectorAll('tbody td[data-numeric]');
     expect(figures).toHaveLength(3);
-    expect(Array.from(figures, cell => cell.textContent)).toEqual(['250', '25.00%', '250.00 USDL']);
+    expect(Array.from(figures, cell => cell.textContent)).toEqual(['250', '25.00%', '$250.00']);
     for (const cell of figures) expect(cell.classList.contains('whitespace-nowrap')).toBe(true);
     const address = Array.from(markup.querySelectorAll('tbody span')).find(span => span.textContent === shortAddress(wallet));
     expect(address).toBeDefined();

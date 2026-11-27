@@ -3,7 +3,7 @@ import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { useEffect, useId, useMemo, useState, type PointerEvent } from 'react';
 import { cn } from '@/lib/utils';
-import { formatUsdl, rawToDecimalString } from '@/utils/format';
+import { rawToDecimalString, formatCompactUsd } from '@/utils/format';
 import { useBalanceVisibility } from './balance-visibility';
 import type { DeltaTone, SeriesPoint } from './portfolio-transport';
 
@@ -64,8 +64,8 @@ export function PortfolioChart({ points, tone, height = launchpadGeometry.chart.
   const summary = points.length === 0
     ? 'No history yet.'
     : points.length === 1
-      ? `${formatUsdl(points[0].valueRaw)} at ${bucketLabel(points[0].time)}.`
-      : `From ${formatUsdl(points[0].valueRaw)} to ${formatUsdl(points[points.length - 1].valueRaw)}; ${tone === 'gain' ? 'gaining' : tone === 'loss' ? 'losing' : 'flat'} over this period.`;
+      ? `${formatCompactUsd(points[0].valueRaw, { raw: true })} at ${bucketLabel(points[0].time)}.`
+      : `From ${formatCompactUsd(points[0].valueRaw, { raw: true })} to ${formatCompactUsd(points[points.length - 1].valueRaw, { raw: true })}; ${tone === 'gain' ? 'gaining' : tone === 'loss' ? 'losing' : 'flat'} over this period.`;
 
   if (hidden) {
     return (
@@ -101,18 +101,18 @@ export function PortfolioChart({ points, tone, height = launchpadGeometry.chart.
         onPointerLeave={() => setHover(null)}
       >
         {geometry.area ? <path d={geometry.area} className={fillClass[tone]} /> : null}
-        {geometry.line ? <path d={geometry.line} fill="none" strokeWidth={2} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" className={strokeClass[tone]} /> : null}
+        {geometry.line ? <path d={geometry.line} fill="none" strokeWidth={launchpadGeometry.chartStroke} vectorEffect="non-scaling-stroke" strokeLinejoin="round" strokeLinecap="round" className={strokeClass[tone]} /> : null}
         {end ? <circle cx={end.x} cy={end.y} r={4} className={dotClass[tone]} /> : null}
         {activeCoord ? (
           <>
-            <line x1={activeCoord.x} x2={activeCoord.x} y1={PAD_Y} y2={height - PAD_Y} strokeWidth={1} vectorEffect="non-scaling-stroke" className="stroke-chart-crosshair" />
+            <line x1={activeCoord.x} x2={activeCoord.x} y1={PAD_Y} y2={height - PAD_Y} strokeWidth={launchpadGeometry.hairline} vectorEffect="non-scaling-stroke" className="stroke-chart-crosshair" />
             <circle cx={activeCoord.x} cy={activeCoord.y} r={5} className={dotClass[tone]} />
           </>
         ) : null}
       </svg>
       {activePoint ? (
         <p id={readoutId} role="status" className="pointer-events-none absolute left-2 top-2 rounded-sm bg-surface-3 px-2 py-1 text-xs font-semibold text-text">
-          <span data-numeric className="tabular-nums">{formatUsdl(activePoint.valueRaw)}</span>
+          <span data-numeric className="tabular-nums">{formatCompactUsd(activePoint.valueRaw, { raw: true })}</span>
           <span className="ml-2 text-text-faint">{bucketLabel(activePoint.time)}</span>
           {!activePoint.complete ? <span className="ml-2 text-warning">some prices missing</span> : null}
         </p>

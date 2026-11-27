@@ -1,4 +1,6 @@
 'use client';
+import { surfaceSpacing } from '@/app/presentation-tokens';
+
 import { displayCoinText } from '@/utils/coin-text';
 import { useRef, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -8,7 +10,7 @@ import { MarketReadNotice } from '@/core/market/read-notice';
 import { useSparkline } from '@/core/market/use-sparkline';
 import { AgeChip, PercentPill, ProgressBar, Sparkline } from '@/ui/primitives';
 import { StatChange, StatDash } from '@/ui/shared/stat-value';
-import { formatCompactUsd, formatCount, formatUsdl } from '@/utils/format';
+import { formatCompactUsd, formatCount } from '@/utils/format';
 import { columnSpecs, densityRowClass, type ColumnId, type ColumnVisibility, type Density, type OptionalColumn } from './column-settings';
 import type { ExploreRow as ExploreRowData } from './use-explore-rows';
 import { useVisible } from './use-visible';
@@ -96,12 +98,12 @@ export function ExploreRow({ row, columns, density, starred, onToggleStar }: Exp
     mcap: row.mcap === null
       ? <StatDash reason={row.mcapReason ?? 'No market cap yet'} subject="Market cap" />
       : <span className="inline-flex flex-col items-end gap-0.5">
-          <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatUsdl(row.circulatingMcapRaw, { compact: true })}` : undefined} className="text-num-sm font-bold tabular-nums text-text">{formatCompactUsd(row.mcap)}</span>
+          <span data-numeric title={row.circulatingMcapRaw ? `Circulating market cap ${formatCompactUsd(row.circulatingMcapRaw, { raw: true, compact: true })}` : undefined} className="text-num-sm font-bold tabular-nums text-text">{formatCompactUsd(row.mcap)}</span>
           {row.change24h !== null ? <PercentPill value={row.change24h} arrow /> : null}
         </span>,
     ath: (
       <span title={athUnavailableReason} className="inline-flex items-center gap-2 text-xs text-text-faint">
-        <ProgressBar value={null} label="share of all-time-high market cap" width={40} />
+        <ProgressBar value={null} label="share of all-time-high market cap" width={surfaceSpacing(10)} />
         <span>Not yet</span>
       </span>
     ),

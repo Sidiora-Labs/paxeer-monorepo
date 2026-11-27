@@ -52,7 +52,7 @@ describe('buildExploreRow', () => {
     expect(row.image).toBe('https://cdn.example/logo.png');
     expect(row.href).toBe(poolPath(125, pool));
     expect(row.href).toMatch(new RegExp(`/${pool}$`));
-    // Market cap is the total-supply valuation (pump.fun's figure); the circulating one is the secondary value.
+    // Market cap is the total-supply valuation; the circulating one is the secondary value.
     expect(row.mcapRaw).toBe('700000000000');
     expect(row.mcap).toBe(700000);
     expect(row.circulatingMcapRaw).toBe('602500000000');

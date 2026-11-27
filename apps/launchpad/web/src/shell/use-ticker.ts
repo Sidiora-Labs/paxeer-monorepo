@@ -13,7 +13,7 @@ import { isSignedOutError, toUnsupported, type Unsupported } from '@/core/market
 import { useTokenMetadataBatch } from '@/hooks/market/use-token-metadata';
 import { readPortfolio } from '@/widgets/profile/account-transport';
 import { usePrivateAccountQuery } from '@/widgets/profile/use-private-account-query';
-import { formatPercent, formatUsdl, shortAddress } from '@/utils/format';
+import { formatPercent, shortAddress, formatCompactUsd } from '@/utils/format';
 import { useRecentViewed } from './use-global-search';
 import { coinPath } from './paste-address';
 
@@ -74,7 +74,7 @@ export function percentChip(value: number | null): Pick<TickerChip, 'value' | 't
 
 export function usdlChip(raw: string | null): Pick<TickerChip, 'value' | 'tone'> {
   if (raw === null || !RAW_INT.test(raw)) return { value: null, tone: 'neutral' };
-  return { value: formatUsdl(raw, { compact: true, signed: true }), tone: signTone(raw) };
+  return { value: formatCompactUsd(raw, { raw: true, compact: true, signed: true }), tone: signTone(raw) };
 }
 
 function symbolLabel(symbol: string | null | undefined, fallback: string): string {
@@ -137,7 +137,7 @@ export function useRecentTicker(): TickerFeed {
   const { recent } = useRecentViewed();
   if (recent.length === 0) return { state: 'ready', chips: [], emptyText: 'Coins you open show up here', emptyShort: 'No recent coins' };
   const chips = recent.map<TickerChip>(item => {
-    const mcap = RAW_INT.test(item.marketCap) && !/^0+$/.test(item.marketCap) ? formatUsdl(item.marketCap, { compact: true, unit: false }) : null;
+    const mcap = RAW_INT.test(item.marketCap) && !/^0+$/.test(item.marketCap) ? formatCompactUsd(item.marketCap, { raw: true, compact: true }) : null;
     return {
       key: item.address,
       href: coinPath(item.address),

@@ -2,7 +2,7 @@
 import { displayCoinText } from '@/utils/coin-text';
 import { cn } from '@/lib/utils';
 import { Avatar, Chip } from '@/ui/primitives';
-import { formatUsdl, shortAddress } from '@/utils/format';
+import { shortAddress, formatCompactUsd } from '@/utils/format';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
 import type { PoolStats } from './bounties-contract';
 import { marketCapRaw } from '@/core/market/pool-stats-display';
@@ -31,7 +31,7 @@ export function BountyTokenChip({ poolAddress, stats, className }: BountyTokenCh
     <Chip variant="token" href={href} icon={<Avatar src={null} name={symbol} size="xs" decorative />} className={cn('max-w-full flex-wrap', className)}>
       <span className="inline-flex max-w-full flex-wrap items-baseline gap-1">
         <span className="min-w-0 max-w-full truncate text-text" title={symbol}>${symbol}</span>
-        <span className="max-w-full shrink-0 font-normal text-text-faint"><span className="sr-only">market cap </span><span aria-hidden="true">MC </span>{mcap === null ? '—' : formatUsdl(mcap, { compact: true, unit: false })}</span>
+        <span className="max-w-full shrink-0 font-normal text-text-faint"><span className="sr-only">market cap </span><span aria-hidden="true">MC </span>{mcap === null ? '—' : formatCompactUsd(mcap, { raw: true, compact: true })}</span>
       </span>
     </Chip>
   );

@@ -11,7 +11,7 @@ import { isTransientError, retryTransientOnly } from '@/core/transient-retry';
 import { technicalDetail } from '@/core/user-facing-error';
 import { useRefetchOnAnyEvent } from '@/hooks/market/use-stream-refetch';
 import { UnavailableState } from '@/ui/primitives';
-import { formatCount, formatUsdl } from '@/utils/format';
+import { formatCount, formatCompactUsd } from '@/utils/format';
 
 const OPERATION = 'IF_PLATFORM';
 
@@ -40,7 +40,7 @@ export function platformFooterItems(data: PlatformMetricsV2): FooterMetric[] {
     value === undefined || value === null
       ? { value: null, operation: pending(field) }
       : { value: format(value), operation: null };
-  const usdl = (raw: string) => formatUsdl(raw, { compact: true });
+  const usdl = (raw: string) => formatCompactUsd(raw, { raw: true, compact: true });
   return [
     { label: '24h volume', value: usdl(data.volumeUsdlRaw), operation: null },
     { label: 'Market cap', ...optional(data.totalMarketCapUsdlRaw, 'totalMarketCapUsdlRaw', usdl) },
@@ -124,7 +124,7 @@ export default function PlatformMetricsFooter() {
                 <dd className="min-h-[1lh] self-center text-right font-bold tabular-nums">
                   <span aria-hidden="true" className="invisible">
                     {item.label === '24h volume' || item.label === 'Market cap'
-                      ? formatUsdl('0', { compact: true })
+                      ? formatCompactUsd('0', { raw: true, compact: true })
                       : formatCount('0')}
                   </span>
                   <span className="sr-only">Loading platform activity</span>

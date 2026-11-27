@@ -11,7 +11,7 @@ type SharedProps = {
   src: string | null | undefined;
   /** Required for accessibility; may be empty for purely decorative images. */
   alt: string;
-  /** Optional fallback URL to show if the primary src 404s. Defaults to /shadcn.png. */
+  /** Optional fallback URL to show if the primary src 404s. Defaults to the bundled coin placeholder. */
   fallbackSrc?: string;
   /** Pass-through className applied to the rendered <Image>. */
   className?: string;
@@ -52,7 +52,7 @@ export type TokenImageProps = FillProps | SizedProps;
  *
  * Behavior:
  *   - `src` is null/undefined → renders the placeholder
- *   - `src` 404s or errors → swaps to `fallbackSrc` (default `/shadcn.png`)
+ *   - `src` 404s or errors → swaps to `fallbackSrc` (the bundled coin placeholder by default)
  *   - both fail → keeps the placeholder rather than a broken icon
  *
  * Usage — fixed-size container (most common):
@@ -107,7 +107,7 @@ export default function TokenImage(props: TokenImageProps) {
     });
   };
 
-  // Local files (`/shadcn.png`, `/icons/foo.svg`) don't go through the
+  // Bundled images and icons don't go through the
   // remote-pattern check, but SVG icons should pass `unoptimized` to
   // avoid Next's optimizer rejecting them when contentSecurityPolicy
   // sandboxing is on.

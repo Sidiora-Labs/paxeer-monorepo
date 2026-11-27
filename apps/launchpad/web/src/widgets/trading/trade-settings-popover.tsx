@@ -172,7 +172,7 @@ export function TradeSettingsPopover({ slippageBps, onSlippageChange, deadlineSe
               </div>
             ) : null}
           </dl>
-          <p className="mt-2 text-2xs text-text-faint">Saved on this device.</p>
+          <p className="mt-2 text-2xs text-text">Saved on this device.</p>
         </dialog>,
         document.body
       ) : null}

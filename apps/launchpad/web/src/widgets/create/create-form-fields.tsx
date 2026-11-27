@@ -9,7 +9,7 @@ import { OpticalPresetPicker, type OpticalRegistryState } from './optical-preset
 import { QuotePairIndicator } from './quote-pair-indicator';
 import { SocialLinksDisclosure } from './social-links-disclosure';
 import { StrategyPicker, feeStrategyLabel } from './strategy-picker';
-import { OptionRow } from './option-row';
+import { OptionRow } from '@/ui/primitives';
 
 export const NAME_MAX_BYTES = 50;
 export const SYMBOL_MAX_BYTES = 10;

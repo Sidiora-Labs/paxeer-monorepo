@@ -125,7 +125,7 @@ function coinRowIsOneLinkWithAnImageAndDirectionWash() {
   expect(link.getAttribute('href')).toBe(props.href);
   expect(link.classList).toContain('sl-row-wash-up');
   expect(link.querySelector('.rounded-coin')?.textContent).toBe('SC');
-  expect(link.textContent).toContain('1.00 USDL');
+  expect(link.textContent).toContain('$1.00');
   expect(link.querySelectorAll('button')).toHaveLength(0);
   expect(link.querySelector('[title="Science"]')?.classList).toContain('truncate');
   view.render(<CoinRow {...props} percentChange={0} />);

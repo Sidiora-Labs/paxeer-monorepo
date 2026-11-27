@@ -1,4 +1,6 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
+
 import { displayCoinText } from '@/utils/coin-text';
 import Link from 'next/link';
 import { Globe, MessageCircle, Star, type LucideIcon } from 'lucide-react';
@@ -6,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { AgeChip, Avatar, StageBadge, type Stage } from '@/ui/primitives';
 import { StatChange } from '@/ui/shared/stat-value';
 import { formatSpotPrice } from '@/core/market/pool-stats-display';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { safeExternalDestination } from '@/core/app-foundation/navigation';
 import type { ColumnDensity } from './layout-store';
 
@@ -89,7 +91,7 @@ export function TrendingRow({ row, density = 'comfortable', starred = false, onT
       )}
       data-pool={row.poolAddress}
     >
-      <Avatar src={row.image} name={row.name} size={compact ? 'sm' : 'lg'} shape="square" decorative badge={row.stage && !compact ? <StageBadge stage={row.stage} size={14} surface={1} /> : undefined} />
+      <Avatar src={row.image} name={row.name} size={compact ? 'sm' : 'lg'} shape="square" decorative badge={row.stage && !compact ? <StageBadge stage={row.stage} size={launchpadGeometry.smallBadge} surface={1} /> : undefined} />
       <div className="flex min-w-touch-target-min flex-1 flex-col gap-0.5">
         <div className="flex min-w-0 items-baseline gap-1.5">
           <Link prefetch={false} href={row.href} title={row.name} className="truncate text-sm font-semibold text-text after:absolute after:inset-0 after:content-['']">
@@ -118,7 +120,7 @@ export function TrendingRow({ row, density = 'comfortable', starred = false, onT
       </div>
       <div className="ml-auto flex shrink-0 flex-col items-end gap-0.5 whitespace-nowrap">
         {row.mcapRaw
-          ? <span data-numeric className="text-sm font-bold tabular-nums text-text">{`${formatUsdl(row.mcapRaw, { compact: true, unit: false })} MC`}</span>
+          ? <span data-numeric className="text-sm font-bold tabular-nums text-text">{`${formatCompactUsd(row.mcapRaw, { raw: true, compact: true })} MC`}</span>
           : <span data-numeric title={row.mcapReason ?? 'No market cap yet'} aria-label={`Market cap: ${row.mcapReason ?? 'No market cap yet'}`} className="text-sm tabular-nums text-text-faint">—</span>}
         {row.change === null ? (
           <span data-numeric title={row.changeReason ?? 'No change yet'} aria-label={`Change: ${row.changeReason ?? 'No change yet'}`} className="text-xs tabular-nums text-text-faint">—</span>
