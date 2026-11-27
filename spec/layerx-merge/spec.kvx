@@ -17494,6 +17494,24 @@ value = "Point one. The function Restrict first reads the stored moderation revi
 basis = "Gotcha 5007."
 affects = []
 
+[decision.4064]
+title = "A refused refresh of the full holder list leaves the loaded rows in place"
+value = "Point one. A new first page without an answer of the full list does not take the place of loaded pages of the same pool whose first page holds such an answer: the pages and the cursor stay. Point two. The marker of the refused read is shown by the inline notice of line 183 of apps/launchpad/web/src/widgets/coin/holders-table.tsx while the table shows the kept rows, so that the reader sees that the list is not fresh. Point three. The next first page with an answer of the full list takes the place of the pages as today, and the notice goes. Point four. Without a kept answer of the full list the table behaves as today: the share rows with the notice. Point five. A change of the pool keeps nothing, as line 112 does today. Point six. The choice is made by one exported function of apps/launchpad/web/src/widgets/coin/holders-table.tsx without reads and without state: it takes the held pages and the new first page and gives the pages to hold, whether the cursor returns to the start, and the marker to show. The effect of line 117 calls it. Point seven. Not changed here: the reader, the share read, the served reads and the build of the rows from pages."
+basis = "Gotcha 5008."
+affects = []
+
+[decision.4065]
+title = "An answer of the history read from an earlier height is an older observation, not a regression"
+value = "Point one. In the poll, an answer whose watermark has a lower height than the kept one changes nothing of the kept watermark and of the freshness, raises no error and counts no failure. Point two. The same height with another block hash stays an error in all three places. A lower height stays an error for a frame of the stream and for the entry of a replay. Point three. The order of two watermarks is decided by one exported function of apps/launchpad/web/src/widgets/trading/udf-datafeed.ts without side effects: it takes the kept watermark, the new one and whether the new one comes from the history read, and names one of three results: advance, older, conflict. The function observe uses it. Point four. Not changed here: the merge of candles by revision, the replay, the stream, the texts and the times of the poll."
+basis = "Gotcha 5009."
+affects = []
+
+[decision.4066]
+title = "Inside the holders table a word stays whole and a figure stays on one line"
+value = "Point one. The table sets the wrap rule of words back to normal for its cells, so that no word is broken inside. Point two. The label of each heading cell of the columns holder, held, share of supply and position stays on one line. Point three. The figure of the columns held, share of supply and position stays on one line together with its unit, and the short address of a wallet stays on one line. Point four. The group heading holds its three terms as three parts. It may wrap between two parts and nowhere else. Point five. The column of the holder gives way first: a display name is cut with an ellipsis as today and the badges stay whole. Where the region is narrower than the table needs, the region scrolls sideways as today. The minimum width of the table may grow by what points two to four need and by no more. Point six. Not changed here: the columns and their order, the sort, the texts, the heading cell in apps/launchpad/web/src/ui/primitives/controls.tsx, which takes a class from its caller, and every other table."
+basis = "Gotcha 5010."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47154,6 +47172,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1282]
+title = "Keep words whole and figures on one line in the holders table of a coin"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/coin"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/coin/holders-table.words.test.tsx && grep -q holdersTableKeepsWordsWhole apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx && grep -q holdersHeadingsStayOnOneLine apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx && grep -q holdersFiguresStayOnOneLine apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx && grep -q holdersGroupHeadingWrapsBetweenItsTerms apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx"
+do_1 = "do_1 Gotcha 5010, decision 4066. Read apps/launchpad/web/src/widgets/coin/holders-table.tsx from line 187 to its end, the heading cell SortHeader in apps/launchpad/web/src/ui/primitives/controls.tsx as it is, and the share styles in apps/launchpad/web/src/widgets/coin/coin-market.css."
+symbols = []
+
+[capability.22.39.1281]
+title = "Take an answer of the history read of the chart from an earlier height as an older observation"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/trading"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/trading/udf-datafeed.watermark-order.test.ts && grep -q olderHistoryAnswerIsAnOlderObservation apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts && grep -q sameHeightWithAnotherHashIsAConflict apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts && grep -q lowerFrameOfTheStreamIsAConflict apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts && grep -q higherWatermarkAdvances apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts"
+do_1 = "do_1 Gotcha 5009, decision 4065. Read apps/launchpad/web/src/widgets/trading/udf-datafeed.ts from line 1394 to line 1450 and from line 1615 to line 1654, and the two other callers at lines 1760 and 1867."
+symbols = []
+
+[capability.22.39.1280]
+title = "Keep the loaded holders when a refresh of the full list is refused"
+reqs = ["22998.1"]
+touches = ["apps/launchpad/web/src/widgets/coin"]
+tests = []
+verification_contract = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/coin/holders-table.refused-refresh.test.ts && grep -q refusedRefreshKeepsTheLoadedPages apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts && grep -q nextAnswerTakesThePlaceOfThePages apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts && grep -q refusedFirstReadWithoutAKeptAnswerShowsTheShareRows apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts && grep -q sameSnapshotKeepsTheLaterPages apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts"
+do_1 = "do_1 Gotcha 5008, decision 4064. Read apps/launchpad/web/src/widgets/coin/holders-table.tsx from line 46 to line 187 and apps/launchpad/web/src/core/market/holders-reader.ts whole."
+symbols = []
 
 [capability.22.39.1279]
 title = "Let a read of the details of a coin take no row lock when it has nothing to write"
@@ -214431,6 +214476,96 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1282]
+title = "Keep words whole and figures on one line in the holders table of a coin"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1282"]
+interfaces = []
+do_1 = "do_1 Gotcha 5010, decision 4066. Read apps/launchpad/web/src/widgets/coin/holders-table.tsx from line 187 to its end, the heading cell SortHeader in apps/launchpad/web/src/ui/primitives/controls.tsx as it is, and the share styles in apps/launchpad/web/src/widgets/coin/coin-market.css."
+do_2 = "do_2 Change the markup of the table as decision 4066 says, with classes on the table and its cells or with rules in apps/launchpad/web/src/widgets/coin/coin-market.css. Another task changes the same file above line 187 at the same time: keep this change from that line on. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx. They render the table with doubles for its reads and one row of a wallet that holds a balance, and read the markup. One: holdersTableKeepsWordsWhole. The table carries the class of the rule that sets the wrap of words to normal. Two: holdersHeadingsStayOnOneLine. Each of the four heading cells of point two carries the class of the one line rule. Three: holdersFiguresStayOnOneLine. The cells of held, share of supply and position of the row and the short address carry the class of the one line rule. Four: holdersGroupHeadingWrapsBetweenItsTerms. The group heading holds three parts, each with the class of the one line rule. Say in the final message that you saw the first case fail before the change. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time and never opens a listener or a port: a double answers in the process, and a test file closes its doubles in a step that also runs after a failed case. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/coin"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/coin/holders-table.words.test.tsx && grep -q holdersTableKeepsWordsWhole apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx && grep -q holdersHeadingsStayOnOneLine apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx && grep -q holdersFiguresStayOnOneLine apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx && grep -q holdersGroupHeadingWrapsBetweenItsTerms apps/launchpad/web/src/widgets/coin/holders-table.words.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1281]
+title = "Take an answer of the history read of the chart from an earlier height as an older observation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1281"]
+interfaces = []
+do_1 = "do_1 Gotcha 5009, decision 4065. Read apps/launchpad/web/src/widgets/trading/udf-datafeed.ts from line 1394 to line 1450 and from line 1615 to line 1654, and the two other callers at lines 1760 and 1867."
+do_2 = "do_2 Change the function observe and its call at line 1635 as decision 4065 says. A case of the web inside the paths that pins the error for an older answer of the history read follows the change. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts, on the exported function alone. One: olderHistoryAnswerIsAnOlderObservation. Kept height 100 and an answer of the history read at height 98: the result is older. Two: sameHeightWithAnotherHashIsAConflict. Kept height 100 with one block hash and a new watermark at height 100 with another block hash, once from the history read and once not: conflict both times. Two block hashes that differ in the case of their letters alone are the same hash. Three: lowerFrameOfTheStreamIsAConflict. Kept height 100 and a watermark at height 98 that does not come from the history read: conflict. Four: higherWatermarkAdvances. Kept height 100 and a new watermark at height 101, once from the history read and once not: advance both times. Without a kept watermark every new one advances. Say in the final message that you saw the first case fail before the change, or that the function did not exist before it. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time and never opens a listener or a port: a double answers in the process, and a test file closes its doubles in a step that also runs after a failed case. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/trading"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/trading/udf-datafeed.watermark-order.test.ts && grep -q olderHistoryAnswerIsAnOlderObservation apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts && grep -q sameHeightWithAnotherHashIsAConflict apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts && grep -q lowerFrameOfTheStreamIsAConflict apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts && grep -q higherWatermarkAdvances apps/launchpad/web/src/widgets/trading/udf-datafeed.watermark-order.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1280]
+title = "Keep the loaded holders when a refresh of the full list is refused"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1280"]
+interfaces = []
+do_1 = "do_1 Gotcha 5008, decision 4064. Read apps/launchpad/web/src/widgets/coin/holders-table.tsx from line 46 to line 187 and apps/launchpad/web/src/core/market/holders-reader.ts whole."
+do_2 = "do_2 Change apps/launchpad/web/src/widgets/coin/holders-table.tsx as decision 4064 says. Another task changes the markup of the table from line 187 of the same file on at the same time: keep this change above that line, the notice of line 183 included. Change nothing outside the paths."
+do_3 = "do_3 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. Cases, in the new file apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts, on the exported function and on the function buildHolderRows alone. One: refusedRefreshKeepsTheLoadedPages. Held pages whose first page holds an answer of the full list with two rows, and a new first page without such an answer that carries a marker and one share row: the function gives the held pages, no return of the cursor and the marker. Two: nextAnswerTakesThePlaceOfThePages. After that, a new first page with an answer of the full list of another revision: the function gives that page alone, a return of the cursor and no marker. Three: refusedFirstReadWithoutAKeptAnswerShowsTheShareRows. No held page and a new first page without an answer of the full list that carries one share row: the function gives that page with its marker, and the rows built from it are the one wallet of the share row. Four: sameSnapshotKeepsTheLaterPages. Held pages of two links and a new first page that is the same snapshot by the test of line 119: both pages stay and the cursor does not return. Say in the final message that you saw the first case fail before the change, or that the function did not exist before it. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. A case never waits on wall time and never opens a listener or a port: a double answers in the process, and a test file closes its doubles in a step that also runs after a failed case. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/launchpad/web/src/widgets/coin"]
+tests = []
+planned_paths = ["apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts"]
+build_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad run build:packages && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "anvil --version > /dev/null && pnpm --dir apps/launchpad/web run test src/widgets/coin/holders-table.refused-refresh.test.ts && grep -q refusedRefreshKeepsTheLoadedPages apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts && grep -q nextAnswerTakesThePlaceOfThePages apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts && grep -q refusedFirstReadWithoutAKeptAnswerShowsTheShareRows apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts && grep -q sameSnapshotKeepsTheLaterPages apps/launchpad/web/src/widgets/coin/holders-table.refused-refresh.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
