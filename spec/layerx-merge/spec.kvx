@@ -17776,6 +17776,12 @@ value = "One. The rule. A call of the batch function in the fixture that ends wi
 basis = "Gotcha 5054."
 affects = []
 
+[decision.4111]
+title = "The seven enrollment cases of the holdings service run as the parts of one case with one start of the fixture; no assertion changes; the verification runs the package with the race detector under the bound of the public job"
+value = "One. The rule. The file services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go holds one case, TestEnrollmentBusy. It calls the function enrollmentBusyFixture once and runs the seven cases of gotcha 5055 point three as its parts, in the order of the file. Each part carries the name of its case without the common head: UnchangedRowWritesNothing, NewExpiryWritesWhenFree, ReadPassesWithLiveAccount, WriteRefusedAndLogged, ReadRequiresLiveAccount, ErrorWrapsLockTimeout and StatementTimeoutRefused. The parts below three of them stay as they are: two methods (line 162), five methods (line 190) and three states (line 211). Two. The start of a part. The parts change the expiry of the row of the owner, the stored expiry of the session, the state of the enrollment and the account of the row. So every part begins with one helper of the file that brings the fixture into the state that the function enrollmentBusyFixture returns today: no hold on the row is open, the row is enrolled for the owner of the fixture with the account of that owner, and the principal of the part carries the expiry that the session stores at that moment. The helper runs at the start of a part and not at the end of the part before it, so that a part that fails does not fail the parts after it by what it left. Which values the helper sets back is read from the seven parts; where the enrollment does not set a value back by itself, the helper writes it over the admin connection of the fixture, as the cases write today. Three. Nothing is dropped. Every assertion of the seven cases stays with its values: the lock limit of 250 milliseconds (line 23), the status and the body of each answer, the one log line with its five fields, and the check that the log holds no identifier of the owner. No part is skipped or marked. No file outside services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go changes. Four. Not done. The fixture of the package, the bound of the public job and the workflow stay as they are. The other cases of the package, each of which starts its fixture by itself as before, are not changed by this task. Five. The verification. The format check and the lint of the module. Two counts in the file: the name enrollmentBusyFixture stands at two lines, the head of the function and its one call, and the name newLiveOwnerSessionFixture at one line. The package once with the race detector under a bound of 15 minutes, the bound of the public job. The case TestEnrollmentBusy in the verbose form with at least 17 pass lines of parts: the seven parts and the ten parts below them. Six. What the verification does not prove. The time of the package in the public job: a task run is not the public job, and gotcha 5055 shows the whole package at one revision after 778.258 seconds in a task run and after 850.373 and 896.092 seconds in the pass test of the public job. The next records of the public job decide. "
+basis = "Gotcha 5055."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47436,6 +47442,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1323]
+title = "Let the seven enrollment cases of the holdings service of the launchpad run as the parts of one case with one start of the fixture, so that the package fits the time bound of the public job again"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && test $(grep -c -e enrollmentBusyFixture internal/production/l16/enrollment_busy_test.go) -eq 2 && test $(grep -c -e newLiveOwnerSessionFixture internal/production/l16/enrollment_busy_test.go) -eq 1 && GOWORK=off go test -race -count=1 -timeout 15m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 15m -v -run ^TestEnrollmentBusy ./internal/production/l16/ | grep -c -e ---.PASS:.TestEnrollmentBusy/) -ge 17)"
+do_1 = "do_1 Gotcha 5055, decision 4111. Read whole: services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go and services/launchpad/pnl-tracker/internal/production/l16/live_owner_session_test.go. This task changes only services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go. The cases use a database and the chain program anvil; a run by hand needs them as the verification does."
+symbols = []
 
 [capability.22.39.1322]
 title = "Let the chain fixture of the holdings service of the launchpad repeat a range that the epoch check refuses by its own bound, as the run loop of the indexer does, and add a case for the repeat"
@@ -215345,6 +215360,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1323]
+title = "Let the seven enrollment cases of the holdings service of the launchpad run as the parts of one case with one start of the fixture, so that the package fits the time bound of the public job again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1323"]
+interfaces = []
+do_1 = "do_1 Gotcha 5055, decision 4111. Read whole: services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go and services/launchpad/pnl-tracker/internal/production/l16/live_owner_session_test.go. This task changes only services/launchpad/pnl-tracker/internal/production/l16/enrollment_busy_test.go. The cases use a database and the chain program anvil; a run by hand needs them as the verification does."
+do_2 = "do_2 The case, points one and three. Write the one case TestEnrollmentBusy that calls enrollmentBusyFixture once and runs the seven cases as parts with the names of point one, in the order of the file. Keep the bodies of the seven with every assertion. After the change the name enrollmentBusyFixture stands at exactly two lines of the file, the head of the function and its one call, and no comment names it; the name newLiveOwnerSessionFixture stands at one line. No other case of the package gets a name that begins with TestEnrollmentBusy."
+do_3 = "do_3 The helper, point two. Read what each of the seven parts changes and write the helper that every part calls first. A part that changes the principal it got works on a value of its own. A hold on the row that a part takes ends with that part, as the cleanup of the hold does today. Run the case several times in a row and once with the parts of the file in another order in a copy that is not committed, if time allows; the order of the final revision is the order of the file."
+do_4 = "do_4 Give in the final message the time of the package with the race detector from the verification and the time of the case TestEnrollmentBusy from its verbose run."
+do_5 = "do_5 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are part of the work of this task and are not left out; they are made with the commands themselves, they are not the counted runs and they use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./internal/production/l16/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && test $(grep -c -e enrollmentBusyFixture internal/production/l16/enrollment_busy_test.go) -eq 2 && test $(grep -c -e newLiveOwnerSessionFixture internal/production/l16/enrollment_busy_test.go) -eq 1 && GOWORK=off go test -race -count=1 -timeout 15m ./internal/production/l16/ && test $(GOWORK=off go test -count=1 -timeout 15m -v -run ^TestEnrollmentBusy ./internal/production/l16/ | grep -c -e ---.PASS:.TestEnrollmentBusy/) -ge 17)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
