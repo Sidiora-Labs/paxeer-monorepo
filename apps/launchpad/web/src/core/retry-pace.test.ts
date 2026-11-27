@@ -3,8 +3,9 @@ import { readFileSync } from 'node:fs';
 import React, { act, createElement } from 'react';
 import { afterAll, afterEach, beforeEach, expect, test, vi } from 'vitest';
 import type { UseQueryResult } from '@tanstack/react-query';
-import { SdkClient, decodeV2Contract } from '@kindle/sdk';
+import { HttpError, SdkClient, decodeV2Contract } from '@kindle/sdk';
 import { ResourceRetryPace, marketRetryPace, marketResourceKey } from './retry-pace';
+import { marketCachePolicy } from './cache-policy';
 import { MarketClientContext } from './market/client';
 import { createReplayUdfDatafeed } from '@/widgets/trading/udf-datafeed';
 import { ErrorState, UnavailableState } from '@/ui/primitives';
@@ -207,6 +208,124 @@ async function injectedClockBoundsConnectionFailuresAndServerHints() {
   } finally { pace.clear(); }
 }
 test(injectedClockBoundsConnectionFailuresAndServerHints.name, injectedClockBoundsConnectionFailuresAndServerHints);
+
+async function retryAfterThePolicyDelayReachesTheServer() {
+  let now = 0;
+  const pace = new ResourceRetryPace(() => now);
+  retryAfterMs = 100;
+  const error = new HttpError(503, decodeV2Contract('Error', errorEnvelope(true)));
+  const reads: number[] = [];
+  const load = async () => {
+    reads.push(now);
+    if (reads.length === 1) throw error;
+    return reads.length;
+  };
+  try {
+    await expect(pace.read('feed', load)).rejects.toBe(error);
+    const state = pace.state(error);
+    const delay = marketCachePolicy.feed.retryDelay(0, error);
+    expect(delay).toBe(100);
+    expect(pace.delay(error)).toBe(delay);
+    expect(state).toMatchObject({ failures: 1, started: 0, next: 100 });
+    now = delay - 2;
+    const retry = pace.read('feed', load);
+    await vi.advanceTimersByTimeAsync(2);
+    expect(reads).toEqual([0]);
+    expect(pace.state(error)).toBe(state);
+    expect(state).toMatchObject({ failures: 1, started: 0, next: 100 });
+    now++;
+    await vi.advanceTimersByTimeAsync(2);
+    expect(reads).toEqual([0]);
+    now++;
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await retry).toBe(2);
+    expect(reads).toEqual([0, delay]);
+  } finally { pace.clear(); }
+}
+test(retryAfterThePolicyDelayReachesTheServer.name, retryAfterThePolicyDelayReachesTheServer, 1000);
+
+async function readWellBeforeTheNextTimeGetsTheRetainedError() {
+  let now = 0;
+  const pace = new ResourceRetryPace(() => now);
+  retryAfterMs = 100;
+  const error = new HttpError(503, decodeV2Contract('Error', errorEnvelope(true)));
+  const reads: number[] = [];
+  const load = async () => {
+    reads.push(now);
+    throw error;
+  };
+  try {
+    await expect(pace.read('feed', load)).rejects.toBe(error);
+    const state = { ...pace.state(error) };
+    now = 50;
+    await expect(pace.read('feed', load)).rejects.toBe(error);
+    expect(reads).toEqual([0]);
+    expect(pace.state(error)).toEqual(state);
+    expect(pace.delay(error)).toBe(50);
+    now = 97;
+    await expect(pace.read('feed', load)).rejects.toBe(error);
+    expect(reads).toEqual([0]);
+    expect(pace.state(error)).toEqual(state);
+    expect(pace.delay(error)).toBe(3);
+  } finally { pace.clear(); }
+}
+test(readWellBeforeTheNextTimeGetsTheRetainedError.name, readWellBeforeTheNextTimeGetsTheRetainedError, 1000);
+
+async function twoHeldReadsShareOneResourceRequest() {
+  let now = 0;
+  const pace = new ResourceRetryPace(() => now);
+  retryAfterMs = 100;
+  const error = new HttpError(503, decodeV2Contract('Error', errorEnvelope(true)));
+  const reads: number[] = [];
+  const load = async () => {
+    reads.push(now);
+    if (reads.length === 1) throw error;
+    return reads.length;
+  };
+  try {
+    await expect(pace.read('feed', load)).rejects.toBe(error);
+    now = 98;
+    const first = pace.read('feed', load);
+    const second = pace.read('feed', load);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reads).toEqual([0]);
+    now = 100;
+    await vi.advanceTimersByTimeAsync(2);
+    expect(await Promise.all([first, second])).toEqual([2, 2]);
+    expect(reads).toEqual([0, 100]);
+  } finally { pace.clear(); }
+}
+test(twoHeldReadsShareOneResourceRequest.name, twoHeldReadsShareOneResourceRequest, 1000);
+
+async function cancellingAHeldReadSendsNoRequest() {
+  let now = 0;
+  const pace = new ResourceRetryPace(() => now);
+  const controller = new AbortController();
+  const reason = new DOMException('Aborted', 'AbortError');
+  retryAfterMs = 100;
+  const error = new HttpError(503, decodeV2Contract('Error', errorEnvelope(true)));
+  const reads: number[] = [];
+  const load = async () => {
+    reads.push(now);
+    throw error;
+  };
+  try {
+    await expect(pace.read('feed', load)).rejects.toBe(error);
+    const state = { ...pace.state(error) };
+    now = 98;
+    const retry = pace.read('feed', load, controller.signal);
+    const cancelled = expect(retry).rejects.toBe(reason);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(reads).toEqual([0]);
+    controller.abort(reason);
+    await cancelled;
+    now = 100;
+    await vi.advanceTimersByTimeAsync(2);
+    expect(reads).toEqual([0]);
+    expect(pace.state(error)).toEqual(state);
+  } finally { pace.clear(); }
+}
+test(cancellingAHeldReadSendsNoRequest.name, cancellingAHeldReadSendsNoRequest, 1000);
 
 async function chartHistoryAndPollShareBoundedReadsAndResumeOnSuccess() {
   const candle = candlePage.data.items[0];
