@@ -43,6 +43,23 @@ type Bar = {
 export type CanonicalSupply = { raw: string; decimals: number };
 type CanonicalCandle = V2ContractTypes['Candle'];
 
+export function classifyChartWatermark(
+  kept: V2ContractTypes['Watermark'] | null,
+  incoming: V2ContractTypes['Watermark'],
+  fromHistory: boolean
+): 'advance' | 'older' | 'conflict' {
+  if (kept === null) return 'advance';
+  const keptHeight = BigInt(kept.height);
+  const incomingHeight = BigInt(incoming.height);
+  if (incomingHeight < keptHeight) return fromHistory ? 'older' : 'conflict';
+  if (
+    incomingHeight === keptHeight &&
+    incoming.blockHash.toLowerCase() !== kept.blockHash.toLowerCase()
+  )
+    return 'conflict';
+  return 'advance';
+}
+
 function displayRatio(numerator: string, denominator: string, supply?: CanonicalSupply): number {
   if (
     !/^(0|[1-9][0-9]*)$/.test(numerator) ||
@@ -1391,16 +1408,16 @@ export function createReplayUdfDatafeed(
       reason,
     });
   };
-  function observe(sub: ReplayChartSubscription, watermark: V2ContractTypes['Watermark'] | null) {
+  function observe(
+    sub: ReplayChartSubscription,
+    watermark: V2ContractTypes['Watermark'] | null,
+    fromHistory = false
+  ) {
     if (watermark === null || watermark.integrity !== 'healthy')
       throw new Error('Candle source watermark unavailable');
-    if (
-      sub.watermark &&
-      (BigInt(watermark.height) < BigInt(sub.watermark.height) ||
-        (watermark.height === sub.watermark.height &&
-          watermark.blockHash.toLowerCase() !== sub.watermark.blockHash.toLowerCase()))
-    )
-      throw new Error('Candle watermark regression');
+    const order = classifyChartWatermark(sub.watermark, watermark, fromHistory);
+    if (order === 'conflict') throw new Error('Candle watermark regression');
+    if (order === 'older') return;
     sub.watermark = watermark;
     sub.freshness = {
       ...sub.freshness,
@@ -1632,7 +1649,7 @@ export function createReplayUdfDatafeed(
       for (const candle of page.items) applyCandle(sub, candle);
       sub.failures = 0;
       // An empty page for a pool with no fills carries no watermark; that is an empty series, not an outage.
-      if (page.watermark !== null || page.items.length > 0) observe(sub, page.watermark);
+      if (page.watermark !== null || page.items.length > 0) observe(sub, page.watermark, true);
       if (!sub.connection && sub.freshness.connectionStatus === 'offline')
         notify(sub, 'degraded', 'Live updates are paused');
     } catch (error) {
