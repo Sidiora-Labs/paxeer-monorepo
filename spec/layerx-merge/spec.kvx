@@ -214407,7 +214407,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1274]
 title = "Let the card Pool information follow the live stats of the page of a coin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214437,7 +214437,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1273]
 title = "Take the bookkeeping line out of the description of a coin and the never filled frames out of its stats panel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214467,7 +214467,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1272]
 title = "Show the fee of a trade as an amount with its unit in the result card, and call a price that only aged out of date"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
