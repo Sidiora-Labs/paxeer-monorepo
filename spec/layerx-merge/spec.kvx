@@ -214542,7 +214542,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1286]
 title = "Remove a new service from the other environments of its project"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214572,7 +214572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1285]
 title = "Set the agent token secret in the definition of the wallet gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
