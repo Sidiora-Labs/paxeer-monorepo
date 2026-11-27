@@ -215148,7 +215148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1312]
 title = "Give the menu trigger of the launchpad web that shows its label the form of a trigger with a body, keep its label on one line, and prove the forms of the trigger with named cases"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
