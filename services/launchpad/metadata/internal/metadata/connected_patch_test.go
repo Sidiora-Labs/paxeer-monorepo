@@ -333,6 +333,23 @@ func TestConnectedCanonicalPatchAndSearch(t *testing.T) {
 	if response := upload(image, "image/png", assetID); response.Code != http.StatusOK {
 		t.Fatalf("idempotent token image: %d %s", response.Code, response.Body.String())
 	}
+	storedPictureID := uuid.NewString()
+	storedPictureRequest := httptest.NewRequest(http.MethodPut, "/v2/tokens/"+creation.Token+"/assets/"+storedPictureID, bytes.NewReader(image))
+	storedPictureRequest.Header.Set("Authorization", "Bearer "+bearer)
+	storedPictureRequest.Header.Set("Content-Type", "image/png")
+	storedPictureRequest.Header.Set("Idempotency-Key", storedPictureID)
+	storedPictureResponse := httptest.NewRecorder()
+	router.ServeHTTP(storedPictureResponse, storedPictureRequest)
+	var storedPicture struct {
+		Data struct {
+			Asset struct {
+				ID string `json:"assetId"`
+			} `json:"asset"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(storedPictureResponse.Body.Bytes(), &storedPicture); err != nil || storedPictureResponse.Code != http.StatusOK || storedPicture.Data.Asset.ID != assetID {
+		t.Fatalf("stored token image: %d %s, %v", storedPictureResponse.Code, storedPictureResponse.Body.String(), err)
+	}
 	if response := upload(pngBytes(t, 49, 32), "image/png", assetID); response.Code != http.StatusConflict {
 		t.Fatalf("changed token image: %d %s", response.Code, response.Body.String())
 	}
