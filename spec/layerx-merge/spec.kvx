@@ -214977,7 +214977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1302]
 title = "Make the helper of the holdings cases name the step that fails, search the cause of the answer stream not found from the event broker and repair it inside the cases of the package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
