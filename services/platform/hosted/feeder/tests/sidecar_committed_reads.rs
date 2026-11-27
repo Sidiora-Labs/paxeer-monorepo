@@ -81,6 +81,7 @@ fn committed_reads_decided_fate_reads_each_market_once_in_parallel() -> TestResu
         (0..config.markets.len() as u64).collect::<Vec<_>>()
     );
     assert!(dir.progress()["pending"].as_array().unwrap().is_empty());
+    assert!(state.evm_observation_reads.is_empty());
     Ok(())
 }
 

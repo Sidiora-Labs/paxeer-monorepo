@@ -95,6 +95,7 @@ fn read_bound_default_commits_eighteen_markets_with_six_reads() -> TestResult {
     assert_eq!(peer.highest_observation_reads_in_flight(), 6);
     assert!(peer.state.lock().unwrap().observation_busy_reads.is_empty());
     assert_committed_reads(&config, &peer, &dir);
+    assert!(peer.state.lock().unwrap().evm_observation_reads.is_empty());
     Ok(())
 }
 

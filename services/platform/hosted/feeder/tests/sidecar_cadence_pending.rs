@@ -55,6 +55,7 @@ fn cadence_pending_committed_cadence_keeps_advancing() -> TestResult {
         thread::sleep(Duration::from_millis(100));
     }
     assert!(peer.state.lock().unwrap().observation_sequence >= 20);
+    assert!(peer.state.lock().unwrap().evm_observation_reads.is_empty());
     Ok(())
 }
 
