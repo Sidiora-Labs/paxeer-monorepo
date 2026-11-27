@@ -214662,7 +214662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1279]
 title = "Let a read of the details of a coin take no row lock when it has nothing to write"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -214752,7 +214752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1276]
 title = "Accept the revision a portfolio frame carries, so a wallet with stored snapshots can commit its first fill"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
