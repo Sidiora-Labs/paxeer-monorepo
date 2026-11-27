@@ -192,16 +192,16 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
     <HoldersFilters value={search} onChange={setSearch} pnlReason={pnlReason} />
     {coverage && coverage !== 'complete' ? <NoticeBar tone="warning" announce>Some holders may be missing from this list.</NoticeBar> : null}
     <div role="region" aria-label="Token holders table" tabIndex={0} className="@container/holders relative min-w-0 max-w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
-      <table className="w-full min-w-160 text-sm">
+      <table className="coin-holders-table w-full min-w-160 text-sm">
         <thead>
           <tr>
-            <SortHeader label="Rank / Holder" />
-            <SortHeader label="Held" align="right" sort={sort.key === 'held' ? sort.direction : null} onSort={() => cycle('held')} />
-            <SortHeader label="% supply" align="right" sort={sort.key === 'supply' ? sort.direction : null} onSort={() => cycle('supply')} />
-            <SortHeader label="Position" align="right" />
+            <SortHeader label="Rank / Holder" className="whitespace-nowrap" />
+            <SortHeader label="Held" align="right" className="whitespace-nowrap" sort={sort.key === 'held' ? sort.direction : null} onSort={() => cycle('held')} />
+            <SortHeader label="% supply" align="right" className="whitespace-nowrap" sort={sort.key === 'supply' ? sort.direction : null} onSort={() => cycle('supply')} />
+            <SortHeader label="Position" align="right" className="whitespace-nowrap" />
             <th scope="colgroup" colSpan={3} className="h-table-header-height px-3 text-right text-2xs font-bold uppercase tracking-wider text-text-faint">
               <span className="inline-flex items-center justify-end gap-1">
-                <span>Profit / Avg entry / Bought</span>
+                <span><span className="whitespace-nowrap">Profit /</span>{' '}<span className="whitespace-nowrap">Avg entry /</span>{' '}<span className="whitespace-nowrap">Bought</span></span>
                 <Tooltip content={pnlReason}>
                   <button type="button" aria-label="About profit, average entry and bought" className="inline-flex size-5 items-center justify-center rounded-xs text-text-faint transition-colors hover:text-text"><CircleHelp aria-hidden="true" className="size-3.5" /></button>
                 </Tooltip>
@@ -219,11 +219,11 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
               <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
               <span className="flex min-w-0 flex-col leading-tight">
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className={identity?.displayName ? 'truncate font-semibold text-text' : 'font-mono text-xs text-text-muted'}>{name}</span>
-                  {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-semibold text-text-muted">Creator</span> : null}
-                  {isPool ? <span data-pool-badge title="Coins held by the bonding curve" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-semibold text-text-muted">Bonding curve</span> : null}
+                  <span className={identity?.displayName ? 'truncate font-semibold text-text' : 'whitespace-nowrap font-mono text-xs text-text-muted'}>{name}</span>
+                  {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 whitespace-nowrap rounded-pill bg-surface-3 px-1.5 text-2xs font-semibold text-text-muted">Creator</span> : null}
+                  {isPool ? <span data-pool-badge title="Coins held by the bonding curve" className="shrink-0 whitespace-nowrap rounded-pill bg-surface-3 px-1.5 text-2xs font-semibold text-text-muted">Bonding curve</span> : null}
                 </span>
-                {identity?.displayName ? <span className="font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
+                {identity?.displayName ? <span className="whitespace-nowrap font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
               </span>
             </>;
             return <tr key={row.wallet} className="h-table-row border-b border-surface-3 transition-colors hover:bg-surface-hover [&>td]:px-3">
@@ -232,9 +232,9 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
                   ? <span className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</span>
                   : <Link prefetch={false} href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</Link>}</div>
               </td>
-              <td data-numeric className="text-right font-bold tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.balanceRaw, decimals)}</td>
-              <td data-numeric className="text-right tabular-nums text-text-muted">{row.supplyPercent === null ? <span className="text-text-faint">—</span> : <span className="coin-holder-share"><span>{formatPercent(row.supplyPercent, { sign: 'negative' })}</span><span aria-hidden="true" className="coin-holder-share-track"><span className="coin-holder-share-fill block" style={{ width: `${Math.min(100, Math.max(0, row.supplyPercent))}%` }} /></span></span>}</td>
-              <td data-numeric className="text-right tabular-nums text-text">{row.positionUsdlRaw === null ? <span className="text-text-faint">—</span> : formatUsdl(row.positionUsdlRaw, { compact: true })}</td>
+              <td data-numeric className="whitespace-nowrap text-right font-bold tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.balanceRaw, decimals)}</td>
+              <td data-numeric className="whitespace-nowrap text-right tabular-nums text-text-muted">{row.supplyPercent === null ? <span className="text-text-faint">—</span> : <span className="coin-holder-share"><span>{formatPercent(row.supplyPercent, { sign: 'negative' })}</span><span aria-hidden="true" className="coin-holder-share-track"><span className="coin-holder-share-fill block" style={{ width: `${Math.min(100, Math.max(0, row.supplyPercent))}%` }} /></span></span>}</td>
+              <td data-numeric className="whitespace-nowrap text-right tabular-nums text-text">{row.positionUsdlRaw === null ? <span className="text-text-faint">—</span> : formatUsdl(row.positionUsdlRaw, { compact: true })}</td>
               <td colSpan={3} className="text-right text-xs text-text-faint" title={pnlOperation}>—</td>
             </tr>;
           })}
