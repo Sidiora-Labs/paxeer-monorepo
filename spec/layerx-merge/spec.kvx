@@ -215168,7 +215168,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1305]
 title = "Give the cases of internal/app of the holdings service the guard at the creation of a consumer that the cases of the package l16 have"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
