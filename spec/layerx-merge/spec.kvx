@@ -215366,7 +215366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1323]
 title = "Let the seven enrollment cases of the holdings service of the launchpad run as the parts of one case with one start of the fixture, so that the package fits the time bound of the public job again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
