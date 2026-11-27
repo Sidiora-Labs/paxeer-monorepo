@@ -214856,7 +214856,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1293]
 title = "Refresh the list of the runtime statements of the social service for the statement that raises the visibility revision of the comments of a wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
