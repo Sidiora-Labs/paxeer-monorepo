@@ -21,12 +21,98 @@ async function availablePort() {
   return port;
 }
 
-export async function startLaunchpadChain() {
+async function withinLimit(operation, milliseconds, expired, signal) {
+  let timer;
+  let aborted;
+  try {
+    signal?.throwIfAborted();
+    return await Promise.race([
+      Promise.resolve().then(operation),
+      new Promise((_, reject) => {
+        const deadline = performance.now() + milliseconds;
+        const expire = () => {
+          const remaining = deadline - performance.now();
+          if (remaining > 0) timer = setTimeout(expire, Math.ceil(remaining));
+          else reject(expired());
+        };
+        timer = setTimeout(expire, milliseconds);
+        if (signal) {
+          aborted = () => reject(signal.reason);
+          signal.addEventListener('abort', aborted, { once: true });
+        }
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    if (aborted) signal.removeEventListener('abort', aborted);
+  }
+}
+
+export async function confirmedReceipt(
+  provider,
+  transaction,
+  sendLimitMs,
+  receiptLimitMs,
+  signal,
+) {
+  const sent = await withinLimit(
+    () => transaction,
+    sendLimitMs,
+    () =>
+      new Error(
+        `Transaction send timed out after ${sendLimitMs}ms before a hash was available`,
+      ),
+    signal,
+  );
+  const hash = sent.hash;
+  let blockNumber = 'unknown';
+  let known = 'unknown';
+  let pause;
+  let ended = false;
+  try {
+    return await withinLimit(
+      async () => {
+        for (;;) {
+          const receipt = await provider.getTransactionReceipt(hash);
+          if (ended) return;
+          if (receipt) return receipt;
+          await Promise.all([
+            provider.getBlockNumber().then((value) => {
+              blockNumber = value;
+            }),
+            provider.getTransaction(hash).then((value) => {
+              known = value !== null;
+            }),
+          ]);
+          if (ended) return;
+          await new Promise((done) => {
+            pause = setTimeout(done, 50);
+          });
+          if (ended) return;
+        }
+      },
+      receiptLimitMs,
+      () =>
+        new Error(
+          `Receipt timed out for ${hash}: block ${blockNumber}, transaction known: ${known}`,
+        ),
+      signal,
+    );
+  } finally {
+    ended = true;
+    clearTimeout(pause);
+  }
+}
+
+export async function startLaunchpadChain({ signal, after } = {}) {
   const binary = process.env.ANVIL_BIN ?? 'anvil';
   try {
-    await execute(binary, ['--version']);
-  } catch {
-    throw new Error('The local launchpad journey requires anvil. Install anvil or set ANVIL_BIN.');
+    await execute(binary, ['--version'], { signal });
+  } catch (error) {
+    signal?.throwIfAborted();
+    throw new Error(
+      'The local launchpad journey requires anvil. Install anvil or set ANVIL_BIN.',
+    );
   }
   await execute(
     'corepack',
@@ -39,16 +125,17 @@ export async function startLaunchpadChain() {
       '--frozen-lockfile',
       '--ignore-scripts',
     ],
-    { cwd: contracts, maxBuffer: 4 * 1024 * 1024 },
+    { cwd: contracts, maxBuffer: 4 * 1024 * 1024, signal },
   );
   await execute(
     'corepack',
     ['pnpm', '--dir', contracts, '--ignore-workspace', 'run', 'compile'],
-    { cwd: contracts, maxBuffer: 4 * 1024 * 1024 },
+    { cwd: contracts, maxBuffer: 4 * 1024 * 1024, signal },
   );
   const require = createRequire(resolve(contracts, 'package.json'));
   const ethers = require('ethers');
   const port = await availablePort();
+  signal?.throwIfAborted();
   const child = spawn(
     binary,
     ['--host', '127.0.0.1', '--port', String(port), '--chain-id', '125', '--silent'],
@@ -71,19 +158,39 @@ export async function startLaunchpadChain() {
     batchMaxCount: 1,
   });
   provider.pollingInterval = 50;
-  const stop = async () => {
-    provider.destroy();
-    if (child.exitCode === null && child.signalCode === null) {
-      const exited = once(child, 'exit');
-      child.kill('SIGTERM');
-      const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
-      await exited;
-      clearTimeout(timer);
-    }
+  let stopping;
+  const stop = () => {
+    stopping ??= (async () => {
+      signal?.removeEventListener('abort', aborted);
+      try {
+        provider.destroy();
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) {
+          const exited = once(child, 'close');
+          child.kill('SIGTERM');
+          const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
+          try {
+            await exited;
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+      }
+    })();
+    return stopping;
   };
+  const aborted = () => {
+    void stop().catch((error) => {
+      output += error.message;
+    });
+  };
+  after?.(stop);
+  signal?.addEventListener('abort', aborted, { once: true });
   try {
+    signal?.throwIfAborted();
     const until = Date.now() + 15000;
     for (;;) {
+      signal?.throwIfAborted();
       assert.equal(child.exitCode, null, output);
       try {
         assert.equal(await provider.send('eth_chainId', []), '0x7d');
@@ -116,23 +223,29 @@ export async function startLaunchpadChain() {
       const build = JSON.parse(readFileSync(resolve(dirname(file), debug.buildInfo), 'utf8'));
       for (const [source, input] of Object.entries(build.input.sources)) {
         if (source.startsWith('contracts/'))
-          assert.equal(readFileSync(resolve(contracts, source), 'utf8'), input.content, source);
+          assert.equal(
+            readFileSync(resolve(contracts, source), 'utf8'),
+            input.content,
+            source,
+          );
       }
       artifacts.set(name, value);
       return value;
     }
     const receipts = [];
     async function confirmed(transaction) {
-      const receipt = await (await transaction).wait();
+      const receipt = await confirmedReceipt(provider, transaction, 120000, 120000, signal);
       assert.equal(receipt.status, 1);
       receipts.push(receipt);
       return receipt;
     }
     async function deploy(name, args = []) {
       const value = artifact(name);
-      const contract = await new ethers.ContractFactory(value.abi, value.bytecode, signer).deploy(
-        ...args,
-      );
+      const contract = await new ethers.ContractFactory(
+        value.abi,
+        value.bytecode,
+        signer,
+      ).deploy(...args);
       await confirmed(contract.deploymentTransaction());
       return contract;
     }
@@ -163,7 +276,12 @@ export async function startLaunchpadChain() {
       usdl.target,
       admin,
     ]);
-    const nft = await proxy('SidioraNFT', ['Sidiora Pool NFT', 'SIDNFT', emitter.target, admin]);
+    const nft = await proxy('SidioraNFT', [
+      'Sidiora Pool NFT',
+      'SIDNFT',
+      emitter.target,
+      admin,
+    ]);
     const implementation = await deploy('SidioraPool');
     const beacon = await deploy('PoolBeacon', [implementation.target, admin]);
     const factory = await proxy('SidioraFactory', [
