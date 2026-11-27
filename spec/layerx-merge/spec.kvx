@@ -17638,6 +17638,12 @@ value = "One. apps/perps/packages/markets/src/components/sideMarkets/column.tsx 
 basis = "Gotcha 5031. Decisions 3705 and 4086."
 affects = []
 
+[decision.4088]
+title = "Further cases lift the statement coverage of the holdings service of the launchpad above the minimum of its public job; the gate and its minimum stay as they are"
+value = "One. The repair is cases. Task 22.39.1300 writes them into files whose names end in _test.go, below services/launchpad/pnl-tracker. No file of the product changes, and neither tools/launchpad/coverage-gate.sh, its two minimums, the list of line 44 of services/launchpad/Makefile, the makefile nor the file go.mod of the module. No file gets the marker of generated code and no package leaves the measure. Two. A case stands for a behaviour of the code: a refusal, an error path, the boundary of an input, the second branch of a decision. Each case asserts what the code returns or does. No case calls a function only so that its lines count. Three. The task measures before it writes: it runs the target cover for the module and reads, with the tool of the language, the figure of every function in the profile. It then writes the cases where a case reaches the most statements that none reaches today. The figures of gotcha 5032 show where to look first. The command package cmd/pnld stays without cases unless a case can reach it without a start of the service. Four. Target: a total of 90.3 or above in the profile of the final revision, so that a run that reaches a little less than the run before still passes. The gate keeps its 90.0. Five. Not part of this decision: the case of internal/production/l16 that fails now and then (gotcha 5032, last paragraph). The task does not change that case, does not mark it skipped and does not repeat it inside the code. "
+basis = "Gotcha 5032."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47298,6 +47304,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1300]
+title = "Add cases to the holdings service of the launchpad until its statement coverage passes the minimum of 90.0 of its public job"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal", "services/launchpad/pnl-tracker/cmd"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint cover-check MODULES=pnl-tracker"
+do_1 = "do_1 Gotcha 5032, decision 4088. Read the targets cover and cover-check of services/launchpad/Makefile and tools/launchpad/coverage-gate.sh whole. This task adds cases in files whose names end in _test.go below services/launchpad/pnl-tracker. It changes no other file: no file of the product, not the gate, not the makefile, not go.mod and not go.sum."
+symbols = []
 
 [capability.22.39.1299]
 title = "Fit the list of markets beside the chart and the desktop order book of the trading workspace into their boxes so that neither scrolls or draws a bar"
@@ -214830,6 +214845,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1300]
+title = "Add cases to the holdings service of the launchpad until its statement coverage passes the minimum of 90.0 of its public job"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1300"]
+interfaces = []
+do_1 = "do_1 Gotcha 5032, decision 4088. Read the targets cover and cover-check of services/launchpad/Makefile and tools/launchpad/coverage-gate.sh whole. This task adds cases in files whose names end in _test.go below services/launchpad/pnl-tracker. It changes no other file: no file of the product, not the gate, not the makefile, not go.mod and not go.sum."
+do_2 = "do_2 Measure first. Run the target cover of services/launchpad/Makefile for the module, from the root of the tree: GOFLAGS=-timeout=15m make -C services/launchpad cover MODULES=pnl-tracker. The run takes more than ten minutes; the package internal/production/l16 alone took 490 seconds in the public run. The profile is services/launchpad/.cover/pnl-tracker.out. The directory .cover is ignored by git: never add it to a commit. Inside services/launchpad/pnl-tracker run go tool cover with the option -func and the path of the profile, and keep the output: it gives the figure of every function and the total in its last line. Give the total and the figures of the packages before the new cases in the final message."
+do_3 = "do_3 Choose the functions by the statements a case can reach, decision 4088 point three, and write the cases, points one and two. Use the helpers and the form the cases of the same package already use, a table of inputs where the package has tables. A case of internal/production/l16 that needs the local chain or the event broker uses the helpers of that package and starts nothing by a way of its own. To measure one package while writing, run go test with the option -coverprofile for that package alone, with GOWORK=off, inside services/launchpad/pnl-tracker; measure the whole module again only before the counted runs."
+do_4 = "do_4 Measure the whole module again as in do_2. The total of the final revision is 90.3 or above, decision 4088 point four. Give in the final message the total and the figures of the packages after the new cases, the names of the new cases for each package, and each function left without a case although its figure is low, with the cause in a few words."
+do_5 = "do_5 If the case TestCheckpointRevisionSecondFill or another case of internal/production/l16 that this task did not write fails in a run, repeat that run once. Name the case, the file and its first message in the final message. Do not change such a case, decision 4088 point five."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal", "services/launchpad/pnl-tracker/cmd"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint cover-check MODULES=pnl-tracker"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
