@@ -17644,6 +17644,18 @@ value = "One. The repair is cases. Task 22.39.1300 writes them into files whose 
 basis = "Gotcha 5032."
 affects = []
 
+[decision.4089]
+title = "The public job of the launchpad packages leaves the one case of the web that needs a prepared host out of the web row and gets a row for the agent kit; the checks follow and stay as strict"
+value = "One. The web row runs python3 scripts/prepare-test-environment.py -- pnpm exec vitest run --exclude src/widgets/coin/coin-layout.browser.test.ts. Nothing else of the row changes. The case file, apps/launchpad/web/vitest.config.ts, the script test of the package and tools/ui-check/surfaces/launchpad/prepare.mjs stay as they are. The case keeps running where the render check runs before it, decision 4074 point two. The row leaves out this one file and no other. Two. The matrix gets the twelfth row sdk/launchpad/packages/agent-kit. The row runs the script test of the kit through the step Test package, as every row but the web row does. Before that step the row has what gotcha 5033 point three names: anvil, go, the binaries of PostgreSQL with PG_BIN_DIR for the later steps, the install and the build of services/agent/sdk/typescript, the install of sdk/wallet and the install of services/wallet. The job gateway of .github/workflows/wallet-test.yml is the model for these steps. Each such step runs for the row of the kit only, or widens the condition of a step that is there and does the same; no step that another row does not need starts to run for that row. The two installs of the wallet run with the version of the package manager their package files name; the steps of the other rows keep theirs. The actions the new steps use are the ones the two workflows already use, bound to the same full commit ids. Three. The checks follow the workflow and lose nothing. Each assertion that pins the rows, the conditions of the steps or the words of the command of the web row is brought to the new state in the same exact way: the list of words gets the two new words, the count of rows is twelve, the maps of conditions name the row of the kit. Every variant that tests/ci/test_js_suites_have_runner.py refuses today stays refused, and a command of the web row with a second excluded file, or with another file than the one of point one, is refused as well. No case is removed, skipped, marked as an expected failure or deselected, and tests/ci/data/js_suite_exclusions.txt gets no line for the kit. The job keeps exactly one step that sets up go, so what tests/ci/test_launchpad_go_tests_wired.py asserts about that step holds as it is. Four. Outside this decision: the three go jobs of the workflow, the cases of the kit and every file below sdk, services, apps and tools. If a case of the kit does not pass in the run by hand for a cause in such a file, the task names it and changes nothing there. "
+basis = "Gotcha 5033. Decision 4074."
+affects = []
+
+[decision.4090]
+title = "The helper of the holdings cases names its steps, the cause of the answer stream not found is searched with repeated runs, and the repair stays inside the cases of the package; nothing is skipped or run again to hide it"
+value = "One. Names first. Each step of the function of gotcha 5034 point two that can end a case reports the name of the step in front of the error; the removal at the return does the same. This stays in the final revision, whatever the search finds. Two. The search. Task 22.39.1302 runs the sequence of the function many times against the broker of its environment and counts, for each step, the answers stream not found. It uses a loop of at least 500 passes: create a stream with a new name for the subject of the inventory frames, create the consumer, ask for the stream and for the consumer as the transport does, remove the stream. It also runs the six cases whose names begin with TestCheckpointRevision at least 40 times. The loop is a tool of the search and is not part of the final revision. Three. The repair follows what the search shows. If the answer comes from a request that names a stream created an instant before, a guard repeats that one request, only on that answer, with a short pause between two tries and for at most five seconds, and then fails with the name of the step and the time it waited. Every other error ends the case at once, as today. The three further files of the package that create a stream of their own get the same guard where they send such a request, through one function in a test file of the package. If the answer comes from another step, the task repairs the cause where it lies inside the test files of the package and says in the final message what it was. Four. If the search does not show the answer once, the names of point one and the guard of point three, for the requests between the creation of the stream and the start of the consumer, go in all the same. The final message then says plainly that the cause was not seen. The next record of the public job names the step. Five. Not done. No case is skipped, marked or put into the list tests/ci/data/launchpad_go_test_baseline.json. No case is run again after a failure so that a later try may pass. No pause is added that is not bound to the answer of point three. No file of the product, of the shared packages, of the workflow or of the runner of the cases changes. If the cause lies in the product, the task changes nothing there and gives the step, the request and the line of the product in the final message. Six. Outside: the cases of internal/app. The task reads the four files of gotcha 5034 point four and says in the final message whether the cause found concerns them; it changes none of them. "
+basis = "Gotcha 5034. Decision 4088."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47304,6 +47316,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1302]
+title = "Make the helper of the holdings cases name the step that fails, search the cause of the answer stream not found from the event broker and repair it inside the cases of the package"
+reqs = ["22998.1"]
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+verification_contract = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do GOWORK=off go test -count=1 -timeout 10m -run ^TestCheckpointRevision ./internal/production/l16/ || exit 1; done && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/)"
+do_1 = "do_1 Gotcha 5034, decision 4090. Read whole: services/launchpad/pnl-tracker/internal/production/l16/recorded_consumer_test.go, services/launchpad/pnl-tracker/internal/production/l16/checkpoint_revision_test.go and the functions NewPublisher, Publish and NewConsumer of sdk/launchpad/shared/delivery/natsdriver/driver.go. This task changes files whose names end in _test.go below services/launchpad/pnl-tracker/internal/production/l16. It changes no other file."
+symbols = []
+
+[capability.22.39.1301]
+title = "Give the agent kit its row in the public job of the launchpad packages, leave the one case that needs a prepared host out of the web row, and bring the checks in step"
+reqs = ["22998.1"]
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+verification_contract = "python3 -m pytest -q tests/ci/test_js_suites_have_runner.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_launchpad_package_job_environment.py tests/ci/test_launchpad_install_steps.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_push_concurrency.py tests/ci/test_workflow_runs_on_routed.py"
+do_1 = "do_1 Gotcha 5033, decision 4089. Read whole: the job launchpad-test of .github/workflows/launchpad-test.yml, the job gateway of .github/workflows/wallet-test.yml, and the files tests/ci/test_js_suites_have_runner.py, tests/ci/test_pnpm_workspace_roots.py, tests/ci/test_launchpad_test_workflow.py and tests/ci/test_launchpad_package_job_environment.py. This task changes .github/workflows/launchpad-test.yml and files below tests/ci, nothing else."
+symbols = []
 
 [capability.22.39.1300]
 title = "Add cases to the holdings service of the launchpad until its statement coverage passes the minimum of 90.0 of its public job"
@@ -214845,6 +214875,74 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1302]
+title = "Make the helper of the holdings cases name the step that fails, search the cause of the answer stream not found from the event broker and repair it inside the cases of the package"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1302"]
+interfaces = []
+do_1 = "do_1 Gotcha 5034, decision 4090. Read whole: services/launchpad/pnl-tracker/internal/production/l16/recorded_consumer_test.go, services/launchpad/pnl-tracker/internal/production/l16/checkpoint_revision_test.go and the functions NewPublisher, Publish and NewConsumer of sdk/launchpad/shared/delivery/natsdriver/driver.go. This task changes files whose names end in _test.go below services/launchpad/pnl-tracker/internal/production/l16. It changes no other file."
+do_2 = "do_2 Names, decision 4090 point one. In consumeCurrentInventoryFrames each step that can end the case reports the name of the step and then the error: the connection, the creation of the stream, the creation of the consumer, each publication, the opening of the transport, the run of the consumer and the removal of the stream. Keep the marks of a helper as they are, so the report still names the line of the case."
+do_3 = "do_3 The search, point two. Write the loop as a case of its own in a file that is not part of the final revision. Run it with GOWORK=off inside services/launchpad/pnl-tracker against the broker that PNL_TEST_NATS_URL names. Keep for each step the number of tries and the number of answers stream not found. Then run go test -count=1 -run ^TestCheckpointRevision for the package at least 40 times, each time as a command of its own, and keep the number of runs that fail and the step each failure names. Give both sets of figures in the final message, and the number of servers of the broker of these runs as the connection reports them."
+do_4 = "do_4 The repair, points three and four. Put the guard into one function in a test file of the package. Use it in consumeCurrentInventoryFrames and, where such a request stands, in baseline_ahead_postgres_test.go, catchup_test.go and consumer_cancellation_test.go. The guard repeats one request only on the answer stream not found; it does not repeat a whole case, and it ends at once on every other error. If the search shows another cause, repair that cause inside the test files of the package and add the guard only where a request needs it. Point four holds only when the search shows nothing."
+do_5 = "do_5 After the repair run the loop of do_3 again, with the guard in its sequence, and the six cases again at least 40 times. Give the figures after the repair beside the figures before. Remove the file of the loop before the final revision."
+do_6 = "do_6 Point six. Read the four files of the cases of internal/app that create a stream and say in the final message, for each, whether the cause found concerns it. Change none of them. Point five holds throughout: nothing is skipped, no case is run again after a failure, and no file outside the test files of the package changes."
+do_7 = "do_7 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["services/launchpad/pnl-tracker/internal/production/l16"]
+tests = []
+planned_paths = []
+build_cmd = "anvil --version > /dev/null && (cd services/launchpad/pnl-tracker && GOWORK=off go build ./... && GOWORK=off go vet ./internal/production/l16/...)"
+verify_cmd = "anvil --version > /dev/null && GOFLAGS=-timeout=15m make -C services/launchpad fmt-check lint MODULES=pnl-tracker && (cd services/launchpad/pnl-tracker && for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do GOWORK=off go test -count=1 -timeout 10m -run ^TestCheckpointRevision ./internal/production/l16/ || exit 1; done && GOWORK=off go test -count=1 -timeout 20m ./internal/production/l16/)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1301]
+title = "Give the agent kit its row in the public job of the launchpad packages, leave the one case that needs a prepared host out of the web row, and bring the checks in step"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1301"]
+interfaces = []
+do_1 = "do_1 Gotcha 5033, decision 4089. Read whole: the job launchpad-test of .github/workflows/launchpad-test.yml, the job gateway of .github/workflows/wallet-test.yml, and the files tests/ci/test_js_suites_have_runner.py, tests/ci/test_pnpm_workspace_roots.py, tests/ci/test_launchpad_test_workflow.py and tests/ci/test_launchpad_package_job_environment.py. This task changes .github/workflows/launchpad-test.yml and files below tests/ci, nothing else."
+do_2 = "do_2 Nine files below tests/ci name the workflow: the eight of the verification and tests/ci/test_launchpad_go_tests_wired.py. Before any change run pytest over the nine and keep the summary of each and the names of the cases that fail. Run the same after the last change. A case that passed before and fails after is repaired inside the paths. Give both sets of summaries in the final message."
+do_3 = "do_3 The web row, decision 4089 point one: the command of line 273 of .github/workflows/launchpad-test.yml becomes python3 scripts/prepare-test-environment.py -- pnpm exec vitest run --exclude src/widgets/coin/coin-layout.browser.test.ts. Bring the list of words in tests/ci/test_pnpm_workspace_roots.py and the recognition of the web row in tests/ci/test_js_suites_have_runner.py to exactly this command, point three: the command without the two new words, with a second excluded file or with another file is not recognised."
+do_4 = "do_4 The row of the kit, decision 4089 point two. Add sdk/launchpad/packages/agent-kit to the matrix and the steps the row needs, in an order in which each tool is there before the step that uses it and all of them before the step Test package (line 274). The step Build SDK packages (line 268) already builds the kit. The default directory of the job is apps/launchpad: a step that runs elsewhere names its directory. For go widen the condition of the step of line 212: the job keeps exactly one step that sets up go. For anvil prefer the step of line 202 with a widened condition over a second copy, if the checks can then still say exactly which rows get it. Write conditions in the two forms the function package_condition_matches of tests/ci/test_launchpad_package_job_environment.py reads."
+do_5 = "do_5 The checks, decision 4089 point three. Bring tests/ci/test_js_suites_have_runner.py, tests/ci/test_pnpm_workspace_roots.py, tests/ci/test_launchpad_test_workflow.py and tests/ci/test_launchpad_package_job_environment.py to the new state. For the row of the kit the checks say exactly which steps it gets, and that every other row does not get the steps that are new. Where a check derives what a package needs from the sources of its cases and cannot read the cases of the kit that way, state what the kit needs as a fixed expectation with its cause in a comment line, and leave the derivation for the other packages as it is. If a change of the workflow touches what tests/ci/test_launchpad_install_steps.py or another file below tests/ci pins, bring that file in step the same way and name it in the final message."
+do_6 = "do_6 Run by hand, in the working tree and with the tools of the environment, the commands of the new row in the order of the workflow, up to and with the script test of the kit: pnpm --dir sdk/launchpad/packages/agent-kit run test. Give for each command whether it passed. If a tool of a step is not there, say so and go on with the next command. A case of the kit that fails: give case, file and first message, decision 4089 point four. Name in the final message every step of the new row that could not be run here as it will run in the public job, with the cause in a few words."
+do_7 = "do_7 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are not the counted runs and use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = [".github/workflows/launchpad-test.yml", "tests/ci"]
+tests = []
+planned_paths = []
+build_cmd = "python3 -m py_compile tests/ci/test_js_suites_have_runner.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_launchpad_package_job_environment.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_js_suites_have_runner.py tests/ci/test_pnpm_workspace_roots.py tests/ci/test_launchpad_test_workflow.py tests/ci/test_launchpad_package_job_environment.py tests/ci/test_launchpad_install_steps.py tests/ci/test_runner_routing_container_runtime.py tests/ci/test_workflow_push_concurrency.py tests/ci/test_workflow_runs_on_routed.py"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."

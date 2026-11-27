@@ -88,8 +88,10 @@ func TestAccountingDeliveryCancellationPreservesAtomicEffects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = js.CreateOrUpdateConsumer(ctx, name, broker); err != nil {
-		t.Fatal(err)
+	if _, err = retryInventoryStreamRequest(ctx, func(requestCtx context.Context) (jetstream.Consumer, error) {
+		return js.CreateOrUpdateConsumer(requestCtx, name, broker)
+	}); err != nil {
+		t.Fatalf("create broker consumer: %v", err)
 	}
 	publisher, err := natsdriver.NewPublisher(nc, name)
 	if err != nil {

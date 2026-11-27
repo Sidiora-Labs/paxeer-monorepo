@@ -200,6 +200,7 @@ def test_launchpad_matrix_runs_from_launchpad_workspace():
             assert shlex.split(web_step["run"]) == [
                 "python3", "scripts/prepare-test-environment.py", "--",
                 "pnpm", "exec", "vitest", "run",
+                "--exclude", "src/widgets/coin/coin-layout.browser.test.ts",
             ]
             assert (LAUNCHPAD / "web/scripts/prepare-test-environment.py").is_file()
             continue
