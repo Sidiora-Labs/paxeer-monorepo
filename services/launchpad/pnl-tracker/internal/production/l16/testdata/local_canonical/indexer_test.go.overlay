@@ -3,6 +3,8 @@ package processor
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -24,6 +26,106 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func pnlFixtureRange(ctx context.Context, wait time.Duration, repeats int, logf func(string, ...any), batch func() error) error {
+	for repeated := 0; ; repeated++ {
+		err := batch()
+		if err == nil || ctx.Err() != nil || repeated >= repeats ||
+			!strings.Contains(err.Error(), "restoration epoch fence rejected") ||
+			!strings.Contains(err.Error(), "context deadline exceeded") {
+			return err
+		}
+		logf("canonical range repeat %d: %v", repeated+1, err)
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return err
+		case <-timer.C:
+		}
+		if ctx.Err() != nil {
+			return err
+		}
+	}
+}
+
+func TestPnlCanonicalFixtureRepeatsARefusedRange(t *testing.T) {
+	refused := errors.New("queue: restoration epoch fence rejected: timeout: context deadline exceeded")
+	t.Run("refused twice then committed", func(t *testing.T) {
+		calls := 0
+		var logs []string
+		err := pnlFixtureRange(context.Background(), time.Millisecond, 10, func(format string, args ...any) {
+			logs = append(logs, fmt.Sprintf(format, args...))
+		}, func() error {
+			calls++
+			if calls <= 2 {
+				return refused
+			}
+			return nil
+		})
+		if err != nil || calls != 3 || len(logs) != 2 {
+			t.Fatalf("calls=%d logs=%v err=%v", calls, logs, err)
+		}
+		for i, line := range logs {
+			if want := fmt.Sprintf("canonical range repeat %d: %v", i+1, refused); line != want {
+				t.Fatalf("log=%q want=%q", line, want)
+			}
+		}
+	})
+	t.Run("other errors return immediately", func(t *testing.T) {
+		for _, other := range []error{
+			errors.New("canonical range mismatch"),
+			errors.New("queue: restoration epoch fence rejected: wrong epoch"),
+			context.DeadlineExceeded,
+		} {
+			calls, logs := 0, 0
+			err := pnlFixtureRange(context.Background(), time.Millisecond, 10, func(string, ...any) { logs++ }, func() error {
+				calls++
+				return other
+			})
+			if err != other || calls != 1 || logs != 0 {
+				t.Fatalf("calls=%d logs=%d err=%v want=%v", calls, logs, err, other)
+			}
+		}
+	})
+	t.Run("repeat limit returns last refusal", func(t *testing.T) {
+		calls, logs := 0, 0
+		var last error
+		err := pnlFixtureRange(context.Background(), time.Millisecond, 10, func(string, ...any) { logs++ }, func() error {
+			calls++
+			last = fmt.Errorf("%w: call %d", refused, calls)
+			return last
+		})
+		if err != last || calls != 11 || logs != 10 {
+			t.Fatalf("calls=%d logs=%d err=%v want=%v", calls, logs, err, last)
+		}
+	})
+	t.Run("ended context returns without repeating", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		calls, logs := 0, 0
+		err := pnlFixtureRange(ctx, time.Millisecond, 10, func(string, ...any) { logs++ }, func() error {
+			calls++
+			return refused
+		})
+		if err != refused || calls != 1 || logs != 0 {
+			t.Fatalf("calls=%d logs=%d err=%v", calls, logs, err)
+		}
+		waiting, stop := context.WithCancel(context.Background())
+		defer stop()
+		calls, logs = 0, 0
+		err = pnlFixtureRange(waiting, time.Millisecond, 10, func(string, ...any) {
+			logs++
+			stop()
+		}, func() error {
+			calls++
+			return refused
+		})
+		if err != refused || calls != 1 || logs != 1 {
+			t.Fatalf("canceled wait calls=%d logs=%d err=%v", calls, logs, err)
+		}
+	})
+}
 
 // TestPnlCanonicalFixture commits actual factory, swap and transfer receipts
 // through the indexer for the portfolio consumer in the parent process.
@@ -183,7 +285,7 @@ func TestPnlCanonicalFixture(t *testing.T) {
 		if to > int64(last) {
 			to = int64(last)
 		}
-		if err = p.ProcessBatch(ctx, from, to); err != nil {
+		if err = pnlFixtureRange(ctx, time.Second, 10, t.Logf, func() error { return p.ProcessBatch(ctx, from, to) }); err != nil {
 			t.Fatalf("canonical batch %d..%d: %v", from, to, err)
 		}
 		from = to + 1
@@ -245,7 +347,7 @@ func TestPnlCanonicalFixture(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if err = p.ProcessBatch(ctx, int64(last)+1, int64(end)); err != nil {
+				if err = pnlFixtureRange(ctx, time.Second, 10, t.Logf, func() error { return p.ProcessBatch(ctx, int64(last)+1, int64(end)) }); err != nil {
 					t.Fatal(err)
 				}
 				result.Height = end
