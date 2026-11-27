@@ -17764,6 +17764,12 @@ value = "One. The rule. The case TestRewardsBoundedRoundTrip keeps the status 50
 basis = "Gotcha 5052."
 affects = []
 
+[decision.4109]
+title = "The stand-in of the chain measurement case writes its watermark with a context that does not end with the request, so a request that its caller ends is no failure of the case; a new case proves it with a request that has ended; the sources of the client and of the measurement do not change"
+value = "One. The rule. The stand-in of the case TestChainMeasurementTracksCommittedIngestAcrossEndpointLoss no longer writes the watermark with the context of the request, gotcha 5053 point two. The write takes its context from the case and has a limit of its own of 5 seconds. A request that its caller ends therefore neither stops the write nor marks the case failed. After the write the stand-in answers as it does today. Two. A write that fails for another cause still marks the case failed, with the message of the error, and the stand-in still answers with the status 500 then. Three. The stand-in becomes a function of the case file that both cases of this decision use, so that the new case runs the code of the stand-in itself and not a copy of it. Four. The new case TestChainMeasurementTracksCommittedIngestWhenARequestEnds. It builds the fixture and the database of the case with the watermark at 100, as the case does (line 113), and starts no measurement. It gives the stand-in one request with the method eth_getBlockByNumber for the height 101 whose context has ended before the call, and asks that both heights of the watermark read 102 after the call. It asks nothing of the answer of the stand-in. With the write of today the stand-in marks this case failed with the message context canceled; with the rule of point one it passes. Five. Not done. The sources of the client and of the measurement stay, with their bounds and with the loss of the first endpoint, gotcha 5053 point four. In the case TestChainMeasurementTracksCommittedIngestAcrossEndpointLoss the headers by time, the refused variants, the duration and the asserts on the run stay. No case is skipped or marked. Only the file advancing_measurement_coverage_test.go changes. Six. The proof by hand, after the change is complete. First the two cases are run five times in one command; the task gives the number of passes. Then, in a copy of the final revision that is not committed, the write of the stand-in takes the context of the request again, as it does today, and the new case is run three times: the task gives the three results with their messages, which show the write of today failing where the rule of point one passes. Seven. The verification runs the lint of the module, the format of the file, the two cases once and then three times. It does not reproduce the three passes of the public job; the next records of the public job decide whether the row passes, and a further cause that such a record shows gets a task of its own. "
+basis = "Gotcha 5053."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47424,6 +47430,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1321]
+title = "Let the stand-in of the chain measurement case of the shared launchpad code write its watermark with a context that does not end with the request, and add a case with a request that has ended"
+reqs = ["22998.1"]
+touches = ["sdk/launchpad/shared/chain"]
+tests = []
+verification_contract = "GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && test -z $(gofmt -l chain/advancing_measurement_coverage_test.go) && GOWORK=off go test -count=1 -timeout 20m -run ^TestChainMeasurementTracks ./chain/ && test $(GOWORK=off go test -count=3 -timeout 20m -v -run ^TestChainMeasurementTracks ./chain/ | grep -c -e ^---.PASS:.TestChainMeasurementTracks) -ge 6 && grep -e TestChainMeasurementTracksCommittedIngestWhenARequestEnds chain/advancing_measurement_coverage_test.go > /dev/null)"
+do_1 = "do_1 Gotcha 5053, decision 4109. Read whole: sdk/launchpad/shared/chain/advancing_measurement_coverage_test.go. Read in sdk/launchpad/shared/chain/measurement_coverage_test.go the function newMeasurementDatabase (line 265), and in sdk/launchpad/shared/chain/client.go the functions NewChainMeasurementEndpoint (line 1341) and RunChainMeasurement (line 1510). This task changes only sdk/launchpad/shared/chain/advancing_measurement_coverage_test.go. The cases use the database that the variable DELIVERY_TEST_DSN names (line 267 of measurement_coverage_test.go); a run by hand needs it as the verification does."
+symbols = []
 
 [capability.22.39.1320]
 title = "Let the round trip case of the rewards of the holdings service count its upper bound from the entry of the first read that hangs, and add a case with slow reads before that read"
@@ -215315,6 +215330,38 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1321]
+title = "Let the stand-in of the chain measurement case of the shared launchpad code write its watermark with a context that does not end with the request, and add a case with a request that has ended"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1321"]
+interfaces = []
+do_1 = "do_1 Gotcha 5053, decision 4109. Read whole: sdk/launchpad/shared/chain/advancing_measurement_coverage_test.go. Read in sdk/launchpad/shared/chain/measurement_coverage_test.go the function newMeasurementDatabase (line 265), and in sdk/launchpad/shared/chain/client.go the functions NewChainMeasurementEndpoint (line 1341) and RunChainMeasurement (line 1510). This task changes only sdk/launchpad/shared/chain/advancing_measurement_coverage_test.go. The cases use the database that the variable DELIVERY_TEST_DSN names (line 267 of measurement_coverage_test.go); a run by hand needs it as the verification does."
+do_2 = "do_2 The stand-in, points one to three. Make the stand-in of line 38 a function of the file that the case calls. Change the write of line 81: its context comes from the case, with a limit of 5 seconds, and not from the request. Lines 82 and 83 stay for a write that fails for another cause. Nothing else of the case changes, point five."
+do_3 = "do_3 The new case, point four. Add TestChainMeasurementTracksCommittedIngestWhenARequestEnds to the same file, written as the case of the file is. Say in the final message how the case gives the stand-in a request whose context has ended, and what the stand-in answers to it."
+do_4 = "do_4 The proof, point six. After the change is complete, run the two cases five times in one command, from the directory of the module, with the flags count 5 and v and the pattern of the verification, and give the number of passes. Then make the copy of point six, run the new case there three times and give the three results with their messages. The copy is not committed."
+do_5 = "do_5 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are part of the work of this task and are not left out; they are made with the commands themselves, they are not the counted runs and they use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["sdk/launchpad/shared/chain"]
+tests = []
+planned_paths = []
+build_cmd = "(cd sdk/launchpad/shared && GOWORK=off go build ./chain/... && GOWORK=off go vet ./chain/)"
+verify_cmd = "GOFLAGS=-timeout=15m make -C services/launchpad lint MODULES=../../sdk/launchpad/shared && (cd sdk/launchpad/shared && test -z $(gofmt -l chain/advancing_measurement_coverage_test.go) && GOWORK=off go test -count=1 -timeout 20m -run ^TestChainMeasurementTracks ./chain/ && test $(GOWORK=off go test -count=3 -timeout 20m -v -run ^TestChainMeasurementTracks ./chain/ | grep -c -e ^---.PASS:.TestChainMeasurementTracks) -ge 6 && grep -e TestChainMeasurementTracksCommittedIngestWhenARequestEnds chain/advancing_measurement_coverage_test.go > /dev/null)"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
