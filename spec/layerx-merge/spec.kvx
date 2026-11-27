@@ -214572,7 +214572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.44.155]
 title = "Draw the layers at the lower edge of a narrow window opaque"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
