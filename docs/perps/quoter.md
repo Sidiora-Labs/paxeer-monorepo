@@ -33,6 +33,7 @@ places. Market ids include zero. Durations are whole seconds from 1 to 86400.
 | `PERPS_QUOTER_REFUSAL_LIMIT` | `3` | Consecutive transaction refusals before the market rests, from 1 through 100. |
 | `PERPS_QUOTER_COOLDOWN_SECONDS` | `30` | Rest after consecutive refusals. Cancellation remains available. |
 | `PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND` | `8` | Maximum transaction attempts across all markets in a round, from 1 through 256. |
+| `PERPS_QUOTER_MAX_OPEN_READS` | `2` | Maximum concurrent contract reads per client, from 1 through 256. |
 | `PERPS_QUOTER_MODE` | `dry` | Exactly `dry` or `live`; other values refuse startup. |
 | `PERPS_QUOTER_STOP` | `false` | Exactly `true` or `false`. `true` starts in cleanup mode and exits after checking the remaining orders. |
 | `PERPS_QUOTER_HANDOVER` | `false` | Exactly `true` or `false`. A signal leaves resting orders for the next process when true; the stop variable still cancels them. |
@@ -81,13 +82,16 @@ below the supported venue minimum of 10 USD are omitted. Orders use the
 canonical `placeOrder` entry point with post-only time in force, a client id and
 zero collateral amount. They cannot take liquidity on placement.
 
-Snapshot reads run side by side at one block. The two-request wave limit keeps
-concurrency below the ceiling of eight requests. Order details are read for the
+Snapshot reads run side by side at one block under `PERPS_QUOTER_MAX_OPEN_READS`.
+A node response containing `rejected due to rate limit` is asked again up to eight
+times, with waits growing from 50 milliseconds to 6.4 seconds, within the read
+context deadline. Order details are read for the
 market being quoted and for newly seen order ids; the client retains only each
 id's market. A closing snapshot follows
 only a transaction for that market, including a refused transaction. Otherwise
 health reports the last snapshot read, and dry rounds take no closing snapshot.
-The `quoter round` log line includes its duration in `seconds`.
+The `quoter round` log line includes its duration in `seconds` and counts busy
+answers received during that round in `busy`.
 
 Client ids encode market, side, level and round. Reconciliation retains matching
 orders, cancels obsolete orders by client id (by order id for an order without a

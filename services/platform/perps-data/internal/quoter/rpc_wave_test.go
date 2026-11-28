@@ -42,11 +42,16 @@ type readWaveNode struct {
 	started                   chan string
 	alter                     func(*abi.Method, []any) []any
 	fail                      string
+	capacity                  int
+	busyRemaining             int
+	busyMethod                string
+	busyAnswers               int
+	errorText                 string
 }
 
-func newReadWaveRPC(t *testing.T) (*RPC, *readWaveNode) {
+func newReadWaveRPC(t *testing.T, bounds ...int) (*RPC, *readWaveNode) {
 	t.Helper()
-	node := &readWaveNode{t: t, ids: []*big.Int{}, orders: map[string]orderTuple{}, position: new(big.Int), started: make(chan string, 1024)}
+	node := &readWaveNode{t: t, ids: []*big.Int{}, orders: map[string]orderTuple{}, position: new(big.Int), capacity: 4, started: make(chan string, 1024)}
 	server := httptest.NewServer(http.HandlerFunc(node.serveHTTP))
 	t.Cleanup(server.Close)
 	key, err := crypto.GenerateKey()
@@ -56,6 +61,9 @@ func newReadWaveRPC(t *testing.T) (*RPC, *readWaveNode) {
 	require.NoError(t, os.WriteFile(path, []byte(common.Bytes2Hex(crypto.FromECDSA(key))), 0600))
 	q := config.DefaultQuoterConfig()
 	q.KeyFile = path
+	if len(bounds) != 0 {
+		q.MaxOpenReads = bounds[0]
+	}
 	cfg := &config.Config{Service: config.Quoter, ChainID: 125, RPCURLs: []string{server.URL}, Port: 8081, Quoting: &q}
 	client, err := NewRPC(context.Background(), cfg)
 	require.NoError(t, err)
@@ -143,7 +151,17 @@ func (n *readWaveNode) serveHTTP(w http.ResponseWriter, request *http.Request) {
 		}
 		n.calls = append(n.calls, readWaveCall{method.RawName, block, args, message.From, message.To})
 		gate, fail := n.gate, n.fail == method.RawName
-		busy := n.active > 4
+		errorText := n.errorText
+		busy := n.active > n.capacity
+		if n.busyRemaining != 0 && (n.busyMethod == "" || n.busyMethod == method.RawName) {
+			busy = true
+			if n.busyRemaining > 0 {
+				n.busyRemaining--
+			}
+		}
+		if busy {
+			n.busyAnswers++
+		}
 		if busy {
 			gate = nil
 		}
@@ -188,6 +206,10 @@ func (n *readWaveNode) serveHTTP(w http.ResponseWriter, request *http.Request) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": call.ID, "error": map[string]any{"code": -32000, "message": "eth_call rejected due to rate limit: server busy"}})
 			return
 		}
+		if fail && errorText != "" {
+			_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": call.ID, "error": map[string]any{"code": -32000, "message": errorText}})
+			return
+		}
 		if fail {
 			// Return a venue refusal so the client's original reason can be checked.
 			data := venueABI.Errors["PerpsPaused"].ID.Bytes()[:4]
@@ -213,9 +235,10 @@ func waveDetailIDs(n *readWaveNode) []string {
 }
 
 func TestReadWaveIndependentReadsOverlapWithinEight(t *testing.T) {
-	require.Greater(t, maxReadWave, 1)
-	require.LessOrEqual(t, maxReadWave, 8)
 	r, n := newReadWaveRPC(t)
+	require.Equal(t, 2, r.openReadLimit())
+	require.Greater(t, r.openReadLimit(), 1)
+	require.LessOrEqual(t, r.openReadLimit(), 8)
 	release := make(chan struct{})
 	n.gate = release
 	var once sync.Once
@@ -224,7 +247,7 @@ func TestReadWaveIndependentReadsOverlapWithinEight(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { _, err := r.Snapshot(ctx, 0); done <- err }()
-	for i := 0; i < maxReadWave; i++ {
+	for i := 0; i < r.openReadLimit(); i++ {
 		select {
 		case <-n.started:
 		case <-ctx.Done():
@@ -234,12 +257,12 @@ func TestReadWaveIndependentReadsOverlapWithinEight(t *testing.T) {
 	n.mu.Lock()
 	active := n.active
 	n.mu.Unlock()
-	require.Equal(t, maxReadWave, active)
+	require.Equal(t, r.openReadLimit(), active)
 	once.Do(func() { close(release) })
 	require.NoError(t, <-done)
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	require.Equal(t, maxReadWave, n.maximum)
+	require.Equal(t, r.openReadLimit(), n.maximum)
 	require.Len(t, n.calls, 9)
 }
 
@@ -458,7 +481,7 @@ func TestReadWaveDependentReadsAndOrdersShareTheBound(t *testing.T) {
 					done <- err
 				}
 			}()
-			for count := 0; count < maxReadWave; {
+			for count := 0; count < r.openReadLimit(); {
 				select {
 				case method := <-n.started:
 					if method == "getOrderDetails" || method == "getPositionDetails" {
@@ -471,12 +494,12 @@ func TestReadWaveDependentReadsAndOrdersShareTheBound(t *testing.T) {
 			n.mu.Lock()
 			active := n.active
 			n.mu.Unlock()
-			require.Equal(t, maxReadWave, active)
+			require.Equal(t, r.openReadLimit(), active)
 			once.Do(func() { close(release) })
 			require.NoError(t, <-done)
 			n.mu.Lock()
 			defer n.mu.Unlock()
-			require.Equal(t, maxReadWave, n.maximum)
+			require.Equal(t, r.openReadLimit(), n.maximum)
 			require.Len(t, r.orderMarkets, 12)
 			if !all {
 				require.Len(t, n.calls, 22)
@@ -498,7 +521,7 @@ func TestReadWaveSnapshotAndOrdersSerializeMembership(t *testing.T) {
 	require.Equal(t, map[string]uint64{"1": 0, "2": 1}, r.orderMarkets)
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	require.LessOrEqual(t, n.maximum, maxReadWave)
+	require.LessOrEqual(t, n.maximum, r.openReadLimit())
 }
 
 func TestReadWaveIndependentClientsShareNodeCapacity(t *testing.T) {

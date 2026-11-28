@@ -23,3 +23,19 @@ func TestConfigurationRefusesBeforeOpeningChain(t *testing.T) {
 		}
 	}
 }
+
+func TestStartupReportsOpenReadBound(t *testing.T) {
+	t.Setenv("PERPS_CHAIN_ID", "125")
+	t.Setenv("PERPS_RPC_URLS", "http://localhost")
+	t.Setenv("PERPS_QUOTER_KEY_FILE", t.TempDir()+"/account.hex")
+	t.Setenv("PERPS_QUOTER_MODE", "dry")
+	t.Setenv("PERPS_QUOTER_MAX_OPEN_READS", "8")
+	var logs bytes.Buffer
+	err := run(slog.New(slog.NewJSONHandler(&logs, nil)))
+	if err == nil || err.Error() != "quoter key file cannot be opened" {
+		t.Fatalf("key file error = %v", err)
+	}
+	if !strings.Contains(logs.String(), "perps-quoter starting") || !strings.Contains(logs.String(), `\"maxOpenReads\":8`) {
+		t.Fatalf("startup configuration omits open read bound: %s", logs.String())
+	}
+}

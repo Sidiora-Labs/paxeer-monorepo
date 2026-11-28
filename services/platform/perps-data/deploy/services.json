@@ -269,6 +269,9 @@
         "PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND": {
           "source": "input"
         },
+        "PERPS_QUOTER_MAX_OPEN_READS": {
+          "source": "input"
+        },
         "PERPS_QUOTER_MODE": {
           "source": "input"
         },
