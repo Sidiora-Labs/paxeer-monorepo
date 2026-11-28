@@ -38,7 +38,7 @@ export class NativeCapabilityError extends Error {
 }
 export function nativePositionRows() {
   const snapshot = getNativeSnapshot();
-  return snapshot.positions.map((position) => {
+  const rows = snapshot.positions.map((position) => {
     const market = PERPS_MARKETS.find(
       (row) => row.marketId === Number(position.marketId),
     );
@@ -48,11 +48,35 @@ export function nativePositionRows() {
     const size = Number(formatUnits(BigInt(position.sizeUsd), 18));
     const entry = Number(formatUnits(BigInt(position.entryPrice), 18));
     const collateral = Number(formatUnits(BigInt(position.collateralUsd), 18));
-    const mark = snapshot.markets.find(
+    const marketRow = snapshot.markets.find(
       (row) => row.symbol === toNativeSymbol(info?.symbol ?? ""),
-    )?.price;
+    );
+    const mark = marketRow?.price;
+    const index = marketRow?.index_price;
     const quantity =
       entry > 0 ? (size / entry) * (position.isLong ? 1 : -1) : 0;
+    const leverage = Number(formatUnits(BigInt(position.leverage), 18));
+    const imr = size > 0 ? collateral / size : undefined;
+    const rate =
+      imr !== undefined && Number.isFinite(imr) && imr > 0
+        ? imr
+        : Number.isFinite(leverage) && leverage > 0
+          ? 1 / leverage
+          : 0;
+    const roi = (pnl: number) =>
+      Number.isFinite(pnl) &&
+      pnl !== 0 &&
+      Number.isFinite(quantity) &&
+      quantity !== 0 &&
+      Number.isFinite(entry) &&
+      entry !== 0 &&
+      rate > 0
+        ? pnl / (Math.abs(quantity) * entry * rate)
+        : 0;
+    const pnl =
+      Number.isFinite(mark) && mark > 0 ? quantity * (mark - entry) : undefined;
+    const indexPnl =
+      Number.isFinite(index) && index > 0 ? quantity * (index - entry) : 0;
     return {
       ...position,
       symbol: info?.symbol,
@@ -60,6 +84,14 @@ export function nativePositionRows() {
       position_qty: quantity,
       average_open_price: entry,
       mark_price: mark,
+      notional:
+        Number.isFinite(mark) && mark > 0
+          ? Math.abs(quantity * mark)
+          : undefined,
+      unrealized_pnl: pnl,
+      unrealized_pnl_ROI: pnl === undefined ? undefined : roi(pnl),
+      unrealized_pnl_index: indexPnl,
+      unrealized_pnl_ROI_index: roi(indexPnl),
       unsettled_pnl: mark > 0 ? quantity * (mark - entry) : undefined,
       est_liq_price: position.liquidationPrice
         ? Number(formatUnits(BigInt(position.liquidationPrice), 18))
@@ -74,6 +106,66 @@ export function nativePositionRows() {
       updated_time: Number(position.openedAt) * 1000,
     };
   });
+  const totalNotional = rows.reduce(
+    (sum, row) =>
+      sum +
+      (typeof row.notional === "number" && Number.isFinite(row.notional)
+        ? row.notional
+        : 0),
+    0,
+  );
+  return rows.map((row) => ({
+    ...row,
+    mm:
+      snapshot.maintenanceMarginUsd !== null &&
+      Number.isFinite(snapshot.maintenanceMarginUsd) &&
+      row.notional !== undefined &&
+      Number.isFinite(row.notional) &&
+      totalNotional > 0
+        ? (snapshot.maintenanceMarginUsd * row.notional) / totalNotional
+        : null,
+  }));
+}
+export function nativePositionTotals(
+  rows: readonly {
+    notional?: unknown;
+    unrealized_pnl?: unknown;
+    unrealized_pnl_index?: unknown;
+  }[],
+  totalValue: number | null,
+) {
+  let notional = 0;
+  let pnl = 0;
+  let indexPnl = 0;
+  for (const row of rows) {
+    if (typeof row.notional === "number" && Number.isFinite(row.notional))
+      notional += row.notional;
+    if (
+      typeof row.unrealized_pnl === "number" &&
+      Number.isFinite(row.unrealized_pnl)
+    )
+      pnl += row.unrealized_pnl;
+    if (
+      typeof row.unrealized_pnl_index === "number" &&
+      Number.isFinite(row.unrealized_pnl_index)
+    )
+      indexPnl += row.unrealized_pnl_index;
+  }
+  const roi = (result: number) =>
+    totalValue !== null &&
+    Number.isFinite(totalValue) &&
+    totalValue !== 0 &&
+    totalValue - result !== 0
+      ? result / (totalValue - result)
+      : 0;
+  return {
+    notional,
+    unrealPnL: pnl,
+    total_unreal_pnl: pnl,
+    total_unreal_pnl_index: indexPnl,
+    unrealPnlROI: roi(pnl),
+    unrealPnlROI_index: roi(indexPnl),
+  };
 }
 export function nativeAccountInfo() {
   const state = getNativeSnapshot();
