@@ -183390,7 +183390,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1332]
 title = "Let the message of the topic of one market of the trading workspace carry the amount of its row and let the function useTickerStream write it into its value, so that the head of the trade page shows the 24h volume that the list of the markets shows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
