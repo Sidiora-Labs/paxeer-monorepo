@@ -20,7 +20,7 @@ func quoterEnv(t *testing.T) {
 	t.Setenv("PERPS_RPC_URLS", "https://user:password@rpc.example/private-provider-token?key=query-secret")
 	t.Setenv("PORT", "")
 	t.Setenv("PERPS_QUOTER_KEY_FILE", "/private/account-key")
-	for _, name := range []string{"MARKETS", "MODE", "LEVELS", "SPREAD_BPS", "STEP_BPS", "LEVEL_USD", "REFRESH_BPS", "MAX_QUOTE_AGE_SECONDS", "MAX_POSITION_USD", "MAX_PRICE_AGE_SECONDS", "INTERVAL_SECONDS", "REFUSAL_LIMIT", "COOLDOWN_SECONDS", "MAX_TRANSACTIONS_PER_ROUND", "STOP"} {
+	for _, name := range []string{"MARKETS", "MODE", "LEVELS", "SPREAD_BPS", "STEP_BPS", "LEVEL_USD", "REFRESH_BPS", "MAX_QUOTE_AGE_SECONDS", "MAX_POSITION_USD", "MAX_PRICE_AGE_SECONDS", "INTERVAL_SECONDS", "REFUSAL_LIMIT", "COOLDOWN_SECONDS", "MAX_TRANSACTIONS_PER_ROUND", "STOP", "HANDOVER"} {
 		// Optional inputs are unset rather than assigned empty strings.
 		full := "PERPS_QUOTER_" + name
 		t.Setenv(full, "")
@@ -48,6 +48,7 @@ func TestQuoterDefaultsAndExplicitLive(t *testing.T) {
 	require.Equal(t, 8, q.MaxTransactionsPerRound)
 	require.Equal(t, uint16(8081), cfg.Port)
 	require.False(t, q.Stop)
+	require.False(t, q.Handover)
 	t.Setenv("PERPS_QUOTER_MODE", "live")
 	t.Setenv("PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND", "4")
 	t.Setenv("PERPS_QUOTER_MARKETS", "0, 11")
@@ -65,7 +66,7 @@ func TestQuoterDefaultsAndExplicitLive(t *testing.T) {
 }
 func TestQuoterRejectsInvalidBoundsWithoutEchoingInputs(t *testing.T) {
 	for name, value := range map[string]string{
-		"KEY_FILE": "", "MODE": "secret-live", "MARKETS": "0,0", "LEVELS": "17", "SPREAD_BPS": "10000", "STEP_BPS": "9999", "LEVEL_USD": "1.0000000000000000001", "REFRESH_BPS": "0", "MAX_QUOTE_AGE_SECONDS": "0", "MAX_POSITION_USD": "-1", "MAX_PRICE_AGE_SECONDS": "86401", "INTERVAL_SECONDS": "1.5", "REFUSAL_LIMIT": "0", "COOLDOWN_SECONDS": "0", "MAX_TRANSACTIONS_PER_ROUND": "16", "STOP": "yes",
+		"KEY_FILE": "", "MODE": "secret-live", "MARKETS": "0,0", "LEVELS": "17", "SPREAD_BPS": "10000", "STEP_BPS": "9999", "LEVEL_USD": "1.0000000000000000001", "REFRESH_BPS": "0", "MAX_QUOTE_AGE_SECONDS": "0", "MAX_POSITION_USD": "-1", "MAX_PRICE_AGE_SECONDS": "86401", "INTERVAL_SECONDS": "1.5", "REFUSAL_LIMIT": "0", "COOLDOWN_SECONDS": "0", "MAX_TRANSACTIONS_PER_ROUND": "257", "STOP": "yes", "HANDOVER": "yes",
 	} {
 		t.Run(name, func(t *testing.T) {
 			quoterEnv(t)
@@ -105,12 +106,26 @@ func TestParseUSDIsExact(t *testing.T) {
 }
 
 func TestQuoterTransactionBound(t *testing.T) {
-	for _, raw := range []string{"0", "-1", "16", "1.5", ""} {
+	for _, raw := range []string{"0", "-1", "257", "1.5", ""} {
 		t.Run(raw, func(t *testing.T) {
 			quoterEnv(t)
 			t.Setenv("PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND", raw)
 			_, err := config.Quoter.Load()
 			require.Error(t, err)
+		})
+	}
+}
+
+func TestQuoterHandoverAndUpperTransactionBound(t *testing.T) {
+	for _, raw := range []string{"true", "false"} {
+		t.Run(raw, func(t *testing.T) {
+			quoterEnv(t)
+			t.Setenv("PERPS_QUOTER_HANDOVER", raw)
+			t.Setenv("PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND", "256")
+			cfg, err := config.Quoter.Load()
+			require.NoError(t, err)
+			require.Equal(t, raw == "true", cfg.Quoting.Handover)
+			require.Equal(t, 256, cfg.Quoting.MaxTransactionsPerRound)
 		})
 	}
 }

@@ -30,7 +30,9 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 	logger.Info("perps-quoter starting", "config", *cfg)
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	signalCtx, signalStop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer signalStop()
+	ctx, stop := context.WithCancel(signalCtx)
 	defer stop()
 	node, err := quoter.NewRPC(ctx, cfg)
 	if err != nil {
@@ -45,15 +47,17 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return errors.New("quoter health listener unavailable")
 	}
-	return serve(ctx, stop, listener, engine, logger)
+	return serve(ctx, stop, listener, engine, logger, func() bool { return signalCtx.Err() != nil })
 }
 
-func serve(ctx context.Context, stop context.CancelFunc, listener net.Listener, engine *quoter.Engine, logger *slog.Logger) error {
+func serve(ctx context.Context, stop context.CancelFunc, listener net.Listener, engine *quoter.Engine, logger *slog.Logger, signalled func() bool) error {
 	server := &http.Server{Handler: engine.Handler(), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 30 * time.Second}
 	httpErr := make(chan error, 1)
 	go func() { httpErr <- server.Serve(listener) }()
 	runErr := make(chan error, 1)
-	go func() { runErr <- engine.Run(ctx, func() bool { return os.Getenv("PERPS_QUOTER_STOP") == "true" }) }()
+	go func() {
+		runErr <- engine.Run(ctx, func() bool { return os.Getenv("PERPS_QUOTER_STOP") == "true" }, signalled)
+	}()
 	var result error
 	select {
 	case result = <-runErr:

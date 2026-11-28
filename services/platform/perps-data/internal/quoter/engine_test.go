@@ -396,8 +396,9 @@ func TestDryModeSendsNothing(t *testing.T) {
 	require.Equal(t, placed, c.places)
 	require.Equal(t, cancelled, c.cancels)
 	require.Equal(t, before, orders(t, c))
-	require.Contains(t, logs.String(), "quoter cancel")
-	require.Contains(t, logs.String(), "quoter place")
+	require.Contains(t, logs.String(), "quoter keep")
+	require.NotContains(t, logs.String(), "quoter cancel")
+	require.NotContains(t, logs.String(), "quoter place")
 	result, err := dry.Stop(context.Background())
 	require.ErrorIs(t, err, ErrOrdersRemain)
 	require.Equal(t, 4, result.OrdersLeft)
@@ -576,10 +577,19 @@ func TestReadWaveRoundSnapshotsFollowMarketTransactions(t *testing.T) {
 				require.Equal(t, map[uint64]int{0: 1, 1: 1}, c.snapshots)
 				require.Zero(t, e.Health().TransactionsLastRound)
 			} else {
-				require.Equal(t, map[uint64]int{0: 3, 1: 1}, c.snapshots)
+				if mode == "refused" {
+					require.Equal(t, map[uint64]int{0: 3, 1: 1}, c.snapshots)
+				} else {
+					require.Equal(t, map[uint64]int{0: 3}, c.snapshots)
+				}
 				require.Equal(t, 1, e.Health().TransactionsLastRound)
 			}
-			require.Empty(t, e.Health().Markets[1].Orders)
+			if mode == "live" {
+				require.Len(t, e.Health().Markets, 1)
+			} else {
+				require.Len(t, e.Health().Markets, 2)
+				require.Empty(t, e.Health().Markets[1].Orders)
+			}
 			actual := orders(t, c)
 			require.Len(t, e.Health().Markets[0].Orders, len(actual))
 			var last map[string]any

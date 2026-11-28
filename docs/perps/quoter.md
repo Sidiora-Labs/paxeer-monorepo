@@ -32,9 +32,10 @@ places. Market ids include zero. Durations are whole seconds from 1 to 86400.
 | `PERPS_QUOTER_INTERVAL_SECONDS` | `2` | Delay between rounds. |
 | `PERPS_QUOTER_REFUSAL_LIMIT` | `3` | Consecutive transaction refusals before the market rests, from 1 through 100. |
 | `PERPS_QUOTER_COOLDOWN_SECONDS` | `30` | Rest after consecutive refusals. Cancellation remains available. |
-| `PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND` | `8` | Maximum transaction attempts across all markets in a round, from 1 through 15. |
+| `PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND` | `8` | Maximum transaction attempts across all markets in a round, from 1 through 256. |
 | `PERPS_QUOTER_MODE` | `dry` | Exactly `dry` or `live`; other values refuse startup. |
 | `PERPS_QUOTER_STOP` | `false` | Exactly `true` or `false`. `true` starts in cleanup mode and exits after checking the remaining orders. |
+| `PERPS_QUOTER_HANDOVER` | `false` | Exactly `true` or `false`. A signal leaves resting orders for the next process when true; the stop variable still cancels them. |
 | `PORT` | `8081` | Private health listener port. |
 
 Spread, step and movement bounds are positive integers below 10000. USD bounds
@@ -95,15 +96,37 @@ partially filled ladder is renewed around the current mark. Repeating a round
 after a refusal preserves the intended client ids. An uncertain submission
 retains its signed transaction and nonce until its receipt is resolved.
 
+On the first snapshot of each market after startup, the engine tries once to
+keep its resting ladder. It keeps the orders only when all five conditions hold:
+
+1. The market is selected, its price is fresh and it is outside cooldown.
+2. At least one order rests; every client id decodes for this market and all
+   orders carry the same round.
+3. The round's millisecond timestamp is no later than the current round and
+   its age is below the quote lifetime.
+4. An integer anchor reproduces every resting order exactly once, with no
+   missing or extra orders, using the current ladder settings and position cap.
+5. The current mark has not moved from that anchor by the refresh threshold.
+
+The engine derives the anchor from the intersection of the bid and ask rounding
+intervals, using integer arithmetic and the existing snapshot. A successful
+`quoter keep` log identifies the market, original round and order count. The
+quote lifetime still starts at that original round. If keeping fails, ordinary
+renewal applies; the engine does not retry keeping after a renewal or cooldown.
+
 Each round attempts at most `PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND`
 transactions across all markets, counting cancellations and placements, including
-refusals. The default is eight; the upper bound of fifteen stays below the
-sequencer's per-sender queue capacity of sixteen. Each transaction waits for
-inclusion before the next is submitted, so at most one signed transaction is
-outstanding. Work beyond the round budget continues on the next round, and no
-replacement is placed in a market until obsolete orders have been cancelled.
-Shutdown drains all orders independently of the round budget, confirming each
-cancellation before sending the next.
+refusals. The range is 1 through 256; the default is eight. Each transaction waits
+for inclusion before the next is submitted, so at most one signed transaction is
+outstanding. At the first transaction refused by the bound, the round stops
+without reading another market. The next round starts at that market, walks
+once around the list in order, and resets to the first market after a walk
+finishes without a transaction refused by the bound. The final market receives
+its closing snapshot after any transaction; unreached markets retain their last
+observed health. Cancel and place logs describe submitted transactions or dry
+plans. No replacement is placed in a market until obsolete orders have been
+cancelled. Shutdown drains all orders independently of the round budget,
+confirming each cancellation before sending the next.
 
 Dry and live quoting also work through a node that does not serve the pending
 tag. When the node returns a JSON-RPC error for the pending account count, the
@@ -139,20 +162,33 @@ resumes.
 
 ## Stop and health
 
-`SIGINT` or `SIGTERM` stops new quoting and starts cancellation with a separate
-two-minute cleanup context. Starting with `PERPS_QUOTER_STOP=true` follows the
-same cleanup path before any quoting. Use `PERPS_QUOTER_MODE=live` for a stop
-invocation that should cancel live orders. The stop variable is checked before
-each round; changing a parent shell's environment does not change an already
-running process, so signal that process to stop it.
+`SIGINT` or `SIGTERM` stops new quoting. With the default
+`PERPS_QUOTER_HANDOVER=false`, it starts cancellation with a separate two-minute
+cleanup context. With `PERPS_QUOTER_HANDOVER=true`, it reads the account's orders
+once and exits without cancelling. The final `quoter stopped` message includes
+`handover: true` and `ordersLeft`; remaining orders are a successful handover.
+An unreadable book reports `-1` and exits nonzero.
 
-Shutdown cancels every open order of the account, including inactive and
+Starting with `PERPS_QUOTER_STOP=true` always follows the cancellation path before
+any quoting, even with handover enabled or a simultaneous signal. Use
+`PERPS_QUOTER_MODE=live` for a stop invocation that should cancel live orders.
+The stop variable is checked before each round; changing a parent shell's
+environment does not change an already running process, so signal that process
+to stop it.
+
+Cancellation clears every open order of the account, including inactive and
 unselected markets, then independently reads the book. The final `quoter stopped`
-message reports `ordersLeft`. Successful shutdown requires zero. A failed read
-reports `-1`, and any unresolved order or unreadable book exits nonzero. Dry mode
-logs the intended cleanup and sends nothing; if live orders already exist, its
-shutdown reports their actual nonzero count and exits nonzero. Keep the node
-reachable and the account funded for gas until cleanup finishes.
+message reports `ordersLeft`. Successful cancellation requires zero. A failed
+read reports `-1`, and unresolved orders or an unreadable book exit nonzero.
+Dry mode logs intended cleanup and sends nothing; if live orders already exist,
+its cancellation reports their nonzero count and exits nonzero. Keep the node
+reachable and the account funded for gas until cancellation finishes.
+
+Only one process may send transactions for an account at a time. Start the next
+process after the previous one exits. For a restart that retains quotes, enable
+handover on the previous process, signal it and wait for its exit before starting
+the next process with the same ladder settings. Handover sends no transactions
+after the signal; overlapping senders can still conflict on orders and nonces.
 
 `GET /healthz`, `/healthz/live` and `/healthz/ready` return the mode, last round
 time, and per market the actual resting orders, signed position in base units,

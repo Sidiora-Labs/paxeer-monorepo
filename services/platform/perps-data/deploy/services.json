@@ -274,6 +274,9 @@
         },
         "PERPS_QUOTER_STOP": {
           "source": "input"
+        },
+        "PERPS_QUOTER_HANDOVER": {
+          "source": "input"
         }
       }
     },
