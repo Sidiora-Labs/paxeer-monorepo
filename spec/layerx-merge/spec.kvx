@@ -275301,7 +275301,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.1334]
 title = "Make the number of reads that the quoting process of the trading venue holds open at once a setting, let a read ask a node again that answers busy and count those answers in the line of the round, so that the reads of a round can run wider without a failed snapshot that cancels resting orders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1325"]
