@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { API, SDKError } from "@paxeer-network/types";
-import { priceWindowChange } from "@paxeer-network/paxeer-backend/core/perps/priceWindow";
+import {
+  infoFieldsOfTicker,
+  priceWindowChange,
+} from "@paxeer-network/paxeer-backend/core/perps/priceWindow";
 import { useQuery } from "../useQuery";
 import { useWS } from "../useWS";
 import { useIndexPrice } from "./useIndexPrice";
@@ -70,26 +73,7 @@ export const useTickerStream = (symbol: string) => {
       open_interest: openInterest ?? marketMap?.[symbol]?.open_interest,
     };
 
-    if (ticker.open !== undefined) {
-      config["24h_open"] = ticker.open;
-    }
-
-    if (ticker.close !== undefined) {
-      config["24h_close"] = ticker.close;
-    }
-
-    if (ticker.high !== undefined) {
-      config["24h_high"] = ticker.high;
-    }
-
-    if (ticker.low !== undefined) {
-      config["24h_low"] = ticker.low;
-    }
-
-    if (ticker.volume !== undefined) {
-      config["24h_volumn"] = ticker.volume;
-      config["24h_volume"] = ticker.volume;
-    }
+    Object.assign(config, infoFieldsOfTicker(ticker));
 
     const change = priceWindowChange(ticker.close, ticker.open);
     config["change"] = change === null ? undefined : change / 100;

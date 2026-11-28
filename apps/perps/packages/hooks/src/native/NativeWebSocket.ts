@@ -16,6 +16,7 @@ import {
   nativePositionRows,
 } from "@paxeer-network/paxeer-backend/nativeClient";
 import { activePoll } from "@paxeer-network/paxeer-backend/core/net/realtime";
+import { tickerOfRow } from "@paxeer-network/paxeer-backend/core/perps/priceWindow";
 export class NativeWebSocket extends EventEmitter {
   constructor(
     private readonly streams = {
@@ -89,15 +90,7 @@ export class NativeWebSocket extends EventEmitter {
           });
       } else if (name.endsWith("@ticker")) {
         const row = rows.find((row) => row.symbol === name.split("@")[0]);
-        if (row && Number.isFinite(row.mark_price))
-          emit({
-            symbol: row.symbol,
-            open: row["24h_open"],
-            close: row["24h_close"],
-            high: row["24h_high"],
-            low: row["24h_low"],
-            volume: row["24h_volume"],
-          });
+        if (row && Number.isFinite(row.mark_price)) emit(tickerOfRow(row));
       } else if (name === "position" && state.connected)
         emit({ positions: nativePositionRows() });
     };
