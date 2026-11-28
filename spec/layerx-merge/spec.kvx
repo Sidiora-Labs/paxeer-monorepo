@@ -275209,7 +275209,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.1325]
 title = "Let the quoting process of the trading venue keep its resting orders over a restart, go on at the market where a round reached its bound of transactions, and accept a bound of up to 256, so that a restart no longer cancels and places every order and no market waits behind the others"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.1324"]
