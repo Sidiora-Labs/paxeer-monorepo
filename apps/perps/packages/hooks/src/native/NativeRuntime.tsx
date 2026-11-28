@@ -16,6 +16,7 @@ import {
 import {
   nativeAccountInfo,
   nativePositionRows,
+  nativePositionTotals,
 } from "@paxeer-network/paxeer-backend/nativeClient";
 import { COLLATERAL_TOKENS } from "@paxeer-network/paxeer-backend/core/perps/config";
 import { useMarketsSnapshot } from "@paxeer-network/paxeer-backend/hooks/perps/useMarketsStream";
@@ -140,6 +141,10 @@ export function NativeRuntime() {
         ? null
         : portfolio.freeCollateral,
       unrealizedPnl: portfolio.isLoading ? null : portfolio.unrealizedPnl,
+      maintenanceMarginUsd:
+        portfolio.isAccountLoading || portfolio.maintenanceMarginUsd === null
+          ? null
+          : Number(formatUnits(portfolio.maintenanceMarginUsd, 18)),
       dailyPnl: daily.isLoading ? undefined : daily.dailyPnl,
     });
     useMarketStore
@@ -166,6 +171,7 @@ export function NativeRuntime() {
       const rows = nativePositionRows();
       usePositionStore.getState().actions.setPositions("all", {
         ...POSITION_EMPTY,
+        ...nativePositionTotals(rows, state.totalVaultUsd),
         rows,
         free_collateral: state.freeCollateral ?? 0,
         total_collateral_value: state.totalVaultUsd ?? 0,
@@ -173,6 +179,10 @@ export function NativeRuntime() {
       for (const symbol of new Set(rows.map((row) => row.symbol!))) {
         usePositionStore.getState().actions.setPositions(symbol, {
           ...POSITION_EMPTY,
+          ...nativePositionTotals(
+            rows.filter((row) => row.symbol === symbol),
+            state.totalVaultUsd,
+          ),
           rows: rows.filter((row) => row.symbol === symbol),
         } as any);
       }
@@ -205,6 +215,7 @@ export function NativeRuntime() {
     portfolio.unrealizedPnl,
     portfolio.isLoading,
     portfolio.isAccountLoading,
+    portfolio.maintenanceMarginUsd,
     daily.dailyPnl,
     daily.isLoading,
   ]);
