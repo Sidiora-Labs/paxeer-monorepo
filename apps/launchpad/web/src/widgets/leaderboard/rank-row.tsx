@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import type { WalletIdentity } from '@/core/market/use-wallet-identities';
 import { Avatar, RankBadge } from '@/ui/primitives';
-import { formatUsdl, shortAddress } from '@/utils/format';
+import { formatUsdl, shortAddress, formatCompactUsd } from '@/utils/format';
 import { metricTone } from './cups/cups-contract';
 
 export interface RankRowProps {
@@ -57,7 +57,7 @@ export function RankRow({ rank, wallet, identity, metricSigned, metricLabel = 'P
       <td className="px-2 py-1 text-right align-middle">
         <span className={cn('text-num-md font-semibold tabular-nums', toneClass[tone])} data-numeric>
           <span className="sr-only">{metricLabel} </span>
-          {metricSigned === null ? <span aria-label="no data yet">&mdash;</span> : formatUsdl(metricSigned, { signed: true })}
+          {metricSigned === null ? <span aria-label="no data yet">&mdash;</span> : formatCompactUsd(metricSigned, { raw: true, signed: true })}
         </span>
         {qualityNote ? <span className="block text-2xs text-text-faint">{qualityNote}</span> : null}
         {prizeRaw !== null ? <span className="block text-xs tabular-nums text-text-muted" data-numeric><span>Prize </span>{formatUsdl(prizeRaw, { fractionDigits: 0 })}</span> : null}

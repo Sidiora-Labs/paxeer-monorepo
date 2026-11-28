@@ -31,6 +31,10 @@ func responseRequestID(w http.ResponseWriter) string {
 	return id
 }
 func ResponseMetadata(next http.Handler) http.Handler {
+	return ResponseMetadataWithBudget(next, 400*time.Millisecond)
+}
+
+func ResponseMetadataWithBudget(next http.Handler, budget time.Duration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		responseRequestID(w)
 		version := "1"
@@ -48,7 +52,7 @@ func ResponseMetadata(next http.Handler) http.Handler {
 			WriteAPIError(w, r, 400, code)
 			return
 		}
-		ctx, cancel := context.WithTimeout(r.Context(), 400*time.Millisecond)
+		ctx, cancel := context.WithTimeout(r.Context(), budget)
 		defer cancel()
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

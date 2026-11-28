@@ -136,6 +136,7 @@ export interface TradeDeployment {
   quoter: Address;
   registry: Address;
   emitter: Address;
+  swapRecordWriter?: Address;
   usdl: Address;
   pins: readonly CodePin[];
 }
@@ -146,6 +147,7 @@ export const productionTradeDeployment: TradeDeployment = {
   quoter: CORE_DEPLOYMENT.quoter,
   registry: CORE_DEPLOYMENT.poolRegistry,
   emitter: CORE_DEPLOYMENT.eventEmitter,
+  swapRecordWriter: CORE_DEPLOYMENT.launchpadPrecompile,
   usdl: CORE_DEPLOYMENT.usdl,
   pins: CORE_TRADE_EXECUTION_ROLES.map((role) => {
     const identity = CORE_DEPLOYMENT.roleIdentity[role];
@@ -161,6 +163,9 @@ export const productionTradeDeployment: TradeDeployment = {
     };
   }),
 };
+export function swapRecordWriter(deployment: TradeDeployment): Address {
+  return deployment.swapRecordWriter ?? deployment.emitter;
+}
 const TradeExecutionContext = createContext<TradeDeployment | undefined>(
   undefined,
 );
@@ -186,10 +191,18 @@ export function useRequiredTradeExecutionDeployment() {
     throw new Error('Attested trade execution authority unavailable');
   return deployment;
 }
+export interface TradeFeeAsset {
+  address: Address;
+  decimals: number;
+}
+export function tradeFeeAsset(isBuy: boolean, usdl: Address, token: Address, tokenDecimals: number): TradeFeeAsset {
+  return { address: isBuy ? usdl : token, decimals: isBuy ? 6 : tokenDecimals };
+}
 export interface ActualFill {
   inputRaw: bigint;
   outputRaw: bigint;
   feeRaw: bigint;
+  feeAsset: TradeFeeAsset;
   blockHeight: bigint;
   isBuy: boolean;
   pool: Address;
@@ -894,7 +907,7 @@ export class ChainTradeProvider {
     );
     const swapLogs = receipt.logs.filter(
       (log) =>
-        same(log.address, this.deployment.emitter) &&
+        same(log.address, swapRecordWriter(this.deployment)) &&
         log.topics[0]?.toLowerCase() === swapTopic,
     );
     if (swapLogs.length !== 1)
@@ -949,6 +962,7 @@ export class ChainTradeProvider {
       inputRaw: fill.amountIn,
       outputRaw: fill.amountOut,
       feeRaw: fill.fee,
+      feeAsset: tradeFeeAsset(isBuy, this.deployment.usdl, token, tokenDecimals),
       blockHeight: receipt.blockNumber,
       isBuy,
       pool,

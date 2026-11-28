@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, memo, useMemo } from "react";
 import { TrailingCallbackType } from "@paxeer-network/types";
 import { Select, cn } from "@paxeer-network/ui";
@@ -14,7 +15,7 @@ export const TrailingCallbackSelect: FC<TrailingCallbackSelectProps> = memo(
 
     const options = useMemo(() => {
       return [
-        { label: quote, value: TrailingCallbackType.VALUE },
+        { label: tokenDisplayName(quote), value: TrailingCallbackType.VALUE },
         { label: "%", value: TrailingCallbackType.RATE },
       ];
     }, [quote]);

@@ -1,15 +1,17 @@
 'use client';
+import './coin-market.css';
 import TabUnavailable from './tab-unavailable';
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CircleHelp, SearchX, Users } from 'lucide-react';
 import { Avatar, CountPill, EmptyState, ErrorState, LoadMore, NoticeBar, Skeleton, SortHeader, Tooltip, UnavailableState, type SortDirection } from '@/ui/primitives';
 import { usePoolSnapshot } from '@/core/market/use-pool-snapshot';
+import type { PoolStats } from '@/core/market/pool-resolver';
 import { useHolders, type HoldersPage } from '@/core/market/use-holders';
 import { useWalletIdentities } from '@/core/market/use-wallet-identities';
 import { formatShare, statsShare, statsSpotPrice } from '@/core/market/pool-stats-display';
 import { StatDash } from '@/ui/shared/stat-value';
-import { formatPercent, formatTokenAmount, formatUsdl, rawToDecimalString, shortAddress } from '@/utils/format';
+import { formatPercent, formatTokenAmount, rawToDecimalString, shortAddress, formatCompactUsd } from '@/utils/format';
 import HoldersFilters, { type HolderSearch } from './holders-filters';
 import { userFacingMessage } from '@/core/user-facing-error';
 
@@ -26,6 +28,14 @@ type SortKey = 'held' | 'supply';
 const defaultSort: { key: SortKey; direction: SortDirection } = { key: 'held', direction: 'desc' };
 const pnlOperation = 'Coming soon';
 const pnlReason = 'Profit, average entry and amount bought for each holder are coming soon.';
+
+export const HolderStatsContext = createContext<PoolStats | null>(null);
+
+export function holderValuationPrice(stats: PoolStats | null, livePrice: number | null): number | null {
+  const spot = statsSpotPrice(stats).value;
+  if (spot !== null) return Number(spot);
+  return livePrice !== null && Number.isFinite(livePrice) ? livePrice : null;
+}
 
 function ratioPercent(numerator: string, denominator: string): number | null {
   if (!/^(0|[1-9][0-9]*)$/.test(numerator) || !/^[1-9][0-9]*$/.test(denominator)) return null;
@@ -78,6 +88,13 @@ export function matchesHolderSearch(row: HolderRow, displayName: string | null, 
   return displayName !== null && displayName.toLowerCase().includes(needle);
 }
 
+export function reconcileHolderFirstPage(pages: Record<string, HoldersPage>, firstPage: HoldersPage): { pages: Record<string, HoldersPage>; resetCursor: boolean; canonical: HoldersPage['canonical'] } {
+  const previous = pages.first;
+  if (previous?.response && !firstPage.response) return { pages, resetCursor: false, canonical: firstPage.canonical };
+  const sameSnapshot = previous && previous.response?.revision === firstPage.response?.revision && previous.response?.data === firstPage.response?.data && previous.nextCursor === firstPage.nextCursor && previous.legacyShare === firstPage.legacyShare;
+  return { pages: sameSnapshot ? { ...pages, first: firstPage } : { first: firstPage }, resetCursor: !sameSnapshot, canonical: firstPage.canonical };
+}
+
 /** Holder concentration chip over the table (PoolStats.top10HolderShareBps / creatorHoldingShareBps), or its dash with the reason. */
 function ShareChip({ label, spoken, share }: { label: string; spoken: string; share: { value: number | null; reason: string | null } }) {
   return (
@@ -92,6 +109,7 @@ function ShareChip({ label, spoken, share }: { label: string; spoken: string; sh
 
 function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   const snapshot = usePoolSnapshot(pool);
+  const liveStats = useContext(HolderStatsContext);
   const [cursor, setCursor] = useState<string | null>(null);
   const [pages, setPages] = useState<Record<string, HoldersPage>>({});
   const [sort, setSort] = useState(defaultSort);
@@ -102,15 +120,14 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   const pageKey = cursor ?? 'first';
   const firstPage = first.state === 'ready' ? first.data : null;
   const readyPage = holders.state === 'ready' ? holders.data : null;
+  const firstPageChange = useMemo(() => firstPage ? reconcileHolderFirstPage(pages, firstPage) : null, [pages, firstPage]);
   useEffect(() => {
-    if (firstPage && pages.first !== firstPage) {
-      const previous = pages.first;
-      const sameSnapshot = previous && previous.response?.revision === firstPage.response?.revision && previous.response?.data === firstPage.response?.data && previous.nextCursor === firstPage.nextCursor && previous.legacyShare === firstPage.legacyShare;
-      setPages(current => sameSnapshot ? { ...current, first: firstPage } : { first: firstPage });
-      if (!sameSnapshot) setCursor(null);
+    if (firstPageChange && pages.first !== firstPage && firstPageChange.pages !== pages) {
+      setPages(firstPageChange.pages);
+      if (firstPageChange.resetCursor) setCursor(null);
       return;
     }
-    if (readyPage && pages[pageKey] !== readyPage) setPages(current => {
+    if (pageKey !== 'first' && readyPage && pages[pageKey] !== readyPage) setPages(current => {
       const next: Record<string, HoldersPage> = {};
       let key: string | null = 'first';
       while (key !== null && key !== pageKey && current[key] && !next[key]) {
@@ -122,7 +139,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
       next[pageKey] = readyPage;
       return next;
     });
-  }, [firstPage, readyPage, pageKey, pages]);
+  }, [firstPage, firstPageChange, readyPage, pageKey, pages]);
   const loaded = useMemo(() => {
     const chain: HoldersPage[] = [];
     const visited = new Set<string>();
@@ -137,10 +154,8 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
     return chain;
   }, [pages, firstPage]);
   const token = snapshot.data?.token ?? null;
-  // The live quote first; else PoolStats.spotPriceWad (null before the first trade: positions stay unavailable).
-  const spot = statsSpotPrice(snapshot.data?.stats ?? null).value;
-  const livePrice = price ?? (spot !== null && Number.isFinite(Number(spot)) ? Number(spot) : null);
   const stats = snapshot.data?.stats ?? null;
+  const livePrice = holderValuationPrice(liveStats ?? stats, price);
   const top10 = stats ? statsShare(stats, 'top10') : null;
   const devShare = stats ? statsShare(stats, 'creator') : null;
   const creator = snapshot.data?.creator?.toLowerCase() ?? null;
@@ -148,6 +163,7 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
   const identities = useWalletIdentities(rows.map(row => row.wallet));
   const visible = useMemo(() => sortHolderRows(rows.filter(row => matchesHolderSearch(row, identities.identities[row.wallet]?.displayName ?? null, search.query)), sort.key, sort.direction), [rows, identities.identities, search.query, sort]);
   const last = loaded[loaded.length - 1] ?? null;
+  const canonical = firstPageChange?.canonical ?? last?.canonical;
   const hasMore = last?.nextCursor !== null && last?.nextCursor !== undefined && loaded.length > 0;
   const decimals = token?.decimalsQuality === 'verified' ? token.decimals : null;
   const coverage = last?.response?.data.coverage ?? null;
@@ -168,24 +184,24 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
 
   return <div className="flex flex-col gap-3">
     <div className="flex flex-wrap items-center gap-2">
-      <h3 className="flex items-center gap-2 text-sm font-bold text-text">Holders {count !== null ? <CountPill count={count} label="holders" /> : null}</h3>
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-text">Holders {count !== null ? <CountPill count={count} label="holders" /> : null}</h3>
       {top10 ? <ShareChip label="Top 10" spoken="Top 10 holders hold" share={top10} /> : null}
       {devShare ? <ShareChip label="Creator" spoken="Creator holds" share={devShare} /> : null}
-      {last?.canonical ? <UnavailableState variant="inline" title="The full holder list" operation={last.canonical.operation} status={last.canonical.status} notServed={last.canonical.notServed} className="basis-full" /> : null}
+      {canonical ? <UnavailableState variant="inline" title="The full holder list" operation={canonical.operation} status={canonical.status} notServed={canonical.notServed} className="basis-full" /> : null}
     </div>
     <HoldersFilters value={search} onChange={setSearch} pnlReason={pnlReason} />
     {coverage && coverage !== 'complete' ? <NoticeBar tone="warning" announce>Some holders may be missing from this list.</NoticeBar> : null}
     <div role="region" aria-label="Token holders table" tabIndex={0} className="@container/holders relative min-w-0 max-w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-focus">
-      <table className="w-full min-w-160 text-sm">
+      <table className="coin-holders-table w-full min-w-160 text-sm">
         <thead>
           <tr>
-            <SortHeader label="Holder" />
-            <SortHeader label="Held" align="right" sort={sort.key === 'held' ? sort.direction : null} onSort={() => cycle('held')} />
-            <SortHeader label="% supply" align="right" sort={sort.key === 'supply' ? sort.direction : null} onSort={() => cycle('supply')} />
-            <SortHeader label="Position" align="right" />
+            <SortHeader label="Rank / Holder" className="whitespace-nowrap" />
+            <SortHeader label="Held" align="right" className="whitespace-nowrap" sort={sort.key === 'held' ? sort.direction : null} onSort={() => cycle('held')} />
+            <SortHeader label="% supply" align="right" className="whitespace-nowrap" sort={sort.key === 'supply' ? sort.direction : null} onSort={() => cycle('supply')} />
+            <SortHeader label="Position" align="right" className="whitespace-nowrap" />
             <th scope="colgroup" colSpan={3} className="h-table-header-height px-3 text-right text-2xs font-bold uppercase tracking-wider text-text-faint">
               <span className="inline-flex items-center justify-end gap-1">
-                <span>Profit / Avg entry / Bought</span>
+                <span><span className="whitespace-nowrap">Profit /</span>{' '}<span className="whitespace-nowrap">Avg entry /</span>{' '}<span className="whitespace-nowrap">Bought</span></span>
                 <Tooltip content={pnlReason}>
                   <button type="button" aria-label="About profit, average entry and bought" className="inline-flex size-5 items-center justify-center rounded-xs text-text-faint transition-colors hover:text-text"><CircleHelp aria-hidden="true" className="size-3.5" /></button>
                 </Tooltip>
@@ -195,30 +211,30 @@ function HoldersBody({ pool, price }: { pool: string; price: number | null }) {
         </thead>
         <tbody>
           {visible.length === 0 ? <EmptyState variant="table" colSpan={7} icon={search.query ? SearchX : Users} title={search.query ? 'No holders match' : 'No holders yet'} body={search.query ? `Nothing matched "${search.query}".` : 'Holders appear here after the first buy.'} announce={Boolean(search.query)} className="sticky left-0 w-[min(100%,100cqw)]" /> : null}
-          {visible.map(row => {
+          {visible.map((row, index) => {
             const identity = identities.identities[row.wallet];
             const name = identity?.displayName ?? shortAddress(row.wallet);
             const isPool = row.wallet.toLowerCase() === pool.toLowerCase();
             const walletContent = <>
               <Avatar src={identity?.avatarUrl} name={name} size="sm" decorative loading={identity?.resolution === 'pending'} />
-              <span className="flex min-w-0 flex-col leading-tight">
+              <span className="flex min-w-0 max-w-48 flex-col leading-tight">
                 <span className="flex min-w-0 items-center gap-1.5">
-                  <span className={identity?.displayName ? 'truncate font-bold text-text' : 'font-mono text-xs text-text-muted'}>{name}</span>
-                  {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Creator</span> : null}
-                  {isPool ? <span data-pool-badge title="Coins held by the bonding curve" className="shrink-0 rounded-pill bg-surface-3 px-1.5 text-2xs font-bold text-text-muted">Bonding curve</span> : null}
+                  <span data-holder-address={identity?.displayName ? undefined : ''} className={identity?.displayName ? 'truncate font-semibold text-text' : 'whitespace-nowrap font-mono text-xs text-text-muted'}>{name}</span>
+                  {row.wallet === creator ? <span data-dev-badge title="Creator wallet" className="shrink-0 whitespace-nowrap rounded-pill bg-surface-3 px-1.5 text-2xs font-semibold text-text-muted">Creator</span> : null}
+                  {isPool ? <span data-pool-badge title="Coins held by the bonding curve" className="shrink-0 whitespace-nowrap rounded-pill bg-surface-3 px-1.5 text-2xs font-semibold text-text-muted">Bonding curve</span> : null}
                 </span>
-                {identity?.displayName ? <span className="font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
+                {identity?.displayName ? <span data-holder-address className="whitespace-nowrap font-mono text-2xs text-text-faint">{shortAddress(row.wallet)}</span> : null}
               </span>
             </>;
-            return <tr key={row.wallet} className="h-table-row bg-surface-1 transition-colors hover:bg-surface-hover [&>td]:px-3">
-              <td className="min-w-0">
+            return <tr key={row.wallet} className="h-table-row border-b border-surface-3 transition-colors hover:bg-surface-hover [&>td]:px-3">
+              <td className="min-w-0"><div className="flex items-center gap-2"><span data-holder-rank className="text-xs tabular-nums text-text-faint">{index + 1}</span>
                 {isPool
                   ? <span className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</span>
-                  : <Link prefetch={false} href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</Link>}
+                  : <Link prefetch={false} href={`/profile/${row.wallet}`} className="inline-flex min-w-0 items-center gap-2 rounded-xs">{walletContent}</Link>}</div>
               </td>
-              <td data-numeric className="text-right font-bold tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.balanceRaw, decimals)}</td>
-              <td data-numeric className="text-right tabular-nums text-text-muted">{row.supplyPercent === null ? <span className="text-text-faint">—</span> : formatPercent(row.supplyPercent, { sign: 'negative' })}</td>
-              <td data-numeric className="text-right tabular-nums text-text">{row.positionUsdlRaw === null ? <span className="text-text-faint">—</span> : formatUsdl(row.positionUsdlRaw, { compact: true })}</td>
+              <td data-numeric className="whitespace-nowrap text-right font-bold tabular-nums text-text">{decimals === null ? <span className="text-text-faint">—</span> : formatTokenAmount(row.balanceRaw, decimals)}</td>
+              <td data-numeric className="whitespace-nowrap text-right tabular-nums text-text-muted">{row.supplyPercent === null ? <span className="text-text-faint">—</span> : <span className="coin-holder-share"><span>{formatPercent(row.supplyPercent, { sign: 'negative' })}</span><span aria-hidden="true" className="coin-holder-share-track"><span className="coin-holder-share-fill block" style={{ width: `${Math.min(100, Math.max(0, row.supplyPercent))}%` }} /></span></span>}</td>
+              <td data-numeric className="whitespace-nowrap text-right tabular-nums text-text">{row.positionUsdlRaw === null ? <span className="text-text-faint">—</span> : formatCompactUsd(row.positionUsdlRaw, { raw: true, compact: true })}</td>
               <td colSpan={3} className="text-right text-xs text-text-faint" title={pnlOperation}>—</td>
             </tr>;
           })}

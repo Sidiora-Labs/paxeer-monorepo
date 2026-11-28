@@ -10,6 +10,7 @@ export const routes = [
   { id: 'holder-rewards', pathname: '/holder-rewards', label: 'Holder rewards', permission: 'public' },
   { id: 'bounties', pathname: '/bounties', label: 'Bounties', permission: 'public' },
   { id: 'live-all', pathname: '/live/all', label: 'All live streams', permission: 'public' },
+  { id: 'agents', pathname: '/agents', label: 'Agents', permission: 'wallet' },
   { id: 'watchlist', pathname: '/watchlist', label: 'Watchlist', permission: 'wallet' },
   { id: 'swap', pathname: '/meta-ag/swap', label: 'Spot swaps', permission: 'public' },
   { id: 'legacy-swap', pathname: '/swap', label: 'Swap', permission: 'public' },

@@ -1,0 +1,47 @@
+{
+  "name": "@kindle/agent-kit",
+  "version": "0.1.0",
+  "description": "Launchpad tools for agents using the wallet gateway and MCP",
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "kindle-agent-kit": "./dist/mcp.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@kindle/production-contracts-v2": "workspace:*",
+    "@kindle/sdk": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "sidiora-launchpad-v3": "workspace:*",
+    "viem": "2.21.0",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@noble/curves": "1.9.7",
+    "@noble/hashes": "1.8.0",
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "tsx": "4.21.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

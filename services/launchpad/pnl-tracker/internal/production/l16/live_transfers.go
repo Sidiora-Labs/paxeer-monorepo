@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"sort"
@@ -23,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // rebuildCreationPath requires the creation block of a rebuilt token to hold
@@ -359,6 +361,17 @@ func (s *Service) liveRebuildTx(ctx context.Context, tx pgx.Tx, wallet, token st
 }
 
 func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token string, target int64, seed *RebuildSnapshot, history ...*liveReplayHistory) (RebuildSnapshot, error) {
+	snapshot, err := s.liveContinueObservedTx(ctx, tx, wallet, token, target, seed, history...)
+	if err != nil && !errors.Is(err, errLiveEnrollmentPending) {
+		return snapshot, err
+	}
+	if fenceErr := s.authority.fenceSourceLease(ctx, tx, snapshot.SourceOwner, snapshot.SourceEpoch); fenceErr != nil {
+		return snapshot, fenceErr
+	}
+	return snapshot, err
+}
+
+func (s *Service) liveContinueObservedTx(ctx context.Context, tx pgx.Tx, wallet, token string, target int64, seed *RebuildSnapshot, history ...*liveReplayHistory) (RebuildSnapshot, error) {
 	started := time.Now()
 	end := target
 	paged := true
@@ -380,7 +393,7 @@ func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token s
 	if _, err = tx.Exec(bounded, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, partition); err != nil {
 		return snapshot, err
 	}
-	owner, epoch, err := a.sourceLease(bounded, tx)
+	owner, epoch, err := a.observeSourceLease(bounded, tx)
 	if err != nil {
 		return snapshot, err
 	}
@@ -663,7 +676,7 @@ func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token s
 		return snapshot, err
 	}
 	if end < target {
-		finalOwner, finalEpoch, e := a.sourceLease(bounded, tx)
+		finalOwner, finalEpoch, e := a.observeSourceLease(bounded, tx)
 		if e != nil {
 			return snapshot, e
 		}
@@ -719,7 +732,7 @@ func (s *Service) liveContinueTx(ctx context.Context, tx pgx.Tx, wallet, token s
 	if err = s.writeLiveProgressTx(bounded, tx, progressPartition, progress); err != nil {
 		return snapshot, err
 	}
-	finalOwner, finalEpoch, err := a.sourceLease(bounded, tx)
+	finalOwner, finalEpoch, err := a.observeSourceLease(bounded, tx)
 	if err != nil {
 		return snapshot, err
 	}
@@ -1081,6 +1094,14 @@ func NewLiveTransferWorker(service *Service, repository l17.Repository, identity
 	return &LiveTransferWorker{service: service, repository: repository, identity: identity, batch: batch}, nil
 }
 
+type enrollmentBusyError struct {
+	cause error
+}
+
+func (e *enrollmentBusyError) Error() string { return e.cause.Error() }
+
+func (e *enrollmentBusyError) Unwrap() error { return e.cause }
+
 func (w *LiveTransferWorker) EnqueueOwned(ctx context.Context, p auth.IdentityPrincipal) error {
 	now := time.Now().UTC()
 	if e := p.Validate(now); e != nil {
@@ -1090,6 +1111,14 @@ func (w *LiveTransferWorker) EnqueueOwned(ctx context.Context, p auth.IdentityPr
 		return e
 	}
 	a := w.service.authority
+	var unchanged bool
+	e := a.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM `+a.table("inventory_l16_live_owners_v1")+` WHERE wallet=$1 AND account_id=$2 AND session_id=$3 AND auth_epoch=$4 AND proof_at=$5 AND expires_at=$6 AND cancelled_at IS NULL)`, p.Wallet, p.AccountID, p.SessionID, p.AuthEpoch, p.ProofAt, p.AccessExpiresAt).Scan(&unchanged)
+	if e != nil {
+		return e
+	}
+	if unchanged {
+		return nil
+	}
 	tx, e := a.pool.Begin(ctx)
 	if e != nil {
 		return e
@@ -1100,6 +1129,10 @@ func (w *LiveTransferWorker) EnqueueOwned(ctx context.Context, p auth.IdentityPr
 	}
 	_, e = tx.Exec(ctx, `INSERT INTO `+a.table("inventory_l16_live_owners_v1")+` (wallet,account_id,session_id,auth_epoch,proof_at,expires_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(wallet) DO UPDATE SET account_id=EXCLUDED.account_id,session_id=EXCLUDED.session_id,auth_epoch=EXCLUDED.auth_epoch,proof_at=EXCLUDED.proof_at,expires_at=EXCLUDED.expires_at,cancelled_at=NULL,updated_at=clock_timestamp()`, p.Wallet, p.AccountID, p.SessionID, p.AuthEpoch, p.ProofAt, p.AccessExpiresAt)
 	if e != nil {
+		var postgres *pgconn.PgError
+		if errors.As(e, &postgres) && postgres.Code == "55P03" {
+			return &enrollmentBusyError{cause: e}
+		}
 		return e
 	}
 	if e = w.identity.CheckStreamSession(ctx, p.StreamPrincipal()); e != nil {
@@ -1123,9 +1156,26 @@ func (w *LiveTransferWorker) EnrollmentMiddleware(next http.Handler) http.Handle
 			return
 		}
 		if e = w.EnqueueOwned(request.Context(), principal); e != nil {
+			var busy *enrollmentBusyError
+			if (request.Method == http.MethodGet || request.Method == http.MethodHead) && errors.As(e, &busy) {
+				a := w.service.authority
+				var live bool
+				readErr := a.pool.QueryRow(request.Context(), `SELECT EXISTS(SELECT 1 FROM `+a.table("inventory_l16_live_owners_v1")+` WHERE wallet=$1 AND account_id=$2 AND cancelled_at IS NULL AND expires_at>clock_timestamp())`, principal.Wallet, principal.AccountID).Scan(&live)
+				if readErr == nil && live {
+					slog.WarnContext(request.Context(), "portfolio enrollment busy", slog.Any("err", e), slog.String("method", request.Method))
+					next.ServeHTTP(response, request)
+					return
+				}
+				if readErr != nil {
+					e = readErr
+				}
+			}
 			status := http.StatusServiceUnavailable
 			if errors.Is(e, auth.ErrScopeDenied) {
 				status = http.StatusForbidden
+			}
+			if status == http.StatusServiceUnavailable {
+				slog.ErrorContext(request.Context(), "portfolio enrollment unavailable", slog.Any("err", e), slog.String("method", request.Method))
 			}
 			http.Error(response, "portfolio enrollment unavailable", status)
 			return
@@ -1274,7 +1324,7 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 		}
 		return true, tx.Commit(bounded)
 	}
-	owner, epoch, e := a.sourceLease(bounded, tx)
+	owner, epoch, e := a.observeSourceLease(bounded, tx)
 	if e != nil {
 		return false, e
 	}
@@ -1309,7 +1359,7 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 				seed = &prior
 			}
 			var history liveReplayHistory
-			snapshot, e := w.service.liveContinueTx(bounded, tx, p.Wallet, token, head, seed, &history)
+			snapshot, e := w.service.liveContinueObservedTx(bounded, tx, p.Wallet, token, head, seed, &history)
 			if errors.Is(e, errLiveEnrollmentPending) {
 				pending = true
 				if _, e = tx.Exec(bounded, `UPDATE inventory_l16_live_owners_v1 SET last_attempt_at=clock_timestamp() WHERE wallet=$1`, p.Wallet); e != nil {
@@ -1319,6 +1369,12 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 					return false, e
 				}
 				if e = a.epochGuard(bounded, tx); e != nil {
+					return false, e
+				}
+				if snapshot.SourceOwner != owner || snapshot.SourceEpoch != epoch {
+					return false, delivery.ErrLease
+				}
+				if e = a.fenceSourceLease(bounded, tx, owner, epoch); e != nil {
 					return false, e
 				}
 				return true, tx.Commit(bounded)
@@ -1384,12 +1440,8 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 	if !accepted {
 		return false, delivery.ErrIntegrity
 	}
-	finalOwner, finalEpoch, e := a.sourceLease(bounded, tx)
-	if e != nil {
+	if e = a.fenceSourceLease(bounded, tx, owner, epoch); e != nil {
 		return false, e
-	}
-	if finalOwner != owner || finalEpoch != epoch {
-		return false, delivery.ErrLease
 	}
 	if _, e = tx.Exec(bounded, `INSERT INTO inventory_l16_live_commits_v1 (generation,wallet,source_stream,height,block_hash,source_owner,source_epoch,release_digest,input_digest,snapshot_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, a.generation, p.Wallet, a.sourceStream, head, headHash, owner, epoch, w.service.release, source, summary.SnapshotID); e != nil {
 		return false, e
@@ -1410,7 +1462,11 @@ func (w *LiveTransferWorker) processWallet(ctx context.Context, selectedWallet s
 func (w *LiveTransferWorker) acceptedHeadTx(ctx context.Context, tx pgx.Tx) (int64, string, error) {
 	var height int64
 	var blockHash string
-	e := tx.QueryRow(ctx, `SELECT c.height,c.block_hash FROM indexer.indexer_ingest_watermarks_v1 w JOIN indexer.indexer_block_completeness_v1 c ON c.chain_id=w.chain_id AND c.stream_id=w.stream_id AND c.height=LEAST(w.raw_complete_height,w.typed_complete_height) JOIN indexer.indexer_committed_heads_v1 h ON h.chain_id=c.chain_id AND h.stream_id=c.stream_id AND h.height=c.height AND h.block_hash=c.block_hash AND h.integrity='healthy' WHERE w.chain_id=125 AND w.stream_id=$1 AND c.fetch_complete AND c.required_decode_complete AND c.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=c.chain_id AND r.height=c.height)`, w.service.authority.sourceStream).Scan(&height, &blockHash)
+	e := tx.QueryRow(ctx, `SELECT LEAST(raw_complete_height,typed_complete_height) FROM indexer.indexer_ingest_watermarks_v1 WHERE chain_id=125 AND stream_id=$1`, w.service.authority.sourceStream).Scan(&height)
+	if e != nil {
+		return 0, "", e
+	}
+	e = tx.QueryRow(ctx, `SELECT c.height,c.block_hash FROM indexer.indexer_block_completeness_v1 c JOIN indexer.indexer_committed_heads_v1 h ON h.chain_id=c.chain_id AND h.stream_id=c.stream_id AND h.height=$3::numeric AND h.block_hash=c.block_hash AND h.integrity='healthy' WHERE c.chain_id=125 AND c.stream_id=$1 AND c.height=$2::bigint AND c.fetch_complete AND c.required_decode_complete AND c.raw_count=(SELECT count(*) FROM indexer.indexer_raw_logs_v1 r WHERE r.chain_id=c.chain_id AND r.height=c.height)`, w.service.authority.sourceStream, height, height).Scan(&height, &blockHash)
 	if e != nil {
 		return 0, "", e
 	}

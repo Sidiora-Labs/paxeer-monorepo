@@ -21,7 +21,7 @@ export const arenaRuleMap = {
           },
           {
             content:
-              "**Successful referrals**: Each time a new user you invite during the campaign period generates a trading volume of at least 1,000 USDC on WOOFi Pro during the campaign, it counts as a successful referral.",
+              "**Successful referrals**: Each time a new user you invite during the campaign period generates a trading volume of at least 1,000 USDL on WOOFi Pro during the campaign, it counts as a successful referral.",
             type: "markdown" as const,
             listStyle: "decimal" as const,
           },
@@ -65,12 +65,12 @@ export const arenaRuleMap = {
         children: [
           {
             content:
-              "New users registering on WOOFi during the event with a trading volume of at least 1,000 USDC may receive a $25 USDC reward.",
+              "New users registering on WOOFi during the event with a trading volume of at least 1,000 USDL may receive a $25 USDL reward.",
             type: "text" as const,
           },
           {
             content:
-              "The total prize pool is $3,750 USDC, available on a first-come, first-served basis, limited to the first 150 new users.",
+              "The total prize pool is $3,750 USDL, available on a first-come, first-served basis, limited to the first 150 new users.",
             type: "text" as const,
           },
           {

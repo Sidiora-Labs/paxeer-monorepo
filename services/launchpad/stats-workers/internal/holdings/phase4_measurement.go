@@ -758,7 +758,7 @@ func phase4Reference(ctx context.Context, pg *pgxpool.Pool, p Phase4Plan, pool P
 	if strconv.FormatInt(persisted.Snapshot.Revision, 10) != wire.Revision || persisted.Snapshot.Supply != supply || persisted.Snapshot.Position == nil || persisted.Snapshot.Position.Digest() != position.Digest() {
 		return errors.New("persisted snapshot metadata differs from public watermark")
 	}
-	rows, err := tx.Query(ctx, reference+` SELECT address,balance::text FROM expected WHERE balance>0 ORDER BY balance DESC,address LIMIT 100`, args[:6]...)
+	rows, err := tx.Query(ctx, reference+` SELECT address,balance::text FROM expected e WHERE balance>0 ORDER BY e.balance DESC,address LIMIT 100`, args[:6]...)
 	if err != nil {
 		return err
 	}

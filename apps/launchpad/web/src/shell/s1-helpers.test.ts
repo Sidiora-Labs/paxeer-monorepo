@@ -38,18 +38,18 @@ describe('platform footer figures (IF_PLATFORM)', () => {
   it('maps the served volume, traders and pools, and leaves market cap, trades and new today unavailable', () => {
     const items = platformFooterItems(today);
     expect(items.map(item => item.label)).toEqual(['24h volume', 'Market cap', '24h trades', '24h traders', 'Coins launched', 'New today']);
-    expect(Object.fromEntries(items.map(item => [item.label, item.value]))).toEqual({ '24h volume': '147.28 USDL', 'Market cap': null, '24h trades': null, '24h traders': '1', 'Coins launched': '2', 'New today': null });
+    expect(Object.fromEntries(items.map(item => [item.label, item.value]))).toEqual({ '24h volume': '$147.28', 'Market cap': null, '24h trades': null, '24h traders': '1', 'Coins launched': '2', 'New today': null });
     expect(items.filter(item => item.value === null).map(item => item.operation)).toEqual(['IF_PLATFORM (totalMarketCapUsdlRaw)', 'IF_PLATFORM (trades)', 'IF_PLATFORM (newPools)']);
   });
   it('renders the upcoming fields once the envelope serves them, and a served null as unavailable', () => {
     const items = platformFooterItems({ ...today, totalMarketCapUsdlRaw: '10098226981', trades: '42', newPools: null });
-    expect(Object.fromEntries(items.map(item => [item.label, item.value]))).toMatchObject({ 'Market cap': '10.1K USDL', '24h trades': '42', 'New today': null });
+    expect(Object.fromEntries(items.map(item => [item.label, item.value]))).toMatchObject({ 'Market cap': '$10.1K', '24h trades': '42', 'New today': null });
     expect(items.every(item => item.value !== null || item.operation !== null)).toBe(true);
   });
   it('maps the recorded 2.2.0 IF_PLATFORM bytes onto all six figures', () => {
     const body = v2Reads.responses.platform24h.body as { data: PlatformData; generatedAt: string };
     const items = platformFooterItems({ window: '24h', volumeUsdlRaw: body.data.volumeUsdlRaw, pools: body.data.pools, activeWallets: body.data.activeWallets, ...upcomingPlatformFields(body.data), generatedAt: body.generatedAt });
-    expect(Object.fromEntries(items.map(item => [item.label, item.value]))).toEqual({ '24h volume': '147.28 USDL', 'Market cap': '10.1K USDL', '24h trades': '2', '24h traders': '1', 'Coins launched': '2', 'New today': '1' });
+    expect(Object.fromEntries(items.map(item => [item.label, item.value]))).toEqual({ '24h volume': '$147.28', 'Market cap': '$10.1K', '24h trades': '2', '24h traders': '1', 'Coins launched': '2', 'New today': '1' });
   });
   it('reads only well-formed upcoming fields from the envelope and keeps absent ones absent', () => {
     const data = { volumeUsdlRaw: '1', pools: '2', activeWallets: '3' } as PlatformData;
@@ -68,9 +68,9 @@ describe('ticker chips', () => {
     expect(percentChip(0)).toEqual({ value: '+0.00%', tone: 'flat' });
   });
   it('formats raw signed USDL and refuses non-integers', () => {
-    expect(usdlChip('1234567890')).toEqual({ value: '+1.23K USDL', tone: 'up' });
-    expect(usdlChip('-5000000')).toEqual({ value: '-5.00 USDL', tone: 'down' });
-    expect(usdlChip('0')).toEqual({ value: '0.00 USDL', tone: 'flat' });
+    expect(usdlChip('1234567890')).toEqual({ value: '+$1.23K', tone: 'up' });
+    expect(usdlChip('-5000000')).toEqual({ value: '-$5.00', tone: 'down' });
+    expect(usdlChip('0')).toEqual({ value: '$0.00', tone: 'flat' });
     expect(usdlChip(null)).toEqual({ value: null, tone: 'neutral' });
     expect(usdlChip('12.5')).toEqual({ value: null, tone: 'neutral' });
   });

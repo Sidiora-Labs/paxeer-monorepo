@@ -370,7 +370,6 @@ func (r *Repository) catchUpCanonicalAtOnce(ctx context.Context, token, stream, 
 	}
 	priorCoverage := out.Coverage
 	storedCoverage := priorCoverage
-	out.Coverage = valueIncomplete
 	height, ti, li := "-1", "-1", "-1"
 	if len(previous) > 0 {
 		var e Transfer
@@ -382,7 +381,7 @@ func (r *Repository) catchUpCanonicalAtOnce(ctx context.Context, token, stream, 
 			return out, ErrOrder
 		}
 	}
-	rows, err := tx.Query(ctx, `SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY height,transaction_index,log_index LIMIT $7`, token, creation, watermark, height, ti, li, limit+1)
+	rows, err := tx.Query(ctx, `SELECT token,from_address,to_address,amount_raw::text,height::text,transaction_index::text,log_index::text,transaction_hash,block_hash FROM indexer.indexer_token_transfers_v1 t WHERE chain_id=125 AND token=$1 AND height>=$2::numeric AND height<=$3 AND (height,transaction_index,log_index)>($4::numeric,$5::numeric,$6::numeric) ORDER BY t.height,t.transaction_index,t.log_index LIMIT $7`, token, creation, watermark, height, ti, li, limit+1)
 	if err != nil {
 		return out, err
 	}
@@ -426,21 +425,22 @@ func (r *Repository) catchUpCanonicalAtOnce(ctx context.Context, token, stream, 
 			out.Applied++
 		}
 	}
-	if !out.More && !out.Incident {
-		var count string
-		if err = tx.QueryRow(ctx, "SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2::numeric AND $3 AND fetch_complete AND required_decode_complete", stream, creation, watermark).Scan(&count); err != nil {
-			return out, err
-		}
-		start, _ := UInt(creation)
-		expected := new(big.Int).Sub(big.NewInt(watermark), start)
-		expected.Add(expected, big.NewInt(1))
-		if expected.Sign() > 0 && count == expected.String() {
-			var genesis bool
-			if err = tx.QueryRow(ctx, "SELECT t.expected_initial_supply IS NOT NULL AND t.expected_initial_supply=COALESCE((SELECT sum(CASE WHEN x.from_address=$2 THEN x.amount_raw WHEN x.to_address=$2 THEN -x.amount_raw ELSE 0 END) FROM indexer.indexer_token_transfers_v1 x WHERE x.chain_id=125 AND x.token=t.token AND x.transaction_hash=t.creation_transaction_hash),0) FROM "+r.schema+".tokens t WHERE t.token=$1", token, Zero).Scan(&genesis); err != nil {
+	if !out.More && !out.Incident && out.Coverage != valueComplete {
+		if start, parseErr := strconv.ParseInt(creation, 10, 64); parseErr == nil {
+			var count string
+			if err = tx.QueryRow(ctx, "SELECT count(DISTINCT height)::text FROM indexer.indexer_block_completeness_v1 WHERE chain_id=125 AND stream_id=$1 AND height BETWEEN $2 AND $3 AND fetch_complete AND required_decode_complete", stream, start, watermark).Scan(&count); err != nil {
 				return out, err
 			}
-			if genesis {
-				out.Coverage = valueComplete
+			expected := new(big.Int).Sub(big.NewInt(watermark), big.NewInt(start))
+			expected.Add(expected, big.NewInt(1))
+			if expected.Sign() > 0 && count == expected.String() {
+				var genesis bool
+				if err = tx.QueryRow(ctx, "SELECT t.expected_initial_supply IS NOT NULL AND t.expected_initial_supply=COALESCE((SELECT sum(CASE WHEN x.from_address=$2 THEN x.amount_raw WHEN x.to_address=$2 THEN -x.amount_raw ELSE 0 END) FROM indexer.indexer_token_transfers_v1 x WHERE x.chain_id=125 AND x.token=t.token AND x.transaction_hash=t.creation_transaction_hash),0) FROM "+r.schema+".tokens t WHERE t.token=$1", token, Zero).Scan(&genesis); err != nil {
+					return out, err
+				}
+				if genesis {
+					out.Coverage = valueComplete
+				}
 			}
 		}
 	}

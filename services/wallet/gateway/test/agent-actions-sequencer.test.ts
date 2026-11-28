@@ -68,7 +68,7 @@ afterAll(async () => {
   await postgres?.stop();
   if (proxy) {
     await new Promise<void>((resolve, reject) =>
-      proxy.close((error) => (error ? reject(error) : resolve()))
+      proxy.close((error) => (error ? reject(error) : resolve())),
     );
   }
   await node.stop();
@@ -135,29 +135,31 @@ async function retainedSubmissionReachesSequencer(): Promise<void> {
     store.withLock(
       account.address,
       (lease) => submitRetained(retainedRow, { ...signed, raw: `${raw}00` as Hex }, lease),
-      row.id
-    )
+      row.id,
+    ),
   ).rejects.toThrow('retained transaction integrity failure');
-  expect(calls.slice(start).filter((call) => call.method === 'eth_sendRawTransaction')).toEqual([]);
+  expect(
+    calls.slice(start).filter((call) => call.method === 'eth_sendRawTransaction'),
+  ).toEqual([]);
 
   expect(
     await store.withLock(
       account.address,
       (lease) => submitRetained(retainedRow, signed, lease),
-      row.id
-    )
+      row.id,
+    ),
   ).toBeNull();
-  expect(calls.slice(start).filter((call) => call.method === 'eth_sendRawTransaction')).toEqual([
-    { path: '/sequencer', method: 'eth_sendRawTransaction', params: [raw] },
-  ]);
+  expect(
+    calls.slice(start).filter((call) => call.method === 'eth_sendRawTransaction'),
+  ).toEqual([{ path: '/sequencer', method: 'eth_sendRawTransaction', params: [raw] }]);
   const outstanding = await database.query<{ tx_hash: Hex; member: string }>(
     'select tx_hash, member from nonce_outstanding where address = $1 and nonce = $2',
-    [account.address.toLowerCase(), draft.nonce]
+    [account.address.toLowerCase(), draft.nonce],
   );
   expect(outstanding.rows).toEqual([{ tx_hash: hash, member: sequencerUrl }]);
   const reservation = await database.query(
     'select 1 from custody_signing_reservations where action_id = $1',
-    [row.id]
+    [row.id],
   );
   expect(reservation.rows).toEqual([]);
   const client = createPublicClient({ transport: http(nodeUrl) });
@@ -170,4 +172,4 @@ async function retainedSubmissionReachesSequencer(): Promise<void> {
   expect(errors).toEqual([]);
 }
 
-test(retainedSubmissionReachesSequencer);
+test(retainedSubmissionReachesSequencer.name, retainedSubmissionReachesSequencer);

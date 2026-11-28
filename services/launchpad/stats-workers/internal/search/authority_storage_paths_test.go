@@ -191,13 +191,20 @@ func TestPublicSearchRequestFieldBounds(t *testing.T) {
 		{url.Values{"q": {"alpha"}, "type": {"pool"}, "limit": {"01"}}, 422, "FIELD_INVALID"},
 		{url.Values{"q": {"alpha"}, "type": {"pool"}, "filter": {`{"poolStatus":"other"}`}}, 422, "FIELD_INVALID"},
 		{url.Values{"q": {"alpha"}, "type": {"pool"}, "cursor": {`{"version":2}`}}, 400, "CURSOR_INVALID"},
-		{url.Values{"q": {"alpha"}, "type": {"profile"}}, 412, "PRECONDITION_FAILED"},
+		{url.Values{"q": {"alpha"}, "type": {"profile"}, "filter": {`{"poolStatus":"active"}`}}, 422, "FIELD_INVALID"},
 	} {
 		_, err := ParsePublicRequest(tc.values)
 		var invalid PublicRequestError
 		if !errors.As(err, &invalid) || invalid.Status != tc.status || invalid.Code != tc.code || invalid.Error() != tc.code {
 			t.Fatalf("public request %v: %v", tc.values, err)
 		}
+	}
+	profile, err := ParsePublicRequest(url.Values{"q": {"alpha"}, "type": {"profile"}})
+	if err != nil || profile.Kind != "profile" || profile.Sort != "address" || profile.Limit != PublicMaxLimit || profile.Filter.Version != Version {
+		t.Fatalf("public profile request: %+v %v", profile, err)
+	}
+	if _, err := profile.Validate(); err != nil {
+		t.Fatal(err)
 	}
 	base := indexedFixture(703).Document
 	for _, edit := range []func(*Document){

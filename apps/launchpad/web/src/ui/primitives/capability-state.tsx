@@ -1,5 +1,5 @@
 import { ArrowLeftRight, ListOrdered } from 'lucide-react';
-import { EmptyState } from '@/ui/primitives';
+import { EmptyState } from './states';
 
 /** The first form of a trading capability, before it is available. */
 export function CapabilityState({ kind }: { kind: 'swap' | 'orders' }) {

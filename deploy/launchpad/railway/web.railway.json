@@ -7,6 +7,7 @@
       "/apps/launchpad/**",
       "/sdk/launchpad/packages/**",
       "/services/launchpad/security/control/cap-admission.ts",
+      "/services/wallet/gateway/src/auth/did.ts",
       "/deploy/launchpad/Dockerfile.web"
     ]
   },

@@ -1,6 +1,6 @@
 import { assertControlEdges } from '@/core/app-foundation/control-edges.test-support';
 import React from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SdkClient } from '@kindle/sdk';
@@ -9,6 +9,8 @@ import { defineChain } from 'viem';
 import { MarketClientContext } from '@/core/market/client';
 import { queryKeys } from '@/core/query-keys';
 import type { PoolSnapshot, PoolStats, Token } from '@/core/market/pool-resolver';
+import { formatSpotPrice, statsSpotPrice } from '@/core/market/pool-stats-display';
+import { formatPrice } from '@/utils/format';
 import TerminalTokenStrip, { tokenStripStats } from './token-strip';
 import { clockLabel } from './chart-card';
 import { TerminalLiveProvider } from './live-context';
@@ -56,10 +58,20 @@ const token: Token = {
 };
 const byKey = (input: Parameters<typeof tokenStripStats>[0]) => Object.fromEntries(tokenStripStats(input).map(stat => [stat.key, stat]));
 
+function stripPriceComesFromTheSpotPriceOfTheStats() {
+  const input = { ...stats, spotPriceWad: '10009702352249' };
+  const livePrice = 0.0000103143;
+  const price = byKey({ stats: input, token, livePrice }).price;
+  expect(price).toMatchObject({ label: 'Price', value: formatSpotPrice(statsSpotPrice(input).value), reason: null });
+  expect(price.value).not.toBe(formatPrice(livePrice));
+}
+
+test(stripPriceComesFromTheSpotPriceOfTheStats, stripPriceComesFromTheSpotPriceOfTheStats);
+
 describe('tokenStripStats', () => {
   it('maps liquidity from realUsdlBalanceRaw and supply from the verified token supply', () => {
     const tiles = byKey({ stats, token, livePrice: 0.0000031245 });
-    expect(tiles.liquidity).toMatchObject({ label: 'Liquidity', value: '6.42K', unit: 'USDL', reason: null });
+    expect(tiles.liquidity).toMatchObject({ label: 'Liquidity', value: '$6.42K', reason: null });
     expect(tiles.supply).toMatchObject({ label: 'Supply', value: '1B', reason: null });
     expect(tiles.price).toMatchObject({ value: '$0.0₅3124', reason: null });
     expect(tokenStripStats({ stats, token, livePrice: null }).map(stat => stat.label)).toEqual(['All time high', 'Price', 'Liquidity', 'Supply', 'Total fees paid', 'Bonding curve']);
@@ -76,8 +88,9 @@ describe('tokenStripStats', () => {
     expect(tiles.curve.reason).toMatch(/Bonding curve/);
   });
 
-  it('falls back to the served v2 spotPriceWad and says so, and dashes the price when nothing is served', () => {
-    expect(byKey({ stats: { ...stats, spotPriceWad: '10098226981692' }, token, livePrice: null }).price).toMatchObject({ value: '$0.0₄1009', reason: expect.stringMatching(/Last known price/) });
+  it('uses the stats spot price, falls back to the quote and dashes the price when neither is served', () => {
+    expect(byKey({ stats: { ...stats, spotPriceWad: '10098226981692' }, token, livePrice: null }).price).toMatchObject({ value: '$0.0₄1009', reason: null });
+    expect(byKey({ stats: { ...stats, spotPriceWad: null }, token, livePrice: 0.0000103143 }).price).toMatchObject({ value: formatPrice(0.0000103143), reason: null });
     expect(byKey({ stats: { ...stats, spotPriceWad: null }, token, livePrice: null }).price).toMatchObject({ value: null, reason: expect.stringMatching(/first trade/) });
     expect(byKey({ stats, token, livePrice: null }).price).toMatchObject({ value: null, reason: expect.stringMatching(/first trade/) });
   });

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { DataFilter, Flex, Text, TokenIcon } from "@paxeer-network/ui";
@@ -81,7 +82,7 @@ export const DistributionHistoryMobile: FC<FundingHistoryProps> = (props) => {
             <Flex gapX={2}>
               <TokenIcon name={item.token} size="xs" />
               <span className="oui-text-xs oui-text-base-contrast-80">
-                {item.token}
+                {tokenDisplayName(item.token)}
               </span>
             </Flex>
           </Flex>

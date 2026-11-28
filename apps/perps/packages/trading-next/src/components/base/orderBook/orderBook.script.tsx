@@ -15,6 +15,7 @@ const CELL_MAX = 30;
 const DEFAULT_CELL_HEIGHT = 20;
 
 const SPACE = 104;
+const DESKTOP_SPACE = 110;
 const BUY_SELL_RATIO_BAR_HEIGHT_MOBILE = 28; // padding 10px*2 + content height ~14px
 const BUY_SELL_RATIO_BAR_HEIGHT_DESKTOP = 38; // padding 10px*2 + content height ~14px
 
@@ -44,7 +45,7 @@ export const useOrderBookScript = (props: {
   const { cellHeight, level } = useMemo(() => {
     if (!height) return { cellHeight: DEFAULT_CELL_HEIGHT, level: 10 };
     const availableSpace =
-      SPACE +
+      (isMobile ? SPACE : DESKTOP_SPACE) +
       (showBuySellRatio
         ? isMobile
           ? BUY_SELL_RATIO_BAR_HEIGHT_MOBILE

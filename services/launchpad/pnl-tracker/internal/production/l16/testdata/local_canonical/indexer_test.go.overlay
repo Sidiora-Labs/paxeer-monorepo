@@ -3,6 +3,8 @@ package processor
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -25,6 +27,106 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func pnlFixtureRange(ctx context.Context, wait time.Duration, repeats int, logf func(string, ...any), batch func() error) error {
+	for repeated := 0; ; repeated++ {
+		err := batch()
+		if err == nil || ctx.Err() != nil || repeated >= repeats ||
+			!strings.Contains(err.Error(), "restoration epoch fence rejected") ||
+			!strings.Contains(err.Error(), "context deadline exceeded") {
+			return err
+		}
+		logf("canonical range repeat %d: %v", repeated+1, err)
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return err
+		case <-timer.C:
+		}
+		if ctx.Err() != nil {
+			return err
+		}
+	}
+}
+
+func TestPnlCanonicalFixtureRepeatsARefusedRange(t *testing.T) {
+	refused := errors.New("queue: restoration epoch fence rejected: timeout: context deadline exceeded")
+	t.Run("refused twice then committed", func(t *testing.T) {
+		calls := 0
+		var logs []string
+		err := pnlFixtureRange(context.Background(), time.Millisecond, 10, func(format string, args ...any) {
+			logs = append(logs, fmt.Sprintf(format, args...))
+		}, func() error {
+			calls++
+			if calls <= 2 {
+				return refused
+			}
+			return nil
+		})
+		if err != nil || calls != 3 || len(logs) != 2 {
+			t.Fatalf("calls=%d logs=%v err=%v", calls, logs, err)
+		}
+		for i, line := range logs {
+			if want := fmt.Sprintf("canonical range repeat %d: %v", i+1, refused); line != want {
+				t.Fatalf("log=%q want=%q", line, want)
+			}
+		}
+	})
+	t.Run("other errors return immediately", func(t *testing.T) {
+		for _, other := range []error{
+			errors.New("canonical range mismatch"),
+			errors.New("queue: restoration epoch fence rejected: wrong epoch"),
+			context.DeadlineExceeded,
+		} {
+			calls, logs := 0, 0
+			err := pnlFixtureRange(context.Background(), time.Millisecond, 10, func(string, ...any) { logs++ }, func() error {
+				calls++
+				return other
+			})
+			if err != other || calls != 1 || logs != 0 {
+				t.Fatalf("calls=%d logs=%d err=%v want=%v", calls, logs, err, other)
+			}
+		}
+	})
+	t.Run("repeat limit returns last refusal", func(t *testing.T) {
+		calls, logs := 0, 0
+		var last error
+		err := pnlFixtureRange(context.Background(), time.Millisecond, 10, func(string, ...any) { logs++ }, func() error {
+			calls++
+			last = fmt.Errorf("%w: call %d", refused, calls)
+			return last
+		})
+		if err != last || calls != 11 || logs != 10 {
+			t.Fatalf("calls=%d logs=%d err=%v want=%v", calls, logs, err, last)
+		}
+	})
+	t.Run("ended context returns without repeating", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		calls, logs := 0, 0
+		err := pnlFixtureRange(ctx, time.Millisecond, 10, func(string, ...any) { logs++ }, func() error {
+			calls++
+			return refused
+		})
+		if err != refused || calls != 1 || logs != 0 {
+			t.Fatalf("calls=%d logs=%d err=%v", calls, logs, err)
+		}
+		waiting, stop := context.WithCancel(context.Background())
+		defer stop()
+		calls, logs = 0, 0
+		err = pnlFixtureRange(waiting, time.Millisecond, 10, func(string, ...any) {
+			logs++
+			stop()
+		}, func() error {
+			calls++
+			return refused
+		})
+		if err != refused || calls != 1 || logs != 1 {
+			t.Fatalf("canceled wait calls=%d logs=%d err=%v", calls, logs, err)
+		}
+	})
+}
+
 // TestPnlCanonicalFixture commits actual factory, swap and transfer receipts
 // through the indexer for the portfolio consumer in the parent process.
 func TestPnlCanonicalFixture(t *testing.T) {
@@ -34,6 +136,7 @@ func TestPnlCanonicalFixture(t *testing.T) {
 	n.ctx = ctx
 	n.auth.Context = ctx
 	mode := os.Getenv("L16_FIXTURE_MODE")
+	inventoryMode := mode == "inventory" || mode == "inventory_catchup"
 	supply := int64(100)
 	if mode == "dense" {
 		supply = 100000
@@ -71,7 +174,7 @@ func TestPnlCanonicalFixture(t *testing.T) {
 	}
 	deadline := big.NewInt(time.Now().Add(time.Hour).Unix())
 	switch mode {
-	case "fresh":
+	case "fresh", "inventory", "inventory_catchup":
 	case "gift":
 		n.transact(t, "Router", "buy", poolAddress, big.NewInt(100), big.NewInt(10), deadline)
 		transact(n.auth, token, "transfer", owner.From, big.NewInt(5))
@@ -151,6 +254,10 @@ func TestPnlCanonicalFixture(t *testing.T) {
 		t.Fatal(err)
 	}
 	policy := delivery.Policy{Subjects: map[string]bool{publisher.CanonicalCreationSubject: true, accounting.MarketSubject: true}, EventTypes: map[string]bool{publisher.CanonicalCreationEventType: true, accounting.MarketSubject: true}}
+	if inventoryMode {
+		policy.Subjects[accounting.InventorySubject] = true
+		policy.EventTypes[accounting.InventorySubject] = true
+	}
 	outbox, err := delivery.NewStoreWithEpochGuard(database, "indexer", policy, guard.Assert)
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +266,7 @@ func TestPnlCanonicalFixture(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	durable, err := publisher.NewDurableStager(outbox, options.DeploymentVersion, map[string]string{publisher.CanonicalCreationEventType: publisher.CanonicalCreationSubject, accounting.MarketSubject: accounting.MarketSubject})
+	durable, err := publisher.NewDurableStager(outbox, options.DeploymentVersion, map[string]string{publisher.CanonicalCreationEventType: publisher.CanonicalCreationSubject, accounting.MarketSubject: accounting.MarketSubject, accounting.InventorySubject: accounting.InventorySubject})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,13 +275,17 @@ func TestPnlCanonicalFixture(t *testing.T) {
 	if _, err = database.Exec(ctx, `INSERT INTO indexer.indexer_ingest_watermarks VALUES(125,$1,$2,$2)`, stream, first-1); err != nil {
 		t.Fatal(err)
 	}
-	p := New(Deps{Store: st, Decoder: decode.NewDecoder(), EventEmitterAddress: options.Roles["EventEmitter"].Address, ChainID: 125, QualifiedBatchSource: authority, CanonicalStreamID: stream, CanonicalOwner: "pnl-fixture-indexer", AccountingPartitions: partitions, Durable: durable, AccountingProjectionVersion: "accounting-market-v1", LegacyProjection: true, Reserves: authority})
+	deps := Deps{Store: st, Decoder: decode.NewDecoder(), EventEmitterAddress: options.Roles["EventEmitter"].Address, ChainID: 125, QualifiedBatchSource: authority, CanonicalStreamID: stream, CanonicalOwner: "pnl-fixture-indexer", AccountingPartitions: partitions, Durable: durable, AccountingProjectionVersion: "accounting-market-v1", LegacyProjection: true, Reserves: authority}
+	if inventoryMode {
+		deps.InventoryGeneration, deps.InventoryProjectionVersion = "g1", "inventory-v1"
+	}
+	p := New(deps)
 	for from := first; from <= int64(last); {
 		to := from + 9
 		if to > int64(last) {
 			to = int64(last)
 		}
-		if err = p.ProcessBatch(ctx, from, to); err != nil {
+		if err = pnlFixtureRange(ctx, time.Second, 10, t.Logf, func() error { return p.ProcessBatch(ctx, from, to) }); err != nil {
 			t.Fatalf("canonical batch %d..%d: %v", from, to, err)
 		}
 		from = to + 1
@@ -199,7 +310,8 @@ func TestPnlCanonicalFixture(t *testing.T) {
 	result := struct {
 		RPC, Factory, Wallet, Token, Stream string
 		Height                              uint64
-	}{n.endpoint, strings.ToLower(n.roles["SidioraFactory"].Address), strings.ToLower(owner.From.Hex()), strings.ToLower(tokenAddress.Hex()), stream, last}
+		SecondWallet                        string
+	}{n.endpoint, strings.ToLower(n.roles["SidioraFactory"].Address), strings.ToLower(owner.From.Hex()), strings.ToLower(tokenAddress.Hex()), stream, last, strings.ToLower(n.owner.Hex())}
 	raw, err := json.Marshal(result)
 	if err != nil {
 		t.Fatal(err)
@@ -219,6 +331,41 @@ func TestPnlCanonicalFixture(t *testing.T) {
 			return
 		} else if !os.IsNotExist(err) {
 			t.Fatal(err)
+		}
+		if inventoryMode {
+			if _, err = os.Stat(filepath.Join(directory, "trade")); err == nil {
+				n.transact(t, "USDL", "transfer", owner.From, big.NewInt(10000))
+				transact(owner, n.contracts["USDL"], "approve", common.HexToAddress(n.roles["Router"].Address), big.NewInt(10000))
+				for i := 0; i < 3; i++ {
+					if mode == "inventory_catchup" && i == 1 {
+						n.transact(t, "Router", "buy", poolAddress, big.NewInt(100), big.NewInt(1), deadline)
+					} else {
+						transact(owner, n.contracts["Router"], "buy", poolAddress, big.NewInt(100), big.NewInt(1), deadline)
+					}
+				}
+				end, err := n.client.BlockNumber(ctx)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err = pnlFixtureRange(ctx, time.Second, 10, t.Logf, func() error { return p.ProcessBatch(ctx, int64(last)+1, int64(end)) }); err != nil {
+					t.Fatal(err)
+				}
+				result.Height = end
+				raw, err := json.Marshal(result)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err = os.WriteFile(temporary, raw, 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err = os.Rename(temporary, filepath.Join(directory, "traded.json")); err != nil {
+					t.Fatal(err)
+				}
+				mode = "traded"
+				inventoryMode = false
+			} else if !os.IsNotExist(err) {
+				t.Fatal(err)
+			}
 		}
 		select {
 		case <-ctx.Done():

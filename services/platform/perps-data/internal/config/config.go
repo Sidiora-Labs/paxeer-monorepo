@@ -32,6 +32,7 @@ const (
 	Portal   Service = "portal"
 	Replay   Service = "replay"
 	Loadtest Service = "loadtest"
+	Quoter   Service = "quoter"
 )
 
 const (
@@ -66,12 +67,14 @@ var services = map[Service]uses{
 	Portal:   {port: true, explorerTx: true, gatewayURL: true},
 	Replay:   {rpc: true, comet: true, database: true},
 	Loadtest: {gatewayURL: true},
+	Quoter:   {rpc: true, port: true},
 }
 
 // Config is the environment of one perps data service. Variables the service
 // does not use stay at their zero value.
 type Config struct {
 	Service            Service
+	Quoting            *QuoterConfig `json:",omitempty"`
 	ChainID            uint64
 	RPCURLs            []string
 	CometURLs          []string
@@ -125,6 +128,9 @@ func Load(service Service) (*Config, error) {
 		cfg.NATSURL = os.Getenv(envNATSURL)
 	}
 	if u.port {
+		if service == Quoter {
+			cfg.Port = 8081
+		}
 		if s := os.Getenv(envPort); s != "" {
 			n, err := strconv.ParseUint(s, 10, 16)
 			if err != nil {
@@ -179,6 +185,13 @@ func Load(service Service) (*Config, error) {
 			return nil, err
 		}
 		cfg.AllowedOrigins = origins
+	}
+	if service == Quoter {
+		var err error
+		cfg.Quoting, err = loadQuoter()
+		if err != nil {
+			return nil, err
+		}
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
@@ -242,6 +255,14 @@ func (c *Config) Validate() error {
 	if u.startHeight && c.StartHeight < 1 {
 		return errors.New(envStartHeight + " must be at least 1")
 	}
+	if c.Service == Quoter {
+		if c.Quoting == nil {
+			return errors.New("quoter settings are required")
+		}
+		if err := c.Quoting.Validate(); err != nil {
+			return err
+		}
+	}
 	if c.Service == Indexer && c.PriceRetentionDays < 1 {
 		return errors.New(envPriceRetentionDays + " must be a whole number of days of at least 1")
 	}
@@ -250,6 +271,10 @@ func (c *Config) Validate() error {
 
 // String redacts service secrets and endpoint credentials.
 func (c Config) String() string {
+	if c.Service == Quoter {
+		raw, _ := c.MarshalJSON()
+		return string(raw)
+	}
 	c = c.safeEndpoints()
 	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%v %s=%d",
 		c.Service,
@@ -321,7 +346,14 @@ func (c Config) MarshalJSON() ([]byte, error) {
 }
 
 func (c Config) safeEndpoints() Config {
-	c.RPCURLs = safeEndpointList(c.RPCURLs)
+	if c.Service == Quoter {
+		c.RPCURLs = make([]string, len(c.RPCURLs))
+		for i := range c.RPCURLs {
+			c.RPCURLs[i] = redacted
+		}
+	} else {
+		c.RPCURLs = safeEndpointList(c.RPCURLs)
+	}
 	c.CometURLs = safeEndpointList(c.CometURLs)
 	c.GatewayURL = safeEndpoint(c.GatewayURL)
 	c.ExplorerTxBase = safeEndpoint(c.ExplorerTxBase)

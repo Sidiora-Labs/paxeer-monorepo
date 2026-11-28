@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { useEffect, useMemo, useState } from "react";
 import {
   CaretDownIcon,
@@ -70,7 +71,7 @@ export const PNLInput = (props: PNLInputProps) => {
     <Input.tooltip
       prefix={prefixLabel}
       size={"md"}
-      placeholder={placeholder}
+      placeholder={tokenDisplayName(placeholder)}
       id={id}
       align={"right"}
       value={value}

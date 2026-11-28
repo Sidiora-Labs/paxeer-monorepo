@@ -5,7 +5,7 @@ import type { MouseEvent, ReactNode } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { Avatar } from './avatar';
 import { AgeChip, PercentPill, RankBadge, StageBadge, stageLabel, type Stage } from './badges';
 import { Sparkline } from './data';
@@ -75,7 +75,7 @@ export function CoinCard({
   const mcap =
     mcapRaw === null
       ? null
-      : formatUsdl(mcapRaw, { decimals: mcapDecimals, compact: true, unit: false });
+      : formatCompactUsd(mcapRaw, { raw: true, decimals: mcapDecimals, compact: true });
   const parentSurface = surface === 'canvas' ? 1 : 2;
 
   function onStar(event: MouseEvent<HTMLButtonElement>) {
@@ -141,7 +141,7 @@ export function CoinCard({
   const hiddenSummary = (
     <span className="sr-only">
       {stage ? `, ${stageLabel(stage)}` : ''}
-      {mcap ? `, market cap ${mcap} USDL` : ', no market cap yet'}
+      {mcap ? `, market cap ${mcap}` : ', no market cap yet'}
     </span>
   );
 
@@ -253,7 +253,7 @@ export function CoinCard({
               mcap ? 'text-text' : 'text-text-faint'
             )}
           >
-            {mcap ? `${mcap} USDL` : '—'}
+            {mcap ? mcap : '—'}
           </span>
         </div>
         <div className="flex items-center gap-2">

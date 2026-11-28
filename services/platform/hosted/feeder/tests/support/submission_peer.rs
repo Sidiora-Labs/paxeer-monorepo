@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use layerx_oracle_feeder::chainflow::{ChainflowConfig, Ticker};
-use layerx_oracle_feeder::cosmos_tx::{feed_account, Submission};
+use layerx_oracle_feeder::cosmos_tx::{feed_account, validator_operator, Submission};
 use layerx_oracle_feeder::{hex_decode, hex_encode};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -42,6 +42,7 @@ pub(crate) enum SubmissionSequenceMode {
 }
 
 pub(crate) struct Transcript {
+    pub(crate) validator: [u8; 20],
     pub(crate) account_sequence: u8,
     pub(crate) observation_sequence: u64,
     pub(crate) fate: Fate,
@@ -60,6 +61,10 @@ pub(crate) struct Transcript {
     pub(crate) mempool_pages: Vec<u64>,
     pub(crate) account_reads: Vec<u64>,
     pub(crate) observation_reads: Vec<(u64, u64)>,
+    pub(crate) observation_requests: Vec<Value>,
+    pub(crate) evm_observation_reads: Vec<(u64, String)>,
+    pub(crate) observation_response: Option<Value>,
+    pub(crate) observation_absent_markets: std::collections::BTreeSet<u64>,
     pub(crate) observation_busy_reads: Vec<(u64, u64)>,
     pub(crate) observation_error: Option<Value>,
     pub(crate) observation_sequences: std::collections::BTreeMap<u64, u64>,
@@ -72,6 +77,7 @@ pub(crate) struct Transcript {
 impl Default for Transcript {
     fn default() -> Self {
         Self {
+            validator: [0x22; 20],
             account_sequence: 3,
             observation_sequence: 0,
             fate: Fate::Pending,
@@ -90,6 +96,10 @@ impl Default for Transcript {
             mempool_pages: Vec::new(),
             account_reads: Vec::new(),
             observation_reads: Vec::new(),
+            observation_requests: Vec::new(),
+            evm_observation_reads: Vec::new(),
+            observation_response: None,
+            observation_absent_markets: std::collections::BTreeSet::new(),
             observation_busy_reads: Vec::new(),
             observation_error: None,
             observation_sequences: std::collections::BTreeMap::new(),
@@ -395,11 +405,9 @@ fn serve_connection(
         let request: Value =
             serde_json::from_slice(&body).unwrap_or_else(|error| panic!("{error:?}"));
         assert_eq!(request["jsonrpc"], "2.0");
-        observation_permit = (request["method"] == "eth_call"
-            && request["params"][0]["data"]
-                .as_str()
-                .is_some_and(|data| data.starts_with("0x48f83666")))
-        .then(|| observation_gate.enter());
+        observation_permit = (request["method"] == "abci_query"
+            && request["params"]["path"] == round::OBSERVATION_QUERY_PATH)
+            .then(|| observation_gate.enter());
         let mut transcript = shared.lock().unwrap_or_else(|error| panic!("{error:?}"));
         let result = transcript.answer(
             &request,
@@ -476,12 +484,70 @@ impl Transcript {
         account
     }
 
+    fn observation_response(&mut self, request: &Value, busy: bool) -> Value {
+        let params = &request["params"];
+        assert_eq!(params["path"], round::OBSERVATION_QUERY_PATH);
+        assert_eq!(params["prove"], false);
+        let height = *self
+            .account_reads
+            .last()
+            .expect("observation follows a committed account read");
+        assert_eq!(params["height"], height.to_string());
+        let data = hex_decode(params["data"].as_str().expect("observation data")).unwrap();
+        let market_id = protobuf_field_varint(&data, 1).unwrap_or(0);
+        let validator = protobuf_bytes(&data, 2).expect("observation validator");
+        assert_eq!(validator, validator_operator(&self.validator).as_bytes());
+        self.observation_reads.push((market_id, height));
+        self.observation_requests.push(params.clone());
+        if busy {
+            self.observation_busy_reads.push((market_id, height));
+            return json!({"jsonrpc":"2.0","id":1,"error":{
+                "code": -32005, "message": "rejected due to rate limit"
+            }});
+        }
+        if let Some(error) = &self.observation_error {
+            return json!({"jsonrpc":"2.0","id":1,"error":error});
+        }
+        let mut response = if self.observation_absent_markets.contains(&market_id) {
+            json!({"height":height.to_string(),"code":22,"codespace":"sdk","log":"not found"})
+        } else {
+            let sequence = self
+                .observation_sequences
+                .get(&market_id)
+                .copied()
+                .unwrap_or(self.observation_sequence);
+            let mut bytes = Vec::new();
+            if sequence != 0 {
+                bytes.push(0x08);
+                let mut remaining = sequence;
+                while remaining >= 128 {
+                    bytes.push((remaining as u8 & 0x7f) | 0x80);
+                    remaining >>= 7;
+                }
+                bytes.push(remaining as u8);
+            }
+            json!({"height":height.to_string(),"code":0,"value":STANDARD.encode(bytes)})
+        };
+        if let Some(overrides) = &self.observation_response {
+            for (key, value) in overrides.as_object().expect("observation response fields") {
+                response[key] = value.clone();
+            }
+        }
+        json!({"jsonrpc":"2.0","id":1,"result":{"response":response}})
+    }
+
     fn answer(&mut self, request: &Value, observation_busy: bool) -> Value {
         let result = match request["method"]
             .as_str()
             .unwrap_or_else(|| panic!("required protocol value is absent"))
         {
-            "abci_query" => self.account_response(request),
+            "abci_query" => {
+                if request["params"]["path"] == round::ACCOUNT_QUERY_PATH {
+                    self.account_response(request)
+                } else {
+                    return self.observation_response(request, observation_busy);
+                }
+            }
             "eth_call" => {
                 assert_eq!(
                     request["params"][0]["to"],
@@ -491,34 +557,24 @@ impl Transcript {
                     .as_str()
                     .unwrap_or_else(|| panic!("required protocol value is absent"));
                 if data.starts_with("0x007eb855") {
-                    json!(format!("0x{}{}", "00".repeat(12), "22".repeat(20)))
+                    json!(format!(
+                        "0x{}{}",
+                        "00".repeat(12),
+                        hex_encode(&self.validator)
+                    ))
                 } else {
                     assert!(data.starts_with("0x48f83666"));
-                    let height = *self
-                        .account_reads
-                        .last()
-                        .unwrap_or_else(|| panic!("observation follows a committed account read"));
                     let market_id = u64::from_str_radix(&data[10 + 48..10 + 64], 16)
                         .unwrap_or_else(|error| panic!("{error:?}"));
-                    self.observation_reads.push((market_id, height));
-                    assert_eq!(request["params"][1], format!("0x{height:x}"));
-                    if observation_busy {
-                        self.observation_busy_reads.push((market_id, height));
-                        return json!({"jsonrpc":"2.0","id":1,"error":{
-                            "code": -32005, "message": "rejected due to rate limit"
-                        }});
-                    }
-                    if let Some(error) = &self.observation_error {
-                        return json!({"jsonrpc":"2.0","id":1,"error":error});
-                    }
-                    json!(format!(
-                        "0x{:064x}{}",
-                        self.observation_sequences
-                            .get(&market_id)
-                            .copied()
-                            .unwrap_or(self.observation_sequence),
-                        "00".repeat(128)
-                    ))
+                    let height = request["params"][1]
+                        .as_str()
+                        .expect("EVM observation height");
+                    self.evm_observation_reads
+                        .push((market_id, height.to_owned()));
+                    return json!({"jsonrpc":"2.0","id":1,"error":{
+                        "code":-32000,
+                        "message":format!("requested height {height} is not yet available; safe latest is 0: block height not yet available")
+                    }});
                 }
             }
             "broadcast_tx_sync" => {
@@ -765,7 +821,7 @@ pub(crate) fn agent() -> ureq::Agent {
 pub(crate) fn config(peer: &Peer) -> Config {
     Config {
         chain_id: "test-1".to_owned(),
-        validator: "22".repeat(20),
+        validator: hex_encode(&peer.state.lock().unwrap().validator),
         feed_account: FEED.to_owned(),
         gas_limit: 200_000,
         cadence_ms: 1000,

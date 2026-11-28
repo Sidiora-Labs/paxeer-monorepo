@@ -1,5 +1,15 @@
 /* Shared application roles, scales and platform states. */
 :root {
+  --sl-feed-preview-width: 85%;
+  --sl-activity-identity-width: 38%;
+  --sl-skeleton-width-short: 20%;
+  --sl-skeleton-width-label: 40%;
+  --sl-skeleton-width-half: 50%;
+  --sl-skeleton-width-medium: 60%;
+  --sl-skeleton-width-heading: 70%;
+  --sl-skeleton-width-long: 80%;
+  --sl-skeleton-width-line: 92%;
+
   color-scheme: dark;
   --sl-surface-inverse-light: #101c29;
   --sl-surface-inverse-dark: #f5f5f7;
@@ -169,6 +179,9 @@
   --sl-chat-max-height: 26.25rem;
   --sl-trade-cta-clearance: calc(
     var(--sl-bottom-nav-height) + var(--sl-control-height-lg) + var(--sl-space-12)
+  );
+  --sl-create-action-clearance: calc(
+    var(--sl-bottom-nav-height) + var(--sl-space-12) * 4 + env(safe-area-inset-bottom, 0rem)
   );
   --sl-weight-normal: 400;
   --sl-tracking-wide: 0.025em;
@@ -776,6 +789,10 @@
       backdrop-filter: blur(var(--sl-floating-blur));
     }
   }
+  .sl-floating-opaque {
+    background: var(--sl-surface-2);
+    backdrop-filter: none;
+  }
   .sl-row-wash-up {
     background-image: linear-gradient(to right, transparent 50%, var(--sl-tint-accent-row-wash));
   }
@@ -955,6 +972,15 @@
   }
 }
 
+@media (width < 48rem) {
+  .foundation-shell[data-shell-route-id='create'] [data-shell-main] {
+    padding-block-end: calc(var(--sl-create-action-clearance) + var(--sl-cookie-banner-height, 0px));
+  }
+  .foundation-shell[data-shell-route-id='create'] main :focus-visible {
+    scroll-margin-block-end: var(--sl-create-action-clearance);
+  }
+}
+
 @media (height < 32rem) {
   [data-mobile-trade-cta] {
     position: static;
@@ -979,7 +1005,7 @@
     nav a,
     section[aria-label='Market ticker'] a,
     a[href]:not(p a),
-    [tabindex='0']
+    [tabindex='0']:not([data-keeps-size])
   ) {
     min-block-size: var(--sl-touch-target-min);
     min-inline-size: var(--sl-touch-target-min);

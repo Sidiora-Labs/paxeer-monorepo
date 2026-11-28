@@ -80,8 +80,9 @@ var (
 		"perps-explorer":     "perps-explorer",
 		"perps-portal":       "perps-portal",
 		"perps-replay":       "perps-replay",
+		"perps-quoter":       "perps-quoter",
 	}
-	serviceOrder  = []string{"perps-data-indexer", "perps-gateway", "perps-explorer", "perps-portal", "perps-replay", "postgres", "nats"}
+	serviceOrder  = []string{"perps-data-indexer", "perps-gateway", "perps-explorer", "perps-portal", "perps-replay", "perps-quoter", "postgres", "nats"}
 	publicOrder   = []string{"perps-gateway", "perps-explorer", "perps-portal"}
 	natsMembers   = []string{"nats-1", "nats-2", "nats-3"}
 	natsVariables = []string{"NATS_CLUSTER_PASSWORD", "NATS_GATEWAY_PASSWORD", "NATS_INDEXER_PASSWORD", "NATS_MAX_FILE_STORE", "NATS_ROUTES", "PORT", "RAILWAY_RUN_UID"}
@@ -196,6 +197,9 @@ func checkServiceSet(s *Services) error {
 	slices.Sort(got)
 	if !slices.Equal(got, natsVariables) {
 		return fmt.Errorf("nats variables %v, want %v", got, natsVariables)
+	}
+	if err := checkQuoterService(byName["perps-quoter"]); err != nil {
+		return err
 	}
 	return checkValues(byName)
 }
@@ -349,37 +353,78 @@ func configVariables() ([]string, error) {
 	if len(names) == 0 {
 		return nil, errors.New("no env constants in config.go")
 	}
+	for _, name := range quoterVariables {
+		if !slices.Contains(names, name) {
+			names = append(names, name)
+		}
+	}
 	return names, nil
 }
 
 var (
 	acceptedValues = map[string]string{
-		"PERPS_CHAIN_ID":            "125",
-		"PERPS_RPC_URLS":            "http://localhost",
-		"PERPS_COMET_URLS":          "http://localhost",
-		"DATABASE_URL":              "postgres://localhost/perps",
-		"NATS_URL":                  "nats://localhost",
-		"PORT":                      "8080",
-		"PERPS_AUTH_SECRET":         "0123456789abcdef0123456789abcdef",
-		"PERPS_ALLOWED_ORIGINS":     "https://app.example, http://localhost:3000",
-		"PERPS_EXPLORER_TX_BASE":    "http://localhost/tx/",
-		"PERPS_GATEWAY_URL":         "http://localhost",
-		"PERPS_START_HEIGHT":        "1",
-		"PERPS_TRUSTED_PROXY_CIDRS": "10.0.0.0/8, fd00::/8",
+		"PERPS_PRICE_RETENTION_DAYS":              "7",
+		"PERPS_QUOTER_KEY_FILE":                   "account-key",
+		"PERPS_QUOTER_MARKETS":                    "0,11",
+		"PERPS_QUOTER_LEVELS":                     "2",
+		"PERPS_QUOTER_SPREAD_BPS":                 "10",
+		"PERPS_QUOTER_STEP_BPS":                   "10",
+		"PERPS_QUOTER_LEVEL_USD":                  "25",
+		"PERPS_QUOTER_REFRESH_BPS":                "5",
+		"PERPS_QUOTER_MAX_QUOTE_AGE_SECONDS":      "30",
+		"PERPS_QUOTER_MAX_POSITION_USD":           "500",
+		"PERPS_QUOTER_MAX_PRICE_AGE_SECONDS":      "10",
+		"PERPS_QUOTER_INTERVAL_SECONDS":           "2",
+		"PERPS_QUOTER_REFUSAL_LIMIT":              "3",
+		"PERPS_QUOTER_COOLDOWN_SECONDS":           "30",
+		"PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND": "8",
+		"PERPS_QUOTER_MODE":                       "dry",
+		"PERPS_QUOTER_STOP":                       "false",
+		"PERPS_QUOTER_HANDOVER":                   "false",
+		"PERPS_CHAIN_ID":                          "125",
+		"PERPS_RPC_URLS":                          "http://localhost",
+		"PERPS_COMET_URLS":                        "http://localhost",
+		"DATABASE_URL":                            "postgres://localhost/perps",
+		"NATS_URL":                                "nats://localhost",
+		"PORT":                                    "8080",
+		"PERPS_AUTH_SECRET":                       "0123456789abcdef0123456789abcdef",
+		"PERPS_ALLOWED_ORIGINS":                   "https://app.example, http://localhost:3000",
+		"PERPS_EXPLORER_TX_BASE":                  "http://localhost/tx/",
+		"PERPS_GATEWAY_URL":                       "http://localhost",
+		"PERPS_START_HEIGHT":                      "1",
+		"PERPS_TRUSTED_PROXY_CIDRS":               "10.0.0.0/8, fd00::/8",
 	}
 	refusedValues = map[string]string{
-		"PERPS_CHAIN_ID":            "x",
-		"PERPS_RPC_URLS":            "x",
-		"PERPS_COMET_URLS":          "x",
-		"DATABASE_URL":              "",
-		"NATS_URL":                  "",
-		"PORT":                      "x",
-		"PERPS_AUTH_SECRET":         "",
-		"PERPS_ALLOWED_ORIGINS":     "https://app.example/path",
-		"PERPS_EXPLORER_TX_BASE":    "x",
-		"PERPS_GATEWAY_URL":         "x",
-		"PERPS_START_HEIGHT":        "x",
-		"PERPS_TRUSTED_PROXY_CIDRS": "not-a-cidr",
+		"PERPS_PRICE_RETENTION_DAYS":              "0",
+		"PERPS_QUOTER_KEY_FILE":                   "",
+		"PERPS_QUOTER_MARKETS":                    "invalid",
+		"PERPS_QUOTER_LEVELS":                     "invalid",
+		"PERPS_QUOTER_SPREAD_BPS":                 "invalid",
+		"PERPS_QUOTER_STEP_BPS":                   "invalid",
+		"PERPS_QUOTER_LEVEL_USD":                  "invalid",
+		"PERPS_QUOTER_REFRESH_BPS":                "invalid",
+		"PERPS_QUOTER_MAX_QUOTE_AGE_SECONDS":      "invalid",
+		"PERPS_QUOTER_MAX_POSITION_USD":           "invalid",
+		"PERPS_QUOTER_MAX_PRICE_AGE_SECONDS":      "invalid",
+		"PERPS_QUOTER_INTERVAL_SECONDS":           "invalid",
+		"PERPS_QUOTER_REFUSAL_LIMIT":              "invalid",
+		"PERPS_QUOTER_COOLDOWN_SECONDS":           "invalid",
+		"PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND": "invalid",
+		"PERPS_QUOTER_MODE":                       "invalid",
+		"PERPS_QUOTER_STOP":                       "invalid",
+		"PERPS_QUOTER_HANDOVER":                   "invalid",
+		"PERPS_CHAIN_ID":                          "x",
+		"PERPS_RPC_URLS":                          "x",
+		"PERPS_COMET_URLS":                        "x",
+		"DATABASE_URL":                            "",
+		"NATS_URL":                                "",
+		"PORT":                                    "x",
+		"PERPS_AUTH_SECRET":                       "",
+		"PERPS_ALLOWED_ORIGINS":                   "https://app.example/path",
+		"PERPS_EXPLORER_TX_BASE":                  "x",
+		"PERPS_GATEWAY_URL":                       "x",
+		"PERPS_START_HEIGHT":                      "x",
+		"PERPS_TRUSTED_PROXY_CIDRS":               "not-a-cidr",
 	}
 )
 
@@ -411,7 +456,10 @@ func checkVariablesDeclared(t *testing.T, s *Services, names []string) error {
 	if err != nil {
 		return err
 	}
-	for _, svcName := range serviceOrder[:5] {
+	for _, svcName := range serviceOrder {
+		if _, ok := binaryServices[svcName]; !ok {
+			continue
+		}
 		svc := byName[svcName]
 		for k := range svc.Variables {
 			if !slices.Contains(names, k) {

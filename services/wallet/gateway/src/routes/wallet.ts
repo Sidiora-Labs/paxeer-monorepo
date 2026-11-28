@@ -1,3 +1,4 @@
+import { CustodyAuthorityError } from '../agent/authority.js';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { createHash } from 'node:crypto';
 import { verifyAccessToken } from '../auth/jwt.js';
@@ -8,7 +9,7 @@ import {
   parseAbi,
   recoverAddress,
   serializeSignature,
-  type Hex,
+  type Hex
 } from 'viem';
 import { z } from 'zod';
 import { SponsoredConstruction } from './sign.js';
@@ -18,7 +19,7 @@ import {
   WalletArchivedError,
   archivedWalletGuard,
   findWalletByUserId,
-  provisionWalletForUser,
+  provisionWalletForUser
 } from '../db/wallets.js';
 import { getPool } from '../db/pool.js';
 import { env } from '../env.js';
@@ -34,14 +35,14 @@ import {
   attestorDaemonFromConfig,
   didFromPublicKey,
   mainAccountId,
-  readKernelAvailability,
+  readKernelAvailability
 } from '../provision/bind.js';
 import {
   ProvisionError,
   ProvisionRefusedError,
   provisionAccount,
   produceIdentityBinding,
-  type ProvisionDeps,
+  type ProvisionDeps
 } from '../provision/state.js';
 
 export interface WalletRoutesOptions {
@@ -72,10 +73,10 @@ export function provisionDepsFromEnv(): ProvisionDeps | null {
           identityBinding: {
             issuer: `${env.SUPABASE_URL.replace(/\/$/, '')}/auth/v1`,
             tenant: env.WALLET_IDENTITY_BINDING_TENANT,
-            privateKeyFile: env.WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE,
-          },
+            privateKeyFile: env.WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE
+          }
         }
-      : {}),
+      : {})
   };
   return sharedDeps;
 }
@@ -108,6 +109,15 @@ export async function walletRoutes(
   app.post('/v1/wallet/provision', { preHandler: requireAuth }, async (req, reply) => {
     reply.header('Cache-Control', 'no-store');
     const userId = req.user!.id;
+    const stage = z
+      .object({
+        stage: z.enum(['wallet', 'identity']).optional(),
+        funding: z.literal('self').optional()
+      })
+      .strict()
+      .safeParse(req.body ?? {});
+    if (!stage.success)
+      return reply.code(400).send({ error: 'invalid_body', issues: stage.error.issues });
     try {
       const provision = deps();
       if (!provision) {
@@ -121,11 +131,16 @@ export async function walletRoutes(
         const { wallet } = await provisionWalletForUser(userId, 'standard');
         return reply.send({ wallet, identityBinding: null });
       }
-      const out = await provisionAccount(provision, {
-        kind: 'standard',
-        userId,
-        token: bearerToken(req),
-      });
+      const out = await provisionAccount(
+        provision,
+        {
+          kind: 'standard',
+          userId,
+          token: bearerToken(req),
+          funding: stage.data.funding
+        },
+        stage.data.stage
+      );
       const wallet = await findWalletByUserId(userId);
       const identityBinding = await produceIdentityBinding(provision, userId, out);
       return reply.send({
@@ -139,11 +154,13 @@ export async function walletRoutes(
           last_used_at: wallet?.last_used_at ?? null,
           did: out.did,
           main_account_id: out.mainAccountId,
-          binding_state: out.state === 'active' ? 'bound' : 'pending',
+          binding_state: out.state === 'active' ? 'bound' : 'pending'
         },
-        provisioning: { state: out.state, awaiting: out.awaiting },
+        provisioning: { state: out.state, awaiting: out.awaiting }
       });
     } catch (err) {
+      if (err instanceof CustodyAuthorityError)
+        return reply.code(503).send({ error: err.code, replication_pending: true });
       if (err instanceof WalletArchivedError)
         return reply.code(err.refusal.status).send(err.refusal.body);
       if (err instanceof ProvisionRefusedError) {
@@ -158,7 +175,7 @@ export async function walletRoutes(
         return reply.code(err.status === 401 || err.status === 403 ? err.status : 502).send({
           error: 'attestor_refused',
           category: err.category,
-          code: err.code,
+          code: err.code
         });
       }
       if (err instanceof AttestorUnavailable) {
@@ -197,7 +214,7 @@ export async function walletRoutes(
         address: wallet.address as `0x${string}`,
         did: unified.did,
         mainAccountId: unified.main_account_id,
-        bindMessage: null,
+        bindMessage: null
       });
       const assertion = bearerToken(req);
       const claims = await verifyAccessToken(assertion);
@@ -218,7 +235,7 @@ export async function walletRoutes(
           session_id: createHash('sha256')
             .update('LXP/wallet-caps/session/v1\0')
             .update(assertion)
-            .digest('hex'),
+            .digest('hex')
         };
       }
     }
@@ -233,14 +250,14 @@ export async function walletRoutes(
         last_used_at: wallet.last_used_at,
         did: unified.did,
         main_account_id: unified.main_account_id,
-        binding_state: unified.binding_state,
+        binding_state: unified.binding_state
       },
       chain: {
         id: env.HYPERPAXEER_CHAIN_ID,
         rpc_url: env.HYPERPAXEER_RPC_URL,
-        explorer_url: env.HYPERPAXEER_EXPLORER_URL ?? null,
+        explorer_url: env.HYPERPAXEER_EXPLORER_URL ?? null
       },
-      kernel,
+      kernel
     });
   });
 }
@@ -259,7 +276,7 @@ const SponsorAuthorization = z
     nonce: SponsorUint.refine((value) => BigInt(value) < (1n << 64n) - 1n),
     yParity: z.union([z.literal(0), z.literal(1)]),
     r: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
-    s: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+    s: z.string().regex(/^0x[0-9a-fA-F]{64}$/)
   })
   .strict();
 export const SponsoredSubmitBody = z
@@ -276,7 +293,7 @@ export const SponsoredSubmitBody = z
     account_signature: SponsorSignature,
     relayer_signature: SponsorSignature,
     authorization: SponsorAuthorization,
-    quote_decimals: z.literal(6),
+    quote_decimals: z.literal(6)
   })
   .strict();
 export const SponsoredStatusBody = z
@@ -284,14 +301,14 @@ export const SponsoredStatusBody = z
     account: SponsorAddress,
     sponsor: SponsorAddress,
     quoteNonce: SponsorUint,
-    relayerSignature: SponsorSignature,
+    relayerSignature: SponsorSignature
   })
   .strict();
 export const SponsoredQuoteBody = SponsoredConstruction.pick({
   chainId: true,
   account: true,
   nonce: true,
-  calls: true,
+  calls: true
 })
   .extend({
     did: z
@@ -301,7 +318,7 @@ export const SponsoredQuoteBody = SponsoredConstruction.pick({
     maxTokenAmount: SponsorUint,
     gasCost: SponsorUint,
     token: SponsorAddress,
-    decimals: z.literal(6),
+    decimals: z.literal(6)
   })
   .strict();
 const SponsoredBudget = z
@@ -310,14 +327,14 @@ const SponsoredBudget = z
     gasLimit: SponsorUint,
     usedGas: SponsorUint,
     remainingGas: SponsorUint,
-    dayEnds: SponsorUint,
+    dayEnds: SponsorUint
   })
   .strict();
 const executeSponsoredAbi = parseAbi([
-  'function executeSponsored((address to,uint256 value,bytes data)[] calls,(address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost) quote,bytes accountSignature,bytes relayerSignature)',
+  'function executeSponsored((address to,uint256 value,bytes data)[] calls,(address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost) quote,bytes accountSignature,bytes relayerSignature)'
 ]);
 const sponsorIdentityAbi = parseAbi([
-  'function getLayerXDid(address addr) view returns (bytes32 didPublicKey, string did)',
+  'function getLayerXDid(address addr) view returns (bytes32 didPublicKey, string did)'
 ]);
 export interface WalletSponsorRoutesOptions {
   stationUrl?: string;
@@ -344,7 +361,7 @@ export async function walletSponsorRoutes(
       const data = encodeFunctionData({
         abi: sponsorIdentityAbi,
         functionName: 'getLayerXDid',
-        args: [account],
+        args: [account]
       });
       let encoded: Hex;
       try {
@@ -354,16 +371,16 @@ export async function walletSponsorRoutes(
         const unifiedData = encodeFunctionData({
           abi: addrAbi,
           functionName: 'getUnifiedAccount',
-          args: [account],
+          args: [account]
         });
         const unifiedEncoded = await rpc.request<Hex>('eth_call', [
           { to: ADDR_PRECOMPILE, data: unifiedData },
-          'latest',
+          'latest'
         ]);
         const unified = decodeFunctionResult({
           abi: addrAbi,
           functionName: 'getUnifiedAccount',
-          data: unifiedEncoded,
+          data: unifiedEncoded
         });
         if (
           unified[0].toLowerCase() !== account.toLowerCase() ||
@@ -378,13 +395,13 @@ export async function walletSponsorRoutes(
       const decoded = decodeFunctionResult({
         abi: sponsorIdentityAbi,
         functionName: 'getLayerXDid',
-        data: encoded,
+        data: encoded
       });
       if (
         encodeFunctionResult({
           abi: sponsorIdentityAbi,
           functionName: 'getLayerXDid',
-          result: decoded,
+          result: decoded
         }).toLowerCase() !== encoded.toLowerCase() ||
         decoded[0] === zero ||
         decoded[1] !== didFromPublicKey(decoded[0])
@@ -556,13 +573,13 @@ export async function walletSponsorRoutes(
         (
           await recoverAddress({
             hash: constructionDigest(c),
-            signature: body.account_signature as Hex,
+            signature: body.account_signature as Hex
           })
         ).toLowerCase() !== wallet.address.toLowerCase() ||
         (
           await recoverAddress({
             hash: sponsorQuoteDigest(c),
-            signature: body.relayer_signature as Hex,
+            signature: body.relayer_signature as Hex
           })
         ).toLowerCase() !== q.sponsor.toLowerCase()
       )
@@ -571,7 +588,7 @@ export async function walletSponsorRoutes(
       const authSignature = serializeSignature({
         r: authorization.r as Hex,
         s: authorization.s as Hex,
-        yParity: authorization.yParity,
+        yParity: authorization.yParity
       });
       if (
         (
@@ -580,9 +597,9 @@ export async function walletSponsorRoutes(
               kind: 'eip7702_authorization',
               chainId: authorization.chainId,
               address: authorization.address,
-              nonce: authorization.nonce,
+              nonce: authorization.nonce
             }),
-            signature: authSignature,
+            signature: authSignature
           })
         ).toLowerCase() !== wallet.address.toLowerCase()
       )
@@ -594,7 +611,7 @@ export async function walletSponsorRoutes(
           c.calls.map((call) => ({
             to: call.to as Hex,
             value: BigInt(call.value),
-            data: call.data as Hex,
+            data: call.data as Hex
           })),
           {
             sponsor: q.sponsor as Hex,
@@ -603,11 +620,11 @@ export async function walletSponsorRoutes(
             tokenAmount: BigInt(q.tokenAmount),
             deadline: BigInt(q.deadline),
             quoteNonce: BigInt(q.quoteNonce),
-            gasCost: BigInt(q.gasCost),
+            gasCost: BigInt(q.gasCost)
           },
           body.account_signature as Hex,
-          body.relayer_signature as Hex,
-        ],
+          body.relayer_signature as Hex
+        ]
       });
       if (expected.toLowerCase() !== body.data.toLowerCase())
         throw new StationAdapterError(403, 'sponsored_call_changed');
@@ -616,7 +633,7 @@ export async function walletSponsorRoutes(
         account: body.account,
         sponsor: q.sponsor,
         quoteNonce: q.quoteNonce,
-        relayerSignature: body.relayer_signature,
+        relayerSignature: body.relayer_signature
       };
       const stationBody = {
         call: { to: body.to, value: body.value, data: body.data },
@@ -626,10 +643,10 @@ export async function walletSponsorRoutes(
           account: c.account,
           nonce: c.nonce,
           calls: c.calls,
-          quote: { ...q, decimals: body.quote_decimals },
+          quote: { ...q, decimals: body.quote_decimals }
         },
         accountSignature: body.account_signature,
-        relayerSignature: body.relayer_signature,
+        relayerSignature: body.relayer_signature
       };
       let hash: Hex | null = null;
       let answer: ReturnType<typeof statusBody>;
@@ -661,7 +678,7 @@ export async function walletSponsorRoutes(
           status: 'pending',
           station: null,
           did,
-          ...(await sequencerReceipt(hash)),
+          ...(await sequencerReceipt(hash))
         });
       }
       return reply

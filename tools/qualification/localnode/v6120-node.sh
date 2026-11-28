@@ -7,7 +7,7 @@ BASE=$(realpath -m "${TMPDIR:-/tmp}/lx-localnode")
 ENV_OUT=$BASE/localnode.env
 GATEWAY=http://127.0.0.1:0
 NODE_HOME=
-SEQUENCER=0
+SEQUENCER=1
 FOLLOWER=0
 SIDIORA=0
 LAST_RECEIPT_HEIGHT=0
@@ -109,6 +109,7 @@ require_merge_precompiles() {
 
 enable_sequencer() {
     local deadline=$((SECONDS + 120))
+    local height
     stop_node "$NODE_HOME" node
     set_toml "$NODE_HOME/config/config.toml" consensus.sequencer enable true
     export PAX_LOG_LEVEL=info PAX_LOG_OUTPUT=stderr
@@ -128,6 +129,23 @@ enable_sequencer() {
         (( SECONDS < deadline )) || fail "sequencer primary did not restart: $NODE_HOME/node.log"
         sleep 0.2
     done
+    SEQUENCER_RESTART_HEIGHT=
+    while :; do
+        kill -0 "$(cat "$NODE_HOME/node.pid")" 2>/dev/null || fail "node exited: $NODE_HOME/node.log"
+        (( SECONDS < deadline )) || fail "sequencer primary made no block after its restart: $NODE_HOME/node.log"
+        if height=$(curl --fail --silent --show-error --max-time 3 "http://127.0.0.1:$RPC_PORT/status" \
+            | jq -er '.sync_info.latest_block_height | strings | select(test("^[1-9][0-9]*$"))'); then
+            if [ -z "$SEQUENCER_RESTART_HEIGHT" ]; then
+                SEQUENCER_RESTART_HEIGHT=$height
+            elif (( height > SEQUENCER_RESTART_HEIGHT )); then
+                SEQUENCER_FIRST_HEIGHT=$height
+                break
+            fi
+        fi
+        sleep 0.2
+    done
+    printf 'v6120-node: sequencer made a block after restart; restart_height=%d first_height=%d\n' \
+        "$SEQUENCER_RESTART_HEIGHT" "$SEQUENCER_FIRST_HEIGHT" >&2
 }
 
 governance_tx() {
@@ -164,7 +182,11 @@ activate_merge() {
     done
     height=$current
     height=$((height + 20))
-    activation_height=$(jq -er '.app_state.sequencer.activation_height' "$GENESIS")
+    # Plain consensus keeps sequencing inactive; sequencer mode activates at the merge.
+    activation_height=9223372036854775807
+    if [ "$SEQUENCER" = 1 ]; then
+        activation_height=$(jq -er '.app_state.sequencer.activation_height' "$GENESIS")
+    fi
     info=$(python3 - "$NODE_HOME/config/priv_validator_key.json" "$height" "$activation_height" \
         "$(jq -er '.public_key' "$NODE_HOME/receipt-public.json")" <<'PY'
 import base64
@@ -315,10 +337,11 @@ feed_loop() {
             "$((height))" "$timestamp"
         jq -n --arg feeder "$TEST_ACCOUNT" --arg sequence "$((height))" --arg timestamp "$timestamp" \
             '{body:{messages:[{"@type":"/paxprotocol.paxchain.pricefeed.MsgSubmitPrices",
-              feeder:$feeder,observations:[{market_id:"0",sequence:$sequence,index_price:"60000000000000000000000",
-              mark_price:"60000000000000000000000",source_timestamp_ms:$timestamp},
-              {market_id:"11",sequence:$sequence,index_price:"1000000000000000000",
-              mark_price:"1000000000000000000",source_timestamp_ms:$timestamp}]}],
+              feeder:$feeder,observations:(["60000","3000","150","30","15","250",
+              "120","20000","2500","5000","170","1","1","25","1","1","10","600"]
+              | to_entries | map({market_id:(.key | tostring),sequence:$sequence,
+              index_price:(.value + "000000000000000000"),
+              mark_price:(.value + "000000000000000000"),source_timestamp_ms:$timestamp}))}],
               memo:"",timeout_height:"0",extension_options:[],non_critical_extension_options:[]},
               auth_info:{signer_infos:[],fee:{amount:[],gas_limit:"2000000",payer:"",granter:""}},signatures:[]}' \
             > "$NODE_HOME/observation.json"
@@ -426,6 +449,7 @@ fi
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --sequencer) SEQUENCER=1; shift ;;
+        --consensus-only) SEQUENCER=0; shift ;;
         --follower) FOLLOWER=1; shift ;;
         --sidiora) SIDIORA=1; shift ;;
         --env-out) [ "$#" -ge 2 ] || fail '--env-out requires a file'; ENV_OUT=$2; shift 2 ;;
@@ -490,6 +514,8 @@ VALIDATOR=$("$PAXD" keys show validator -a --bech val --home "$NODE_HOME" --keyr
 CONS=$("$PAXD" tendermint show-address --home "$NODE_HOME")
 KEY=$(printf 'y\n' | "$PAXD" keys export test --unsafe --unarmored-hex --home "$NODE_HOME" --keyring-backend test 2> "$NODE_HOME/export-key.log")
 [[ "$KEY" =~ ^[0-9a-fA-F]{64}$ ]] || fail 'test key export failed'
+MAKER_KEY=$(printf 'y\n' | "$PAXD" keys export deployer --unsafe --unarmored-hex --home "$NODE_HOME" --keyring-backend test 2> "$NODE_HOME/export-maker-key.log")
+[[ "$MAKER_KEY" =~ ^[0-9a-fA-F]{64}$ ]] || fail 'maker key export failed'
 
 # Re-key the retained validator and its references, preserving exported module state.
 SOURCE=$ROOT/node/testdata/v6120-halt-export.json
@@ -616,15 +642,13 @@ if [ "$SIDIORA" = 1 ]; then
     (cd "$ROOT" && go run ./tools/qualification/localnode/sidioragenesis \
         "$GENESIS" "$ROOT/contracts/test/sidiora_pointer_proposal.json" "$SOURCE")
 fi
+"$PAXD" sequencer gen-receipt-key --output "$NODE_HOME/config/receipt-key.hex" \
+    > "$NODE_HOME/receipt-public.json"
+chmod 600 "$NODE_HOME/config/receipt-key.hex"
 if [ "$SEQUENCER" = 1 ]; then
-    for home in "$NODE_HOME"; do
-        "$PAXD" sequencer gen-receipt-key --output "$home/config/receipt-key.hex" \
-            > "$home/receipt-public.json"
-        chmod 600 "$home/config/receipt-key.hex"
-        public=$(jq -er '.public_key' "$home/receipt-public.json")
-        "$PAXD" add-genesis-receipt-key --home "$NODE_HOME" --public-key "$public" \
-            --first-height 1 --last-height 9223372036854775807 >> "$NODE_HOME/init.log" 2>&1
-    done
+    public=$(jq -er '.public_key' "$NODE_HOME/receipt-public.json")
+    "$PAXD" add-genesis-receipt-key --home "$NODE_HOME" --public-key "$public" \
+        --first-height 1 --last-height 9223372036854775807 >> "$NODE_HOME/init.log" 2>&1
     jq '.app_state.sequencer.activation_height = 0 | .app_state.sequencer.leaders = []' \
         "$GENESIS" > "$GENESIS.tmp"
     mv "$GENESIS.tmp" "$GENESIS"
@@ -868,6 +892,8 @@ fi
 configure_xweb
 printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
 evm_call deployer "$USDL" "$MINT_DATA"
+printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[0]#0x}" 1000000000000
+evm_call deployer "$USDL" "$MINT_DATA"
 PERPS=0x0000000000000000000000000000000000001015
 COLLATERAL_AMOUNT=1000000000
 printf -v APPROVE_DATA '095ea7b3000000000000000000000000%s%064x' "${PERPS#0x}" "$COLLATERAL_AMOUNT"
@@ -958,9 +984,15 @@ fi
     printf 'LOCAL_NODE_RPC=%q\n' "$EVM"
     printf 'LOCAL_NODE_HOME=%q\n' "$NODE_HOME"
     printf 'LOCAL_NODE_KEY=%q\n' "0x$KEY"
+    printf 'LOCAL_NODE_MAKER_KEY=%q\n' "0x$MAKER_KEY"
+    printf 'LOCAL_NODE_ADDRESS=%q\n' "${ETH_ADDRESSES[1]}"
+    printf 'LOCAL_NODE_MAKER_ADDRESS=%q\n' "${ETH_ADDRESSES[0]}"
+    printf 'LOCAL_NODE_COLLATERAL=%q\n' "$USDL"
+    printf 'LOCAL_NODE_START_HEIGHT=%q\n' "$HEIGHT"
     if [ "$SEQUENCER" = 1 ]; then
         printf 'LOCAL_NODE_SEQUENCER_RPC=%q\n' "$EVM"
-        printf 'LOCAL_NODE_ADDRESS=%q\n' "${ETH_ADDRESSES[1]}"
+        printf 'LOCAL_NODE_SEQUENCER_RESTART_HEIGHT=%q\n' "$SEQUENCER_RESTART_HEIGHT"
+        printf 'LOCAL_NODE_SEQUENCER_FIRST_HEIGHT=%q\n' "$SEQUENCER_FIRST_HEIGHT"
         printf 'LOCAL_NODE_PROFILE_RPC=%q\n' "http://127.0.0.1:$PRIMARY_PROFILE_PORT"
     fi
     if [ "$FOLLOWER" = 1 ]; then

@@ -5,6 +5,7 @@
   "start": "node tools/ui-check/surfaces/launchpad/start.mjs",
   "address": "https://sidiora.test:4173",
   "readyPath": "/",
+  "readyMs": 120000,
   "views": [
     {
       "name": "home",
@@ -139,7 +140,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -193,7 +194,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -218,7 +219,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ],
       "states": [
@@ -313,7 +314,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -332,7 +333,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -586,6 +587,20 @@
               "text": "Be the first to post a callout for this coin."
             }
           ]
+        },
+        {
+          "name": "chart-options",
+          "steps": [
+            {
+              "action": "click",
+              "selector": "[data-chart-toolbar] button[aria-label=\"Chart options\"]"
+            },
+            {
+              "action": "press",
+              "selector": "[role=\"menu\"][aria-label=\"Chart options\"]:has-text(\"USDL\")",
+              "key": "Shift"
+            }
+          ]
         }
       ],
       "ready": [
@@ -639,7 +654,66 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
+        }
+      ]
+    },
+    {
+      "name": "coin-holders",
+      "path": "/coin/0x1111111111111111111111111111111111111111?render=holders",
+      "ready": [
+        {
+          "action": "press",
+          "selector": "html:has([data-shell-ready])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-coin-header=\"ready\"])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-mobile-trade-cta])",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(aside[aria-label=\"Hot callouts\"]):not(:has(aside[aria-label=\"Hot callouts\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Price chart\"] iframe):has(section[aria-label=\"Price chart\"] [role=\"group\"]:not([inert])), html:has(section[aria-label=\"Price chart\"] :text(\"No trades yet\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": ".coin-holders-table tbody tr:has-text(\"Science community\")",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-label=\"Stats and audit\"]):not(:has(section[aria-label=\"Stats and audit\"] .sl-skeleton))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(section[aria-labelledby=\"creator-card-title\"] a):not(:has(section[aria-labelledby=\"creator-card-title\"] .sl-skeleton)):not(:has(section[aria-labelledby=\"creator-card-title\"] [aria-busy=\"true\"]))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "Onchain name: Science Inu"
+        },
+        {
+          "action": "press",
+          "selector": "html:has(nav[aria-label=\"Mobile navigation\"]:visible), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"Science community\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "wait",
+          "text": "$2.00"
         }
       ]
     },
@@ -697,11 +771,11 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
-          "selector": "html:has(section[aria-label=\"Price chart\"] [role=\"status\"]:text-is(\"Waiting for trades\"):not(:has([data-numeric])))",
+          "selector": "section[aria-label=\"Price chart\"] [role=\"status\"]:has(> button.invisible[inert][aria-hidden=\"true\"] > span:text-is(\"Try again\")):not(:has([data-numeric])) > span:text-is(\"Waiting for trades\")",
           "key": "Shift"
         }
       ]
@@ -816,7 +890,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -906,7 +980,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1010,7 +1084,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1234,7 +1308,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1259,7 +1333,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1288,7 +1362,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1370,7 +1444,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1395,7 +1469,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1420,7 +1494,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1445,7 +1519,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1470,7 +1544,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -1556,7 +1630,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1580,7 +1654,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1647,7 +1721,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1672,7 +1746,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1701,7 +1775,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1768,7 +1842,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1792,31 +1866,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
-        }
-      ]
-    },
-    {
-      "name": "leaderboard-squads",
-      "path": "/leaderboard?tab=squads",
-      "ready": [
-        {
-          "action": "wait",
-          "text": "Squad rankings are not available yet"
-        },
-        {
-          "action": "press",
-          "selector": "html:has([data-shell-ready]):not(:has(#main-content [aria-busy=\"true\"]))",
-          "key": "Shift"
-        },
-        {
-          "action": "press",
-          "selector": "html:not(:has(section[aria-label=\"Market ticker\"]:visible)), html:has(section[aria-label=\"Market ticker\"]:visible :text(\"0x4444…4444\"))",
-          "key": "Shift"
-        },
-        {
-          "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1841,7 +1891,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1855,7 +1905,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1869,7 +1919,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1904,7 +1954,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1918,7 +1968,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1932,7 +1982,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1967,7 +2017,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -1987,7 +2037,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -2011,7 +2061,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -2043,7 +2093,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2069,7 +2119,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2083,7 +2133,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2097,7 +2147,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ],
       "expects": [
@@ -2118,7 +2168,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2132,7 +2182,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2146,7 +2196,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2172,7 +2222,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ],
       "states": [
@@ -2226,7 +2276,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2285,7 +2335,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2311,7 +2361,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2337,7 +2387,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2363,7 +2413,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2372,17 +2422,18 @@
       "path": "/r/science",
       "ready": [
         {
-          "action": "wait",
-          "text": "callouts yet"
-        },
-        {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible :text(\"callouts yet\"))",
           "key": "Shift"
         },
         {
           "action": "press",
-          "selector": "html:has([data-home-feed]:visible), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
+          "selector": "html:has([data-home-feed]:visible li[data-pool=\"0x1111111111111111111111111111111111111111\"]), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"0x1111...1111\")):has([data-home-board]:visible section[aria-label=\"Leaderboard\"] :text(\"0x4444...4444\"))",
+          "key": "Shift"
+        },
+        {
+          "action": "press",
+          "selector": "html:has([data-home-feed]:visible :text(\"Pool details: Prices are not loading right now, try again\")), html:has([data-home-board]:visible section[aria-label=\"Trending\"] :text(\"Pool details: Prices are not loading right now, try again\"))",
           "key": "Shift"
         },
         {
@@ -2392,7 +2443,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2416,7 +2467,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2436,7 +2487,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -2460,7 +2511,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -2581,7 +2632,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "wait",
@@ -2870,7 +2921,7 @@
         },
         {
           "action": "press",
-          "selector": "html:has(ul[aria-label=\"New pairs\"] li :text(\"< 0.01\"))",
+          "selector": "html:has(ul[aria-label=\"New pairs\"] li :text(\"< $0.01\"))",
           "key": "Shift"
         }
       ]
@@ -2921,7 +2972,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -2979,7 +3030,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -3003,7 +3054,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         }
       ]
     },
@@ -3022,7 +3073,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",
@@ -3054,7 +3105,7 @@
         },
         {
           "action": "wait",
-          "text": "2.00 USDL"
+          "text": "$2.00"
         },
         {
           "action": "press",

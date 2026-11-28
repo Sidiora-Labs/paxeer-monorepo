@@ -121,7 +121,7 @@ async function signIn() {
 }
 
 function expectTradeOffsets(cta: HTMLElement) {
-  expect(cta.classList).toContain('bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-cookie-banner-height,0px))]');
+  expect(cta.classList).toContain('bottom-[calc(var(--sl-bottom-nav-height)+var(--sl-edge-width)+var(--sl-cookie-banner-height,0px))]');
   expect(cta.classList).toContain('md:bottom-[calc(var(--sl-space-4)+var(--sl-cookie-banner-height,0px))]');
   expect(cta.style.paddingBottom).toBe('env(safe-area-inset-bottom, var(--sl-space-1))');
   expect(cta.classList).toContain('lg:hidden');

@@ -110,7 +110,7 @@ export const OrderDetail = (props: {
         <Text>{t("common.price")}</Text>
         <Text.formatted
           intensity={98}
-          suffix={<Text intensity={54}>USDC</Text>}
+          suffix={<Text intensity={54}>USDL</Text>}
         >
           {price}
         </Text.formatted>
@@ -119,7 +119,7 @@ export const OrderDetail = (props: {
         <Text>{t("common.notional")}</Text>
         <Text.formatted
           intensity={98}
-          suffix={<Text intensity={54}>USDC</Text>}
+          suffix={<Text intensity={54}>USDL</Text>}
         >
           {total}
         </Text.formatted>

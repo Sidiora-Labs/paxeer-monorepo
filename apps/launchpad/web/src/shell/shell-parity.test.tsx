@@ -144,7 +144,7 @@ describe('navigation rail', () => {
     ).toEqual(['Home', 'Explore', 'Leaderboard', 'Live']);
     expect(
       Array.from(secondary.querySelectorAll('a')).map((link) => link.getAttribute('aria-label'))
-    ).toEqual(['Bounties', 'Holder rewards', 'Terminal']);
+    ).toEqual(['Bounties', 'Holder rewards', 'Agents', 'Terminal']);
     expect(classes(secondary)).toContain('mt-4');
     expect(container.querySelector('nav[aria-label="Primary"]')!.outerHTML).not.toMatch(NO_STROKES);
   });

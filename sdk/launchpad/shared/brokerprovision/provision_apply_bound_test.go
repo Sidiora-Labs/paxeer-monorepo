@@ -195,7 +195,9 @@ func assertBoundRequests(t *testing.T, requests []context.Context, caller contex
 
 func createBoundStream(t *testing.T, ctx context.Context, js jetstream.JetStream, stream Stream) {
 	t.Helper()
-	if _, err := js.CreateStream(ctx, stream.BrokerConfig()); err != nil {
+	if _, err := brokerFixtureRequest(ctx, func(request context.Context) (jetstream.Stream, error) {
+		return js.CreateStream(request, stream.BrokerConfig())
+	}); err != nil {
 		t.Fatal(err)
 	}
 	for {

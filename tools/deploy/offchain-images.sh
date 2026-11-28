@@ -74,8 +74,8 @@ if [ -f "$root/deploy/launchpad/Dockerfile.web" ] && [ -f "$lp_vars" ]; then
 	web_args=$args web_missing=("${missing[@]}") web_spaced=("${spaced[@]}")
 fi
 rows+=("launchpad-web|.|deploy/launchpad/Dockerfile.web||${web_args# }|1")
-# perps backend: one image per SERVICE, named as services/platform/perps-data/deploy/services.json names them
-for pair in perps-data-indexer:perps-indexer perps-gateway:perps-gateway perps-explorer:perps-explorer perps-portal:perps-portal; do
+# perps backend: registry indexer, gateway, explorer, portal and quoter have one image per SERVICE; replay has no row
+for pair in perps-data-indexer:perps-indexer perps-gateway:perps-gateway perps-explorer:perps-explorer perps-portal:perps-portal perps-quoter:perps-quoter; do
 	rows+=("${pair%%:*}|.|services/platform/perps-data/deploy/Dockerfile|runtime|SERVICE=${pair#*:} $px_args|1")
 done
 rows+=("perps-data-nats|.|services/platform/perps-data/deploy/nats/Dockerfile|||1")
@@ -89,6 +89,7 @@ perps_may_be_empty() {
 	PAXEER_RPC_URL | PAXEER_RPC_URLS) ;;           # packages/paxeer-backend/src/core/rpc.ts
 	PAXSCAN_API_URL | PAXSCAN_WS_URL) ;;           # packages/paxeer-backend/src/core/paxscan/config.ts
 	DIRECT_PRICE_FEED_ORIGINS) ;;                  # packages/paxeer-backend/src/core/feeds.ts
+	DISABLE_REALTIME_FOR_RENDER) ;;                # empty keeps live streams enabled
 	*_PRECOMPILE) ;;                               # packages/paxeer-backend/src/core/network/precompiles.ts
 	RELEASE | SENTRY_DSN | SENTRY_ENV) ;;          # optional client release and error reporting
 	RELEASE_SPOT_OPEN) ;;                          # packages/paxeer-backend/src/core/nav.ts

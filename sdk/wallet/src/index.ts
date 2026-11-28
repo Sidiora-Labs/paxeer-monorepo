@@ -41,6 +41,9 @@ export * from './provider.js';
 export * from './eip6963.js';
 export * from './wallet.js';
 export * from './agent.js';
+export * from './owner.js';
+export * from './agent-client.js';
+export { GatewayClientError, type GatewayClientOptions } from './gateway-client.js';
 
 export interface EvmTransactionReview {
   readonly id: string;

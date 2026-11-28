@@ -197,7 +197,7 @@ export const affiliate = {
     "Give your sub-affiliates the power to customize their earnings, while you unlock an endless stream of passive income from every trader in your growing network.",
   "affiliate.newReferralProgram.tradeUnlock": "Trade to unlock",
   "affiliate.newReferralProgram.tradeUnlock.description":
-    "Trade {{volume}} USDC volume to unlock the ability to invite friends and earn commissions.",
+    "Trade {{volume}} USDL volume to unlock the ability to invite friends and earn commissions.",
   "affiliate.newReferralProgram.wereYouReferred":
     "Were you referred by someone?",
   "affiliate.newReferralProgram.referredBy": "You were referred by {{code}}.",

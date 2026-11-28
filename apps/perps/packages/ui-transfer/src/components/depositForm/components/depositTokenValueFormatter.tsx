@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { CaretDownIcon, Flex, Text, TokenIcon, Tips } from "@paxeer-network/ui";
@@ -17,7 +18,7 @@ export const DepositTokenValueFormatter: FC<
       <Text size="2xs" weight="semibold" intensity={36}>
         {t("transfer.depositCap.tooltip")}
         <Text as="span" size="2xs" weight="semibold" intensity={80}>
-          {value}.
+          {tokenDisplayName(value)}.
         </Text>
       </Text>
       <a
@@ -34,9 +35,9 @@ export const DepositTokenValueFormatter: FC<
   return (
     <Flex direction="column" itemAlign="end" gapY={1}>
       <Flex gapX={1} itemAlign="center">
-        <TokenIcon name={value} className="oui-size-[16px]" />
+        <TokenIcon name={tokenDisplayName(value)} className="oui-size-[16px]" />
         <Text weight="semibold" intensity={54}>
-          {value}
+          {tokenDisplayName(value)}
         </Text>
         <CaretDownIcon
           size={12}

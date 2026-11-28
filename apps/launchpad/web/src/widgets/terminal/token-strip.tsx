@@ -1,6 +1,6 @@
 'use client';
 import { displayCoinText } from '@/utils/coin-text';
-import { surfaceSpacing } from '@/app/presentation-tokens';
+import { surfaceSpacing, launchpadGeometry } from '@/app/presentation-tokens';
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { V2ContractTypes } from '@kindle/sdk';
@@ -18,7 +18,7 @@ import { useWatchlist } from '@/hooks/ui/use-watchlist';
 import { priceNumber } from '@/page-modules/token/market-presentation';
 import { safeSocialUrl } from '@/widgets/trading/token-description';
 import { stageFor } from '@/widgets/explore/use-explore-rows';
-import { formatPrice, formatTokenAmount, formatUsdl } from '@/utils/format';
+import { formatPrice, formatTokenAmount, formatCompactUsd } from '@/utils/format';
 import { useTerminalLive } from './live-context';
 import { terminalOpenPanelEvent, terminalResetColumnsEvent } from './status-bar/model';
 
@@ -41,13 +41,11 @@ export interface StripStatInput {
 
 /** Maps the served pool reads onto the six strip tiles; anything the backend does not serve stays null with the reason. */
 export function tokenStripStats({ stats, token, livePrice }: StripStatInput): StripStat[] {
-  // PoolStats.spotPriceWad (exact, 1e18-scaled) is the last known price until the live feed quotes; null means no trade yet.
-  const spot = stats ? statsSpotPrice(stats).value : null;
-  const spotPrice = spot !== null && Number(spot) > 0 ? spot : null;
-  const price = livePrice !== null && Number.isFinite(livePrice) ? formatPrice(livePrice) : spotPrice !== null ? formatSpotPrice(spotPrice) : null;
-  const priceReason = livePrice !== null ? null : spotPrice !== null ? 'Last known price, live updates are catching up' : 'No price yet. A price shows up after the first trade.';
+  const spot = statsSpotPrice(stats);
+  const price = spot.value !== null ? formatSpotPrice(spot.value) : livePrice !== null && Number.isFinite(livePrice) ? formatPrice(livePrice) : null;
+  const priceReason = price !== null ? null : 'No price yet. A price shows up after the first trade.';
 
-  const liquidity = stats ? formatUsdl(stats.realUsdlBalanceRaw, { compact: true, unit: false }) : null;
+  const liquidity = stats ? formatCompactUsd(stats.realUsdlBalanceRaw, { raw: true, compact: true }) : null;
   const liquidityReason = stats ? null : 'Liquidity is not available for this coin yet';
 
   let supply: string | null = null;
@@ -63,7 +61,7 @@ export function tokenStripStats({ stats, token, livePrice }: StripStatInput): St
   return [
     { key: 'ath', label: 'All time high', value: null, reason: 'All-time high is not available yet' },
     { key: 'price', label: 'Price', value: price, reason: priceReason },
-    { key: 'liquidity', label: 'Liquidity', value: liquidity, unit: 'USDL', reason: liquidityReason },
+    { key: 'liquidity', label: 'Liquidity', value: liquidity, reason: liquidityReason },
     { key: 'supply', label: 'Supply', value: supply, reason: supplyReason },
     { key: 'fees', label: 'Total fees paid', value: null, reason: 'Total fees paid is not available yet' },
     { key: 'curve', label: 'Bonding curve', value: null, reason: 'Bonding curve progress is not available yet' },
@@ -159,7 +157,7 @@ export default function TerminalTokenStrip({ poolAddress }: { poolAddress: strin
   return (
     <header aria-label={`${symbol} summary`} className="flex min-h-13 shrink-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-none bg-surface-1 px-3 py-1">
       <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5">
-        <Avatar src={image.data?.images?.logo ?? null} name={symbol} size="lg" shape="square" decorative className="size-11" badge={stage ? <StageBadge stage={stage} size={14} surface={1} /> : undefined} />
+        <Avatar src={image.data?.images?.logo ?? null} name={symbol} size="lg" shape="square" decorative className="size-11" badge={stage ? <StageBadge stage={stage} size={launchpadGeometry.smallBadge} surface={1} /> : undefined} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <h2 title={symbol} className="min-w-0 truncate text-sm font-semibold text-text">{symbol}</h2>

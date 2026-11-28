@@ -576,21 +576,7 @@ func runConfigured(parent context.Context, cfg config.Config, logger *slog.Logge
 			app.loop(ctx, 250*time.Millisecond, "inventory baseline ahead", app.baselineAhead.Drain)
 		}()
 	}
-	if app.accounting != nil {
-		go func() {
-			release, e := app.tracker.Acquire()
-			if e != nil {
-				return
-			}
-			defer release()
-			if e := accountingRuntimeError(ctx, runInventoryAgain(ctx, logger, app.runAccounting, waitInventoryRun, time.Now)); e != nil {
-				runtimeErr <- e
-				logger.Error("inventory consumer failed", slog.Any("err", e))
-				app.tracker.BeginDrain()
-				cancel()
-			}
-		}()
-	} else {
+	if !app.startAccountingJobs(ctx, runtimeErr, cancel, inventory.NewInventoryCatchUp(app.accounting)) {
 		app.startBackgroundJobs(ctx)
 	}
 

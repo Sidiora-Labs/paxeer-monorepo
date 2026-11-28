@@ -64,6 +64,7 @@ fn finding_031_deployed_https_and_isolated_loopback_transport() {
     }
     config.chainflow.base_url = "https://feed.example".to_owned();
     assert_eq!(config.validate(), Ok(()));
+    assert!(peer.state.lock().unwrap().evm_observation_reads.is_empty());
 }
 
 #[test]

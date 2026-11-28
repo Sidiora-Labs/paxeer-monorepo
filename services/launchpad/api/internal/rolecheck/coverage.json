@@ -1,6 +1,12 @@
 {
   "sources": [
     {
+      "file": "services/launchpad/discovery/errors.go"
+    },
+    {
+      "file": "services/launchpad/notifications/errors.go"
+    },
+    {
       "file": "sdk/launchpad/shared/accounting/sourcebootstrap/sourcebootstrap.go",
       "functions": []
     },

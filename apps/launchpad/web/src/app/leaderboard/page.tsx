@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import LeaderboardModule from '@/page-modules/leaderboard';
 
-export const metadata: Metadata = { title: 'Leaderboard', description: 'See the traders and squads leading Sidiora.' };
+export const metadata: Metadata = { title: 'Leaderboard', description: 'See the traders leading Sidiora.' };
 
 export default async function LeaderboardPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const search = await searchParams;

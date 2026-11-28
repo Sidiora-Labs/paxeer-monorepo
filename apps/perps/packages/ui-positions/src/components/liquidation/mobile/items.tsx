@@ -15,7 +15,7 @@ export const Price: FC<API.LiquidationPositionByPerp> = (props) => {
           {t("common.price")}
         </Text>
         <Text size="2xs" intensity={20}>
-          (USDC)
+          (USDL)
         </Text>
       </Flex>
       {/* <Text.numeral size="2xs" intensity={80} dp={quote_dp} padding={false}>

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import React, { ReactElement, useMemo } from "react";
 import {
   ItemIndicator,
@@ -33,7 +34,7 @@ export const TokenSelect: React.FC<TokenSelectProps> = (props) => {
     return tokens.map((token) => {
       return {
         ...token,
-        label: token.name,
+        label: tokenDisplayName(token.name),
         value: token.name,
       };
     });
@@ -55,7 +56,7 @@ export const TokenSelect: React.FC<TokenSelectProps> = (props) => {
           size={iconSize}
         />
         <Text weight="semibold" intensity={54}>
-          {value}
+          {tokenDisplayName(value)}
         </Text>
       </Flex>
     );

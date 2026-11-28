@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { useMemo } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { MarginMode } from "@paxeer-network/types";
@@ -84,7 +85,7 @@ export const Available = (props: AvailableProps) => {
           />
         )}
         <Text.numeral
-          unit={quote}
+          unit={tokenDisplayName(quote)}
           size={"2xs"}
           className={"oui-available-value oui-text-base-contrast-80"}
           unitClassName={"oui-ms-1 oui-text-base-contrast-54"}

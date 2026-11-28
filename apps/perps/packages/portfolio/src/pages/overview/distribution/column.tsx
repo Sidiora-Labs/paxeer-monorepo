@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { useMemo } from "react";
 import { useTranslation, i18n } from "@paxeer-network/i18n";
 import { API } from "@paxeer-network/types";
@@ -17,7 +18,7 @@ export const useColumns = () => {
           return (
             <Flex gapX={2}>
               <TokenIcon name={value} size="xs" />
-              <span>{value}</span>
+              <span>{tokenDisplayName(value)}</span>
             </Flex>
           );
         },

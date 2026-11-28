@@ -2,6 +2,7 @@ import orderTokenAbi from './orderTokenAbi.json';
 import contractABI from "./proxyLedgerAbi.json";
 import omnichainLedgerV1ABI from "./OmnichainLedgerV1ABI.json";
 import { ENVType } from "../useGetEnv";
+import { rewardsLedgerEndpoint } from "../claimedTarget";
 
 export const paxeerNetworkSepolia = "0x1cB262C876AE47A75Ec354D89766593839681C29";
 export const arbitrumSepolia = "0x13b2d9219e4afb48c085e60a9cfacbc193a61f43";
@@ -27,10 +28,7 @@ interface ContractDataInterface {
 }
 
 export function getPaxeerNetworkChainRPC(env: ENVType) {
-    if (env === ENVType.prod) {
-        return "https://rpc.paxeer-network.network";
-    }
-    return "https://testnet-rpc.paxeer-network.org";
+    return rewardsLedgerEndpoint(env);
 }
 
 export const getContractByEnv = (env: ENVType): ContractDataInterface => {

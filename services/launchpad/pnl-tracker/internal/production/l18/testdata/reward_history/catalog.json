@@ -69,7 +69,8 @@
     "60008": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a",
     "150010": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7",
     "60009": "86d442245dffb03eb894d1a4d287080b358a5840922283d624d6ec79748941fc",
-    "150011": "ad6a590075e84a8203ad9b84d00af2b34bb52cbeaa2adb35e0a668de576fbdef"
+    "150011": "ad6a590075e84a8203ad9b84d00af2b34bb52cbeaa2adb35e0a668de576fbdef",
+    "150012": "05c491239700343c8d1537a4c8bed633b95b583ec9ea4fea7bd3b8da4f12d8c9"
   },
   "sources": {
     "sdk/launchpad/shared/db/production/migrations.go": "d69a30214587c761bdc7bdf91c47319a5b136373ba30932e984ea26a0c979786",
@@ -150,7 +151,8 @@
     "migrations/60008.sql": "748aca11643a588404f9de18c36a9e79343d629644ec73b1a4721bf194ec1b9a",
     "migrations/150010.sql": "cac54aa58f12b7b560f8ae90298b959dee5d825144c27888fce9ca9d34d851f7",
     "migrations/60009.sql": "86d442245dffb03eb894d1a4d287080b358a5840922283d624d6ec79748941fc",
-    "migrations/150011.sql": "ad6a590075e84a8203ad9b84d00af2b34bb52cbeaa2adb35e0a668de576fbdef"
+    "migrations/150011.sql": "ad6a590075e84a8203ad9b84d00af2b34bb52cbeaa2adb35e0a668de576fbdef",
+    "migrations/150012.sql": "05c491239700343c8d1537a4c8bed633b95b583ec9ea4fea7bd3b8da4f12d8c9"
   },
   "objects": {
     "api_stream.append_candle": {

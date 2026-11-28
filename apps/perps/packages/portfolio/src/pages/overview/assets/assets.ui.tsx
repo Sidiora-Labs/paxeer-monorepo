@@ -59,7 +59,7 @@ export const AssetsUI: React.FC<
           <Either value={props.canTrade!} left={<NoValue />}>
             <Text.numeral
               visible={props.visible}
-              unit="USDC"
+              unit="USDL"
               // @ts-ignore
               style={{ "--oui-gradient-angle": "45deg" }}
               unitClassName="oui-text-base oui-text-base-contrast-80 oui-h-9 oui-ms-1"
@@ -95,7 +95,7 @@ const NoValue: FC = () => {
       <Text.gradient color="brand" weight="bold">
         --
       </Text.gradient>
-      <Text>USDC</Text>
+      <Text>USDL</Text>
     </Flex>
   );
 };

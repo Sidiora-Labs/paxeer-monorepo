@@ -83,7 +83,7 @@ export const TPSLSimpleDialogUI: React.FC<Props> = (props) => {
           {sl_pnl ? (
             <Text.numeral
               suffix={
-                <Text className="oui-ms-1 oui-text-base-contrast-36">USDC</Text>
+                <Text className="oui-ms-1 oui-text-base-contrast-36">USDL</Text>
               }
               coloring
               visible={true}
@@ -93,7 +93,7 @@ export const TPSLSimpleDialogUI: React.FC<Props> = (props) => {
               {Number(sl_pnl)}
             </Text.numeral>
           ) : (
-            <Text size="2xs">-- USDC</Text>
+            <Text size="2xs">-- USDL</Text>
           )}
         </Flex>
       );
@@ -103,7 +103,7 @@ export const TPSLSimpleDialogUI: React.FC<Props> = (props) => {
         <Text size="2xs">{t("tpsl.totalEstTpPnl")}</Text>
         <Text.numeral
           suffix={
-            <Text className="oui-text-base-contrast-36 oui-ms-1">USDC</Text>
+            <Text className="oui-text-base-contrast-36 oui-ms-1">USDL</Text>
           }
           rule="price"
           coloring
@@ -142,7 +142,7 @@ export const TPSLSimpleDialogUI: React.FC<Props> = (props) => {
             className="oui-text-base-contrast"
             suffix={
               <Text className="oui-ms-1 oui-text-xs oui-text-base-contrast-36">
-                USDC
+                USDL
               </Text>
             }
             rule="price"

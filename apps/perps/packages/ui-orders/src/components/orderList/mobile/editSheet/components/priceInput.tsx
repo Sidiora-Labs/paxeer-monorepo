@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { memo, useState } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { cn, Input, inputFormatter, Text } from "@paxeer-network/ui";
@@ -26,7 +27,7 @@ export const PriceInput = memo((props: PriceInputProps) => {
       }
       suffix={
         <Text intensity={54} className="oui-px-3">
-          {quote}
+          {tokenDisplayName(quote)}
         </Text>
       }
       color={error ? "danger" : undefined}

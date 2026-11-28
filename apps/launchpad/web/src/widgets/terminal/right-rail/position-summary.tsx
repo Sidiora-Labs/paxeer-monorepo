@@ -5,7 +5,7 @@ import { isSignedOutError, type Loadable } from '@/core/market/unsupported';
 import { openAuthModal } from '@/shell/auth-modal-store';
 import { useAccountSession } from '@/widgets/profile/use-account-session';
 import { portfolioIssue, positionValueRaw, usePortfolio, usePositionPages, type PortfolioPosition, type PortfolioRead } from '@/widgets/profile/portfolio-transport';
-import { formatUsdl } from '@/utils/format';
+import { formatCompactUsd } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { userFacingMessage } from '@/core/user-facing-error';
 
@@ -73,7 +73,7 @@ function Tile({ label, value, tone, note, partial }: { label: string; value: Rea
 const toneOf = (raw: bigint | null): 'up' | 'down' | undefined => (raw === null || raw === 0n ? undefined : raw > 0n ? 'up' : 'down');
 
 function Tiles({ figures, loading }: { figures: PositionFigures; loading: boolean }) {
-  const show = (item: SummaryFigure, signed = false) => (loading && item.raw === null ? '...' : item.raw === null ? '-' : formatUsdl(item.raw, { compact: true, unit: false, signed }));
+  const show = (item: SummaryFigure, signed = false) => (loading && item.raw === null ? '...' : item.raw === null ? '-' : formatCompactUsd(item.raw, { raw: true, compact: true, signed }));
   return (
     <dl className="grid grid-cols-4 gap-1">
       <Tile label="Value" value={show(figures.value)} note={figures.value.note} partial={figures.value.partial} />

@@ -1,11 +1,11 @@
 export const transfer = {
   "transfer.reverseConvert.available":
-    "You have <0>{{amount}}</0> USDC available.",
+    "You have <0>{{amount}}</0> USDL available.",
   "transfer.reverseConvert.action": "Convert to USDG",
   "transfer.reverseConvert.estimate":
     "Estimated amount. Final received amount depends on execution.",
   "transfer.reverseConvert.unavailable":
-    "USDC to USDG conversion is unavailable on this network or token data is not ready.",
+    "USDL to USDG conversion is unavailable on this network or token data is not ready.",
 
   "transfer.network": "Network",
   "transfer.lowestFee": "lowest fee",
@@ -70,7 +70,7 @@ export const transfer = {
   "transfer.withdraw.crossChain.warning":
     "Withdrawals that require cross-chain rebalancing can't be cancelled or followed up with more withdrawals until they've been processed.",
   "transfer.withdraw.crossChain.vaultWarning":
-    "Withdrawal exceeds the balance of the {{networkName}} vault ( {{chainVaultBalance}} USDC ). Cross-chain rebalancing fee will be charged for withdrawal to {{networkName}}.",
+    "Withdrawal exceeds the balance of the {{networkName}} vault ( {{chainVaultBalance}} USDL ). Cross-chain rebalancing fee will be charged for withdrawal to {{networkName}}.",
 
   "transfer.withdraw.vaultWarning":
     "The balance of {{tokenName}} on the {{chainName}} is {{balance}}, which is insufficient to meet your withdrawal request. Please try again later or switch to another chain for withdrawal.",
@@ -93,7 +93,7 @@ export const transfer = {
     "Please enter an Account ID instead of a wallet address.",
   "transfer.withdraw.accountId.invalid": "No account found",
   "transfer.withdraw.available.tooltip":
-    "Available to withdraw equals your free collateral. If you have unsettled PnL, please settle first in the withdraw modal to increase available amount. Current maximum withdrawal per request is {{amount}} USDC. To withdraw more, please submit multiple requests.",
+    "Available to withdraw equals your free collateral. If you have unsettled PnL, please settle first in the withdraw modal to increase available amount. Current maximum withdrawal per request is {{amount}} USDL. To withdraw more, please submit multiple requests.",
   "transfer.withdraw.accountIdOrAddress.placeholder": "Account ID or address",
   "transfer.withdraw.accountIdOrAddress.hint":
     "Enter an account ID or address to find the account",
@@ -209,20 +209,20 @@ export const transfer = {
   "transfer.depositCap": "Deposit cap",
   "transfer.depositCap.tooltip": "Max deposit amount for ",
   "transfer.deposit.convertRate": "Convert rate",
-  "transfer.convert.convertAssets": "Convert assets to USDC",
+  "transfer.convert.convertAssets": "Convert assets to USDL",
   "transfer.deposit.collateralContribution": "Collateral contribution",
   "transfer.withdraw.InsufficientVaultBalance": "Insufficient vault balance",
 
   "transfer.LTV": "LTV",
-  "transfer.LTV.description": `LTV (Loan-to-Value) is the ratio between your negative USDC and the current value of your collateral. If your LTV exceeds {{threshold}}, your collateral will be automatically converted to USDC.`,
-  "transfer.LTV.tooltip": `If your LTV exceeds {{threshold}}% or your USDC balance plus Unsettled PnL falls below {{usdcThreshold}}, your collateral will be automatically converted with a haircut. To avoid this, you can manually convert assets to USDC.`,
+  "transfer.LTV.description": `LTV (Loan-to-Value) is the ratio between your negative USDL and the current value of your collateral. If your LTV exceeds {{threshold}}, your collateral will be automatically converted to USDL.`,
+  "transfer.LTV.tooltip": `If your LTV exceeds {{threshold}}% or your USDL balance plus Unsettled PnL falls below {{usdcThreshold}}, your collateral will be automatically converted with a haircut. To avoid this, you can manually convert assets to USDL.`,
   "transfer.LTV.currentLTV": "Current LTV",
   "transfer.LTV.isolatedModeUsdcOnly":
-    "Isolated margin is denominated in USDC. Eligible collateral assets can back the required USDC balance.",
+    "Isolated margin is denominated in USDL. Eligible collateral assets can back the required USDL balance.",
   "transfer.LTV.availableCrossMarginHint":
-    "Available balance = USDC balance + Unsettled PnL. All collateral assets contribute to your available margin.",
+    "Available balance = USDL balance + Unsettled PnL. All collateral assets contribute to your available margin.",
   "transfer.LTV.isolatedMarginOrderHint":
-    "Isolated margin is denominated in USDC. Eligible collateral assets can back the required USDC balance. A negative USDC balance contributes to LTV and may trigger automatic conversion.",
+    "Isolated margin is denominated in USDL. Eligible collateral assets can back the required USDL balance. A negative USDL balance contributes to LTV and may trigger automatic conversion.",
   "transfer.convert": "Convert",
   // "transfer.convert.note": "Please note that convert fees will be charged.",
   "transfer.deposit.globalMaxQty.error":

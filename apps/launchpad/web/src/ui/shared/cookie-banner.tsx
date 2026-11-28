@@ -106,7 +106,7 @@ export default function CookieBanner() {
       data-placement={phone ? 'above-bottom-nav' : 'viewport-bottom'}
       role="region"
       aria-label="Cookie preferences"
-      className={`fixed left-3 right-3 z-[var(--sl-z-toast)] max-w-[calc(var(--sl-space)*90)] rounded-md sl-floating p-[calc(var(--sl-space-2)-var(--sl-edge-width))] md:right-auto md:p-3 ${phone ? COOKIE_BANNER_PHONE_BOTTOM_CLASS : COOKIE_BANNER_WIDE_BOTTOM_CLASS}`}
+      className={`fixed left-3 right-3 z-[var(--sl-z-toast)] max-w-[calc(var(--sl-space)*90)] rounded-md sl-floating sl-floating-opaque p-[calc(var(--sl-space-2)-var(--sl-edge-width))] md:right-auto md:p-3 ${phone ? COOKIE_BANNER_PHONE_BOTTOM_CLASS : COOKIE_BANNER_WIDE_BOTTOM_CLASS}`}
     >
       <div className="flex min-w-0 flex-col gap-1">
         <p className="whitespace-normal text-xs text-text-muted">

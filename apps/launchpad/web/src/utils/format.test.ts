@@ -260,3 +260,33 @@ describe('rawToDecimalString', () => {
     expect(rawToDecimalString('-1500000', 6)).toBe('-1.5');
   });
 });
+
+function marketValuesKeepTheirDigitsAndQuoteAmountsKeepTheirUnit() {
+  const cases = [
+    ['1234567890', '$1,234.57', '1,234.57 USDL'],
+    ['1000000', '$1.00', '1.00 USDL'],
+    ['0', '$0.00', '0.00 USDL'],
+    ['-2500000', '-$2.50', '-2.50 USDL'],
+    ['4999', '< $0.01', '< 0.01 USDL'],
+    ['-4999', '> -$0.01', '> -0.01 USDL'],
+    ['123456789012345678901234567', '$123,456,789,012,345,678,901.23', '123,456,789,012,345,678,901.23 USDL'],
+  ] as const;
+  for (const [raw, market, amount] of cases) {
+    expect(formatCompactUsd(raw, { raw: true })).toBe(market);
+    expect(formatUsdl(raw)).toBe(amount);
+  }
+  expect(formatCompactUsd('1234567890', { raw: true, compact: true })).toBe('$1.23K');
+  expect(formatCompactUsd('1000000', { raw: true, signed: true })).toBe('+$1.00');
+  expect(formatCompactUsd('1500000000000000000', { raw: true, decimals: 18 })).toBe('$1.50');
+  expect(formatCompactUsd('1234567890', { raw: true, fractionDigits: 6, group: false })).toBe('$1234.567890');
+  expect(formatCompactUsd('1000000', { raw: true, trimFraction: true })).toBe('$1');
+  expect(formatCompactUsd(null, { raw: true })).toBe('—');
+  expect(formatCompactUsd('abc', { raw: true })).toBe('—');
+  expect(formatUsdl('1234567890', { fractionDigits: 6, group: false, trimFraction: true })).toBe('1234.56789 USDL');
+  expect(formatUsdl('1200000000', { fractionDigits: 4, compact: true, compactDigits: 4, trimCompact: false })).toBe('1.2000K USDL');
+  expect(formatUsdl('999999', { fractionDigits: 0, minimumUnit: true })).toBe('< 1 USDL');
+  expect(formatUsdl('1000000', { fractionDigits: 0, minimumUnit: true })).toBe('1 USDL');
+  expect(formatCompactUsd('0.0₄1009', { numeral: true })).toBe('$0.0₄1009');
+}
+
+it(marketValuesKeepTheirDigitsAndQuoteAmountsKeepTheirUnit.name, marketValuesKeepTheirDigitsAndQuoteAmountsKeepTheirUnit);

@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC } from "react";
 import { useTranslation } from "@paxeer-network/i18n";
 import { Box, Divider, Flex, modal, Text } from "@paxeer-network/ui";
@@ -28,7 +29,7 @@ export const SwapFee: FC<SwapFeeProps> = (props) => {
                 >
                   {item.value}
                 </Text>
-                <Text intensity={54}>{item.symbol}</Text>
+                <Text intensity={54}>{tokenDisplayName(item.symbol)}</Text>
               </Flex>
 
               <Box mt={2}>
@@ -62,7 +63,7 @@ export const SwapFee: FC<SwapFeeProps> = (props) => {
           <Text.numeral dp={item.dp} padding={false} rm={Decimal.ROUND_UP}>
             {item.value}
           </Text.numeral>
-          {` ${item.symbol || nativeSymbol}`}
+          {` ${tokenDisplayName(item.symbol || nativeSymbol)}`}
         </Text>
       );
     });

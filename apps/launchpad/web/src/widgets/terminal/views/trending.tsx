@@ -1,12 +1,11 @@
 'use client';
 import { useMemo, type ReactNode } from 'react';
 import { TrendingUp } from 'lucide-react';
-import { Button, EmptyState, ErrorState, UnavailableState } from '@/ui/primitives';
+import { Button, EmptyState, ErrorState, MarketTable, UnavailableState } from '@/ui/primitives';
 import { SourceNotice } from '@/ui/common/source-notice';
 import { ExploreView } from '@/widgets/explore/explore-view';
 import { useExploreRows, type ExploreRow } from '@/widgets/explore/use-explore-rows';
 import { terminalPoolPath } from '../sub-nav';
-import styles from '../surface.module.css';
 import { userFacingMessage } from '@/core/user-facing-error';
 
 /** Explore rows with their links pointed at the terminal coin view instead of the coin page. */
@@ -52,10 +51,10 @@ export default function TerminalTrendingView() {
   }
 
   return (
-    <div className={`${styles.market} flex min-w-0 flex-col gap-2 py-1`}>
+    <MarketTable>
       <SourceNotice label="Coin stats" state={data.stats} />
       <SourceNotice label="Coin details" state={data.metadata} />
       {body}
-    </div>
+    </MarketTable>
   );
 }

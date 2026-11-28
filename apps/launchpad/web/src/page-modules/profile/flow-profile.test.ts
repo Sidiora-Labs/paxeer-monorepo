@@ -449,8 +449,8 @@ function leaderboard_profit_preserves_the_published_sign() {
   const entry = json<import('@/widgets/profile/leaderboard-panel').LeaderboardEntry>('leaderboard');
   expect(entry.metricRaw).toBe('1000000');
   expect(entry.metricSigned).toBe('-1000000');
-  expect(leaderboardValue(entry, 'profit')).toBe('-1.00 USDL');
-  expect(leaderboardValue(entry, 'volume')).toBe('1.00 USDL');
+  expect(leaderboardValue(entry, 'profit')).toBe('-$1.00');
+  expect(leaderboardValue(entry, 'volume')).toBe('$1.00');
 }
 
 test(leaderboard_profit_preserves_the_published_sign, leaderboard_profit_preserves_the_published_sign);

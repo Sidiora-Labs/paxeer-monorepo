@@ -161,7 +161,12 @@ export const useHorizontalMarketsScript = (
 
   type TickerData = Record<
     string,
-    { "24h_close": number; change: number; quote_dp: number }
+    {
+      "24h_close": number;
+      change: number;
+      quote_dp: number;
+      quote_tick: number;
+    }
   >;
   const tickerData = useMemo<TickerData>(() => {
     return sortedMarkets.reduce<TickerData>((acc, item) => {
@@ -169,6 +174,7 @@ export const useHorizontalMarketsScript = (
         "24h_close": item["24h_close"],
         change: item.change,
         quote_dp: item.quote_dp,
+        quote_tick: item.quote_tick,
       };
       return acc;
     }, {} as TickerData);

@@ -3,10 +3,12 @@ import { PRECOMPILE_ADDRESSES, SCHEDULER_ABI, STREAMS_ABI } from '../precompiles
 import { publicClient } from '../chainReads.js';
 import { agentWalletUserId, findWalletByUserId } from '../db/wallets.js';
 import { env } from '../env.js';
+import { LAUNCHPAD_BUY_ABI, LAUNCHPAD_BUY_SELECTOR, decodeLaunchpadBuy } from './launchpad.js';
 import {
   countAgentSignaturesLastMinute,
   reserveBudget as reserveAgentBudget,
   sumAgentDailyValue,
+  type PendingAgentSignature,
   type AgentPolicyRow,
   type AgentPolicyRuleRow,
   type AgentPrincipalRow
@@ -15,6 +17,8 @@ import {
 export const ERC20_APPROVE_SELECTOR = '0x095ea7b3';
 export const ERC20_TRANSFER_SELECTOR = '0xa9059cbb';
 export const ERC20_TRANSFER_FROM_SELECTOR = '0x23b872dd';
+export const PERPS_DEPOSIT_SELECTOR = '0x47e7ef24';
+export const PERPS_ADDRESS = '0x0000000000000000000000000000000000001015';
 
 export function decodeAddressArg(data: string, argIndex: number): string | null {
   const start = 2 + 8 + 64 * argIndex;
@@ -108,6 +112,8 @@ export type AgentDenyCode =
   | 'TOKEN_DENYLISTED'
   | 'ADDRESS_DENYLISTED'
   | 'CONTRACT_NOT_ALLOWLISTED'
+  | 'SELECTOR_NOT_ALLOWLISTED'
+  | 'SPENDER_NOT_ALLOWLISTED'
   | 'WITHDRAWAL_NOT_ALLOWLISTED'
   | 'COUNTERPARTY_UNDECODED'
   | 'NATIVE_TRANSFER_BLOCKED'
@@ -173,6 +179,8 @@ interface RuleIndex {
   denyTokens: Set<string>;
   denyAddresses: Set<string>;
   allowContracts: Set<string>;
+  allowSelectors: Set<string>;
+  allowSpenders: Set<string>;
   allowTokenCaps: Map<string, bigint | null>; // token -> per-tx cap (null = uncapped)
   hasAllowContracts: boolean;
   withdrawalAllowlist: Set<string>;
@@ -185,6 +193,8 @@ function indexRules(rules: AgentPolicyRuleRow[]): RuleIndex {
     denyTokens: new Set(),
     denyAddresses: new Set(),
     allowContracts: new Set(),
+    allowSelectors: new Set(),
+    allowSpenders: new Set(),
     allowTokenCaps: new Map(),
     hasAllowContracts: false,
     withdrawalAllowlist: new Set()
@@ -200,6 +210,10 @@ function indexRules(rules: AgentPolicyRuleRow[]): RuleIndex {
       if (r.subject === 'contract') {
         idx.allowContracts.add(v);
         idx.hasAllowContracts = true;
+      } else if (r.subject === 'selector') {
+        idx.allowSelectors.add(v);
+      } else if (r.subject === 'address') {
+        idx.allowSpenders.add(v);
       } else if (r.subject === 'token') {
         idx.allowTokenCaps.set(v, r.max_value_wei);
       } else if (r.subject === 'withdrawal') {
@@ -234,6 +248,7 @@ export interface EvaluateAgentInput {
   rules: AgentPolicyRuleRow[];
   intent: AgentTxIntent;
   reserveBudget?: typeof reserveAgentBudget;
+  pendingSignature?: PendingAgentSignature;
 }
 
 /**
@@ -295,7 +310,11 @@ async function evaluateAgentIntent(
     }
     if (value > 0n) {
       const windowStart = dailyWindowStartIso(eff.dailyResetUtcHour);
-      const dailySpent = await sumAgentDailyValue(principal.did, windowStart);
+      const dailySpent = await sumAgentDailyValue(
+        principal.did,
+        windowStart,
+        input.pendingSignature
+      );
       if (dailySpent + value > eff.maxDailyValueWei) {
         return deny('DAILY_VALUE_CAP', 'daily value cap exceeded by this deployment', {
           used: dailySpent.toString(),
@@ -304,7 +323,7 @@ async function evaluateAgentIntent(
         });
       }
     }
-    const limited = await rateLimited(principal.did, eff.rateLimitPerMin);
+    const limited = await rateLimited(principal.did, eff.rateLimitPerMin, input.pendingSignature);
     if (limited) return limited;
     return { allow: true, reservedBudgetId: null, reservedValueWei: value };
   }
@@ -373,15 +392,22 @@ async function evaluateAgentIntent(
     }
   }
 
+  if (to === PERPS_ADDRESS && selector === PERPS_DEPOSIT_SELECTOR) {
+    tokenContract = decodeAddressArg(data, 0);
+    tokenAmount = decodeUintArg(data, 1);
+    tokenRecipient = null;
+    isApprove = false;
+    if (data.length !== 138 || tokenContract === null || tokenAmount === null)
+      return deny('INVALID_TX_SHAPE', 'perps deposit must encode a token and amount');
+  }
+
   if (
     movementOnly &&
     mover?.known &&
     (mover.counterparty === null ||
-      ![
-        ERC20_APPROVE_SELECTOR,
-        ERC20_TRANSFER_SELECTOR,
-        ERC20_TRANSFER_FROM_SELECTOR
-      ].includes(selector!))
+      ![ERC20_APPROVE_SELECTOR, ERC20_TRANSFER_SELECTOR, ERC20_TRANSFER_FROM_SELECTOR].includes(
+        selector!
+      ))
   ) {
     return deny('COUNTERPARTY_UNDECODED', 'scheduled movement has no decodable counterparty');
   }
@@ -407,11 +433,36 @@ async function evaluateAgentIntent(
     });
   }
 
+  // 6. Native transfer switch — a bare PAX transfer is a withdrawal vector.
+  if (value > 0n && isEmptyData && !eff.allowNativeTransfer) {
+    return deny('NATIVE_TRANSFER_BLOCKED', 'native PAX transfers are disabled for this agent');
+  }
+
   // 4. Allowlist — in trade_only, when explicit allow-contract rules exist, the
   //    target MUST be allowlisted. `full` mode skips the allowlist requirement.
   if (eff.mode === 'trade_only' && idx.hasAllowContracts && !idx.allowContracts.has(to)) {
     return deny('CONTRACT_NOT_ALLOWLISTED', 'target contract is not on the trade allowlist', {
       contract: to
+    });
+  }
+
+  if (
+    eff.mode === 'trade_only' &&
+    selector &&
+    idx.allowSelectors.size > 0 &&
+    !idx.allowSelectors.has(selector)
+  ) {
+    return deny('SELECTOR_NOT_ALLOWLISTED', 'method selector is not on the trade allowlist', {
+      selector
+    });
+  }
+  if (
+    isApprove &&
+    idx.allowSpenders.size > 0 &&
+    (!tokenRecipient || !idx.allowSpenders.has(tokenRecipient))
+  ) {
+    return deny('SPENDER_NOT_ALLOWLISTED', 'spender is not on the approval allowlist', {
+      spender: tokenRecipient
     });
   }
 
@@ -431,7 +482,9 @@ async function evaluateAgentIntent(
     const recipientNeedingAllow: string | null =
       value > 0n && isEmptyData
         ? to // bare native transfer → funds go to `to`
-        : (tokenRecipient ?? null); // token recipient / spender / operator
+        : isApprove && idx.allowSpenders.size > 0
+          ? null
+          : (tokenRecipient ?? null); // token recipient / spender / operator
     if (recipientNeedingAllow && !idx.withdrawalAllowlist.has(recipientNeedingAllow)) {
       return deny(
         'WITHDRAWAL_NOT_ALLOWLISTED',
@@ -441,9 +494,19 @@ async function evaluateAgentIntent(
     }
   }
 
-  // 6. Native transfer switch — a bare PAX transfer is a withdrawal vector.
-  if (value > 0n && isEmptyData && !eff.allowNativeTransfer) {
-    return deny('NATIVE_TRANSFER_BLOCKED', 'native PAX transfers are disabled for this agent');
+  if (selector === LAUNCHPAD_BUY_SELECTOR && idx.allowTokenCaps.size > 0) {
+    try {
+      const buy = decodeLaunchpadBuy(data as Hex);
+      const quoteToken = await publicClient().readContract({
+        address: to as Hex,
+        abi: LAUNCHPAD_BUY_ABI,
+        functionName: 'usdlAddress'
+      });
+      tokenContract = quoteToken.toLowerCase();
+      tokenAmount = buy.amount;
+    } catch {
+      return deny('INVALID_TX_SHAPE', 'launchpad buy operands or quote token could not be read');
+    }
   }
 
   // 7. Approve cap.
@@ -487,7 +550,7 @@ async function evaluateAgentIntent(
   if (movementOnly) return { allow: true, reservedBudgetId: null, reservedValueWei: 0n };
 
   // 9. Rate limit, before any budget reservation.
-  const limited = await rateLimited(principal.did, eff.rateLimitPerMin);
+  const limited = await rateLimited(principal.did, eff.rateLimitPerMin, input.pendingSignature);
   if (limited) return limited;
 
   // 10. Native value caps. Budgets are the escape hatch ABOVE the normal caps.
@@ -495,7 +558,7 @@ async function evaluateAgentIntent(
   if (value > 0n) {
     const withinPerTx = value <= eff.maxTxValueWei;
     const windowStart = dailyWindowStartIso(eff.dailyResetUtcHour);
-    const dailySpent = await sumAgentDailyValue(principal.did, windowStart);
+    const dailySpent = await sumAgentDailyValue(principal.did, windowStart, input.pendingSignature);
     const withinDaily = dailySpent + value <= eff.maxDailyValueWei;
 
     if (!withinPerTx || !withinDaily) {
@@ -509,14 +572,10 @@ async function evaluateAgentIntent(
       });
       if (!reservedBudgetId) {
         if (!withinPerTx) {
-          return deny(
-            'TX_VALUE_CAP',
-            'tx value exceeds the per-tx cap and no budget covers it',
-            {
-              value: value.toString(),
-              cap: eff.maxTxValueWei.toString()
-            }
-          );
+          return deny('TX_VALUE_CAP', 'tx value exceeds the per-tx cap and no budget covers it', {
+            value: value.toString(),
+            cap: eff.maxTxValueWei.toString()
+          });
         }
         return deny('DAILY_VALUE_CAP', 'daily value cap exceeded and no budget covers it', {
           used: dailySpent.toString(),
@@ -535,9 +594,13 @@ async function evaluateAgentIntent(
  * budget. Fails open on a transient DB error (the value caps are the hard
  * guard). Returns null when within the limit.
  */
-async function rateLimited(did: string, perMin: number): Promise<AgentDecision | null> {
+async function rateLimited(
+  did: string,
+  perMin: number,
+  pending?: PendingAgentSignature
+): Promise<AgentDecision | null> {
   try {
-    const recent = await countAgentSignaturesLastMinute(did);
+    const recent = await countAgentSignaturesLastMinute(did, pending);
     if (recent >= perMin) {
       return deny('RATE_LIMIT', `more than ${perMin} signing requests in 60s`);
     }
@@ -581,8 +644,7 @@ async function decodePrecompilePolicy(
   try {
     if (to === PRECOMPILE_ADDRESSES.scheduler) {
       const call = decodeFunctionData({ abi: SCHEDULER_ABI, data });
-      if (encodeFunctionData({ abi: SCHEDULER_ABI, ...call }).toLowerCase() !== data)
-        return null;
+      if (encodeFunctionData({ abi: SCHEDULER_ABI, ...call }).toLowerCase() !== data) return null;
       if (call.functionName === 'schedule') {
         const [target, callData] = call.args;
         clean.tokenRecipient = target.toLowerCase();

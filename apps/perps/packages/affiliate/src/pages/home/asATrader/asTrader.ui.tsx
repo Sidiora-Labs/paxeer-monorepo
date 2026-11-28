@@ -118,7 +118,7 @@ const Bottom: FC<AsTraderReturns> = (props) => {
         <>
           <Flex direction={"column"} itemAlign={"start"} gap={2}>
             <Text className="oui-text-2xs md:oui-text-xs xl:oui-text-sm">
-              {t("affiliate.commission")} {<Text intensity={36}>(USDC)</Text>}
+              {t("affiliate.commission")} {<Text intensity={36}>(USDL)</Text>}
             </Text>
             <Flex direction={"row"} gap={1}>
               <USDCIcon />

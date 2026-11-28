@@ -174,6 +174,11 @@ describe('TvChart degraded canvas', () => {
     expect(status.textContent).not.toMatch(/Last update at block|—/);
     expect(view.textContent).not.toMatch(/TOPIC_NOT_STARTED|Loading chart|Updates paused|May be out of date/);
     expect(view.querySelector('[role="alert"], [data-state="unavailable"]')).toBeNull();
+    expect(view.querySelector<HTMLElement>('[data-chart-canvas]')?.style.visibility).toBe('hidden');
+    expect(view.querySelector('[data-chart-canvas]')?.getAttribute('aria-hidden')).toBe('true');
+    expect(view.querySelector('[data-chart-empty]')).not.toBeNull();
+    expect(view.querySelector('[data-opening-price]')?.textContent).toContain('Opening price');
+    expect(view.querySelector('[data-chart-empty]')?.textContent).not.toContain('Try again');
     act(() => root!.unmount());
     root = undefined;
     await tick(20_000);

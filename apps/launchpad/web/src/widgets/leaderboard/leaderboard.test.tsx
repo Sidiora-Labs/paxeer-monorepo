@@ -16,7 +16,6 @@ import { isLeaderboardTab, parseTab } from './leaderboard-view';
 import { parsePeriod, PeriodControl, periodWindows } from './period-control';
 import { profileHref, RankRow } from './rank-row';
 import { RankingTable } from './ranking-table';
-import { SquadsTab } from './squads-tab';
 
 const BORDER = /\b(border(?!-0\b|-none\b)(-[a-z0-9/\[\]-]+)?|divide-[a-z]|ring-(?!offset)[a-z0-9]|outline-(?!none|focus|2|offset)[a-z]+)\b/;
 const wallet = '0xAbCdEf0123456789abcdef0123456789ABCDEF01';
@@ -113,7 +112,7 @@ describe('rank row', () => {
     expect(html).toContain('text-rank-1');
     expect(html).toContain('hdegroot');
     expect(html).toContain(`href="${profileHref(wallet)}"`);
-    expect(html).toContain('+285,822.31 USDL');
+    expect(html).toContain('+$285,822.31');
     expect(html).toContain('50,000 USDL');
     expect(html).toContain('text-success');
     expect(html).toContain('Follow');
@@ -124,7 +123,7 @@ describe('rank row', () => {
     const html = renderToStaticMarkup(<RankingTable label="Traders"><RankRow rank={7} wallet={wallet} metricSigned="-1500000" self /></RankingTable>);
     expect(html).toContain(shortAddress(wallet.toLowerCase(), 6, 4));
     expect(html).toContain('text-danger');
-    expect(html).toContain('-1.50 USDL');
+    expect(html).toContain('-$1.50');
     expect(html).toContain('>You<');
     // Names use the row-name step; figures use the numeric table step.
     expect(html).toContain('h-12');
@@ -233,13 +232,10 @@ describe('cup hero and rules', () => {
   });
 });
 
-describe('squads tab', () => {
-  it('states that no ranking operation exists instead of listing squads', () => {
-    const html = render(<SquadsTab />);
-    expect(html).toContain('Squad rankings are not available yet');
-    expect(html).not.toContain('read model');
-    expect(html).toContain('Check back soon');
-    expect(html).not.toMatch(/>[^<]*no response/);
-    expect(assertControlEdges(html)).not.toMatch(BORDER);
+describe('leaderboard tabs', () => {
+  it('opens the traders board for a squads address', () => {
+    expect(isLeaderboardTab('squads')).toBe(false);
+    expect(parseTab('squads', false)).toBe('traders');
+    expect(parseTab('squads', true)).toBe('traders');
   });
 });

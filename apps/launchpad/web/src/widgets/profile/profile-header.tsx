@@ -1,6 +1,6 @@
 'use client';
 
-import { surfaceSpacing } from '@/app/presentation-tokens';
+import { surfaceSpacing, launchpadGeometry } from '@/app/presentation-tokens';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Camera, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -65,7 +65,7 @@ export default function ProfileHeader({ wallet, displayName, bio, avatarUrl, ban
     <header className={cn('rounded-lg bg-surface-1 pb-4', className)}>
       <div data-profile-banner className="relative h-25 overflow-hidden bg-surface-2 md:h-50 xl:h-60">
         {loading ? <Skeleton variant="block" className="size-full rounded-none" /> : showBanner ? (
-          <img src={bannerUrl as string} alt="" width={1440} height={240} decoding="async" className="size-full object-cover" onError={() => setBannerFailed(true)} />
+          <img src={bannerUrl as string} alt="" width={launchpadGeometry.images.banner.width} height={launchpadGeometry.images.banner.height} decoding="async" className="size-full object-cover" onError={() => setBannerFailed(true)} />
         ) : null}
         {isOwner && onEdit ? (
           <IconButton label="Change banner" icon={<Camera />} variant="on-media" onClick={() => onEdit('banner')} className="absolute right-3 top-3" />

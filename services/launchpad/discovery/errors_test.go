@@ -38,7 +38,14 @@ func assertDiscoveryFrozenError(t *testing.T, w *httptest.ResponseRecorder, stat
 	if len(fields) != 7 {
 		t.Errorf("envelope has %d fields, want 7", len(fields))
 	}
-	for name, want := range map[string]string{"retryAfterMs": "null", "fieldErrors": "[]", "details": "null"} {
+	delay, retryAfter := "null", ""
+	if status == http.StatusServiceUnavailable {
+		delay, retryAfter = "1000", "1"
+	}
+	if got := w.Header().Get("Retry-After"); got != retryAfter {
+		t.Errorf("Retry-After = %q, want %q", got, retryAfter)
+	}
+	for name, want := range map[string]string{"retryAfterMs": delay, "fieldErrors": "[]", "details": "null"} {
 		if got := string(fields[name]); got != want {
 			t.Errorf("%s = %s, want %s", name, got, want)
 		}
@@ -194,4 +201,13 @@ func TestDiscoveryUnauthenticatedWritesAnswerFrozenError(t *testing.T) {
 			assertDiscoveryFrozenError(t, w, http.StatusUnauthorized, "AUTH_REQUIRED", "")
 		}
 	})
+}
+
+func TestUnavailableRetryDelay(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/v2/discovery/feed", nil)
+	r.Header.Set("X-Request-Id", discoveryErrorRequestID)
+	w := httptest.NewRecorder()
+	status, code := errorStatus(fmt.Errorf("read projection: %w", ErrUnavailable))
+	writeError(w, r, status, code)
+	assertDiscoveryFrozenError(t, w, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE", discoveryErrorRequestID)
 }

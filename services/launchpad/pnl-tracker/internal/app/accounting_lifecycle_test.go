@@ -53,8 +53,10 @@ func TestAccountingConsumerTermination(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if _, err = js.CreateOrUpdateConsumer(ctx, name, broker); err != nil {
-					t.Fatal(err)
+				if _, err = retryInventoryStreamRequest(ctx, func(requestCtx context.Context) (jetstream.Consumer, error) {
+					return js.CreateOrUpdateConsumer(requestCtx, name, broker)
+				}); err != nil {
+					t.Fatal("create consumer:", err)
 				}
 				transport, err := natsdriver.NewConsumer(ctx, nc, cfg)
 				if err != nil {

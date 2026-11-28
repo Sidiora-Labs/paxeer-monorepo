@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, useMemo, useState } from "react";
 import { useTranslation, Trans } from "@paxeer-network/i18n";
 import { InfoCircleIcon, Tooltip, Text, Button, cn } from "@paxeer-network/ui";
@@ -56,7 +57,7 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
 
   const rewardText = estimatedRewards
     ? formatRewardAmount(estimatedRewards.amount, estimatedRewards.currency)
-    : "0 USDC";
+    : "0 USDL";
 
   const ticketText = formatTicketCount(estimatedTickets);
 
@@ -110,7 +111,7 @@ export const RewardsDesktopUI: FC<RewardsDesktopUIProps> = ({
                   weight="semibold"
                   className="oui-text-base-contrast"
                 >
-                  {pool.currency}
+                  {tokenDisplayName(pool.currency)}
                 </Text>
               </div>
             </div>

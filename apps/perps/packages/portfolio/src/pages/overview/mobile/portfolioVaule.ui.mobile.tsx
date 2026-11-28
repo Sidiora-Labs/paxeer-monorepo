@@ -55,7 +55,7 @@ export const PortfolioValueMobile: FC<Props> = (props) => {
           {props.portfolioValue ?? "--"}
         </Text.numeral>
         <Text className="oui-text-base oui-font-bold oui-text-primary-contrast/80">
-          USDC
+          USDL
         </Text>
       </Flex>
       <Flex

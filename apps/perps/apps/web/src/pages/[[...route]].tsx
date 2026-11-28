@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import Head from "next/head";
+import { PageMetadata } from "../PageMetadata";
 const useClientLayoutEffect =
   typeof window === "undefined" ? useEffect : useLayoutEffect;
 
@@ -55,12 +56,8 @@ export default function Page() {
             crossOrigin="anonymous"
           />
         ))}
-        <title>Paxeer Xtrades</title>
-        <meta name="application-name" content="Paxeer Xtrades" />
-        <link rel="icon" type="image/png" href="/brand/paxeer-x.png" />
-        <link rel="apple-touch-icon" href="/brand/paxeer-x.png" />
-        <meta name="theme-color" content="#06090f" />
       </Head>
+      <PageMetadata />
       <ClientWorkspace />
     </>
   );

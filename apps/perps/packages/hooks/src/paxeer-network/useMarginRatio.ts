@@ -29,6 +29,25 @@ export type MarginRatioReturn = {
   maintenanceMargin: number | null;
 };
 
+export function sumPositionMaintenanceMargin(
+  rows?: readonly { mm?: unknown }[] | null,
+): number | null {
+  if (!rows) {
+    return null;
+  }
+
+  let sum = zero;
+  let hasValue = false;
+  for (const row of rows) {
+    if (typeof row.mm === "number" && Number.isFinite(row.mm)) {
+      sum = sum.add(row.mm);
+      hasValue = true;
+    }
+  }
+
+  return hasValue ? sum.toNumber() : null;
+}
+
 /**
  * Hook to calculate and monitor account's margin ratio, leverage, and maintenance margin ratio (MMR)
  * @example
@@ -90,20 +109,13 @@ export const useMarginRatio = (): MarginRatioReturn => {
     if (!rows || rows.length <= 0 || notional == null) {
       return null;
     }
-    let positionsMM = zero;
-    // const positionsNotional = positions.totalNotional(rows);
-
-    for (let index = 0; index < rows.length; index++) {
-      const item = rows[index];
-      if (item.mm !== null) {
-        // console.log("calc add mm", item.mm, positionsMM, notional);
-
-        positionsMM = positionsMM.add(item.mm);
-      }
+    const positionsMM = sumPositionMaintenanceMargin(rows);
+    if (positionsMM === null) {
+      return null;
     }
 
     return account.MMR({
-      positionsMMR: positionsMM.toNumber(),
+      positionsMMR: positionsMM,
       positionsNotional: notional,
     });
   }, [rows, notional]);
@@ -116,16 +128,7 @@ export const useMarginRatio = (): MarginRatioReturn => {
     if (!rows || rows.length <= 0 || notional == null) {
       return null;
     }
-    let maintenanceMargin = zero;
-    // const positionsNotional = positions.totalNotional(rows);
-
-    for (let index = 0; index < rows.length; index++) {
-      const item = rows[index];
-      if (item.mm !== null) {
-        maintenanceMargin = maintenanceMargin.add(item.mm);
-      }
-    }
-    return maintenanceMargin.toNumber();
+    return sumPositionMaintenanceMargin(rows);
   }, [rows, notional]);
 
   return { marginRatio, currentLeverage, mmr, maintenanceMargin };

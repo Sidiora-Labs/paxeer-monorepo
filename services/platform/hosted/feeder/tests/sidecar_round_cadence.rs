@@ -75,6 +75,7 @@ fn round_cadence_open_fates_accumulate_until_the_bound() -> TestResult {
             1 + index as u64
         );
     }
+    assert!(peer.state.lock().unwrap().evm_observation_reads.is_empty());
     Ok(())
 }
 

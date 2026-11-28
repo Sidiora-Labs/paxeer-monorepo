@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { useMemo, useState } from "react";
 import {
   CaretDownIcon,
@@ -55,7 +56,7 @@ export const PNLInput = (props: PNLInputProps) => {
         initial: "lg",
         lg: "md",
       }}
-      placeholder={placeholder}
+      placeholder={tokenDisplayName(placeholder)}
       align={"right"}
       value={value}
       disabled={disabled}

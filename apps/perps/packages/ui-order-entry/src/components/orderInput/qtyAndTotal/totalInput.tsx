@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { FC, memo, useEffect, useState } from "react";
 import { useLocalStorage } from "@paxeer-network/hooks";
 import { useTranslation } from "@paxeer-network/i18n";
@@ -71,7 +72,7 @@ export const TotalInput: FC<TotalInputProps> = memo((props) => {
         name="order_margin_input"
         label={`${t("orderEntry.initialMargin")}≈`}
         prefix={prefix}
-        suffix={quote}
+        suffix={tokenDisplayName(quote)}
         error={getErrorMsg("total") ? "initial margin error" : ""}
         value={margin}
         onChange={onMarginChange}
@@ -94,7 +95,7 @@ export const TotalInput: FC<TotalInputProps> = memo((props) => {
       name="order_total_input"
       label={`${t("orderEntry.orderSize")}≈`}
       prefix={prefix}
-      suffix={quote}
+      suffix={tokenDisplayName(quote)}
       error={getErrorMsg("total")}
       value={props.total}
       onChange={(val) => {

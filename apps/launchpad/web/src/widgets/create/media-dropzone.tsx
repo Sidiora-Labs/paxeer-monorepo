@@ -1,4 +1,5 @@
 'use client';
+import { launchpadGeometry } from '@/app/presentation-tokens';
 
 import { useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { CircleAlert, ImagePlus, LoaderCircle, TriangleAlert } from 'lucide-react';
@@ -72,7 +73,7 @@ export function MediaDropzone({ id, staged, onStaged, onClear, remembered = null
         />
         {staged ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-            <img src={staged.previewUrl} alt={`Selected image ${staged.descriptor.name}`} width={120} height={120} decoding="async" className="size-30 shrink-0 rounded-md bg-surface-3 object-cover" />
+            <img src={staged.previewUrl} alt={`Selected image ${staged.descriptor.name}`} width={launchpadGeometry.images.preview} height={launchpadGeometry.images.preview} decoding="async" className="size-30 shrink-0 rounded-md bg-surface-3 object-cover" />
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <p className="truncate text-sm font-semibold text-text" title={staged.descriptor.name}>{staged.descriptor.name}</p>
               <p className="text-xs text-text-faint">

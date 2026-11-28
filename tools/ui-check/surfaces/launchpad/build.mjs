@@ -19,11 +19,13 @@ const inputs = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '-
   'precompiles/launchpad/abi', 'tools/ui-check/surfaces/launchpad/build.mjs',
   'tools/ui-check/surfaces/launchpad/environment.mjs',
 ]).toString().split('\0').filter(Boolean).sort();
+const deletedInputs = new Set(execFileSync('git', ['ls-files', '-z', '--deleted']).toString().split('\0'));
 const environment = Object.entries(applicationEnvironment())
   .filter(([name]) => /^(NEXT_|WEB_|SENTRY_|NODE_ENV$|NODE_OPTIONS$|VERCEL$|CI$)/.test(name))
   .sort(([left], [right]) => left.localeCompare(right));
 const digest = createHash('sha256').update(JSON.stringify(environment)).update(process.version);
 for (const input of inputs) {
+  if (deletedInputs.has(input)) continue;
   digest.update(input);
   digest.update(readFileSync(input));
 }
@@ -33,7 +35,7 @@ const output = 'apps/launchpad/web/.next/BUILD_ID';
 if (existsSync(receipt) && existsSync(output) && readFileSync(receipt, 'utf8') === readFileSync(output, 'utf8')) {
   console.log('Production output matches the application inputs.');
 } else {
-  await run(['--dir', 'apps/launchpad', '-r', '--filter', '@kindle/sdk...', '--filter', '@kindle/sdk-v2...', '--filter', 'stats-sdk...', 'run', 'build']);
+  await run(['--dir', 'apps/launchpad', 'run', 'build:packages']);
   await run(['--dir', 'apps/launchpad/web', 'run', 'build']);
   writeFileSync(receipt, readFileSync(output));
 }

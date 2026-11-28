@@ -7,3 +7,5 @@ export * as APIManagerModule from "./pages/api";
 export * as SettingModule from "./pages/setting";
 export * as AssetsModule from "./pages/assets";
 export * as HistoryModule from "./pages/history";
+
+export * as AgentsModule from "./pages/agents";

@@ -16,9 +16,9 @@ export type FeedOrder = NonNullable<NonNullable<OperationInput<'IF_CONNECTED_FEE
 export const feedLimit = 50;
 
 /**
- * IF_CONNECTED_FEED `GET /v2/discovery/feed`: a retryable 503 is a failed
- * read, including on deployments with a discovery runtime. Without a delay
- * it gets one silent retry after one second before the usual failure state.
+ * IF_CONNECTED_FEED `GET /v2/discovery/feed`: a retryable 503 names a
+ * one-second delay. The read stays loading while retries follow that delay
+ * within the transient retry budget, then shows the usual failure state.
  */
 export function useFeed(order: FeedOrder = 'relevance', cursor: string | null = null, limit: number = feedLimit): Loadable<FeedPage> {
   const operations = useOperations();

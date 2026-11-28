@@ -40,6 +40,9 @@
         "PORT": {
           "source": "input"
         },
+        "PERPS_PRICE_RETENTION_DAYS": {
+          "source": "input"
+        },
         "PERPS_START_HEIGHT": {
           "source": "input"
         }
@@ -194,6 +197,86 @@
           "source": "reference",
           "service": "postgres",
           "variable": "DATABASE_URL"
+        }
+      }
+    },
+    {
+      "name": "perps-quoter",
+      "build": {
+        "dockerfile": "services/platform/perps-data/deploy/Dockerfile",
+        "service": "perps-quoter",
+        "inputs": [
+          "BUILD_IMAGE",
+          "RUNTIME_IMAGE"
+        ]
+      },
+      "run": "manual",
+      "replicas": 0,
+      "restart": "never",
+      "public": false,
+      "healthcheck": {
+        "kind": "none"
+      },
+      "variables": {
+        "PERPS_CHAIN_ID": {
+          "source": "input"
+        },
+        "PERPS_RPC_URLS": {
+          "source": "input"
+        },
+        "PORT": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_KEY_FILE": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_MARKETS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_LEVELS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_SPREAD_BPS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_STEP_BPS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_LEVEL_USD": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_REFRESH_BPS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_MAX_QUOTE_AGE_SECONDS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_MAX_POSITION_USD": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_MAX_PRICE_AGE_SECONDS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_INTERVAL_SECONDS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_REFUSAL_LIMIT": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_COOLDOWN_SECONDS": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_MODE": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_STOP": {
+          "source": "input"
+        },
+        "PERPS_QUOTER_HANDOVER": {
+          "source": "input"
         }
       }
     },

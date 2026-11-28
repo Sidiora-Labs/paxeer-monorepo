@@ -168,7 +168,7 @@ export function DropdownMenu({
         className={cn(
           'inline-flex items-center justify-center gap-1.5 rounded-sm font-bold text-text-muted transition-colors duration-fast hover:bg-surface-hover hover:text-text',
           open && 'bg-surface-3 text-text',
-          trigger
+          trigger || showLabel
             ? size === 'sm'
               ? 'min-h-control-height-sm px-2 py-1 text-sm leading-[calc(var(--sl-leading-sm)/var(--sl-text-sm))]'
               : 'min-h-control-height-md px-3 py-2 text-base'
@@ -178,14 +178,15 @@ export function DropdownMenu({
           triggerClassName
         )}
       >
-        {showLabel ? <span>{label}</span> : null}
-        {trigger ?? (
-          <ChevronDown
-            aria-hidden="true"
-            className={cn('size-icon-md transition-transform duration-fast', open && 'rotate-180')}
-          />
-        )}
-        {showLabel && trigger ? (
+        {showLabel ? <span className="whitespace-nowrap">{label}</span> : null}
+        {trigger ??
+          (showLabel ? null : (
+            <ChevronDown
+              aria-hidden="true"
+              className={cn('size-icon-md transition-transform duration-fast', open && 'rotate-180')}
+            />
+          ))}
+        {showLabel ? (
           <ChevronDown
             aria-hidden="true"
             className={cn('size-icon-sm transition-transform duration-fast', open && 'rotate-180')}

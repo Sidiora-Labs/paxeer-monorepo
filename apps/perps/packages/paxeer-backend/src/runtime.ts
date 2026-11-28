@@ -1,13 +1,16 @@
+import type { GatewayCatalogEntry } from "./hooks/perps/usePerpsMarkets";
 import type { FeeTierView } from "./core/perps/feeTier";
 
 export interface NativeSnapshot {
   address: `0x${string}` | null;
   chainId: number | null;
+  marketCatalog: readonly GatewayCatalogEntry[];
   markets: any[];
   positions: any[];
   totalVaultUsd: number | null;
   freeCollateral: number | null;
   unrealizedPnl: number | null;
+  maintenanceMarginUsd: number | null;
   walletBalances: Record<string, string>;
   dailyPnl?: any[];
   leverage: Record<string, number>;
@@ -18,11 +21,13 @@ export interface NativeSnapshot {
 let snapshot: NativeSnapshot = {
   address: null,
   chainId: null,
+  marketCatalog: [],
   markets: [],
   positions: [],
   totalVaultUsd: null,
   freeCollateral: null,
   unrealizedPnl: null,
+  maintenanceMarginUsd: null,
   walletBalances: {},
   leverage: {},
   connected: false,
@@ -41,6 +46,7 @@ export function updateNativeSnapshot(update: Partial<NativeSnapshot>) {
       totalVaultUsd: null,
       freeCollateral: null,
       unrealizedPnl: null,
+      maintenanceMarginUsd: null,
       dailyPnl: undefined,
       leverage: {},
       marginMode: undefined,

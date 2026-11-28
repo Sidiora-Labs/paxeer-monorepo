@@ -107,7 +107,7 @@ process.env.NEXT_PUBLIC_STREAM_ORIGIN = replay.origin.replace(/^http/, 'ws');
 const { createRoot } = await import('react-dom/client');
 const { MarketClientContext } = await import('@/core/market/client');
 const { useMarketLive } = await import('@/page-modules/token/market-session-context');
-const HoldersTable = (await import('./holders-table')).default;
+const { default: HoldersTable, HolderStatsContext } = await import('./holders-table');
 const TradesTable = (await import('./trades-table')).default;
 const StatsAuditPanel = (await import('./stats-audit-panel')).default;
 
@@ -195,7 +195,8 @@ async function holder_pool_badge_preserves_creator_links_and_wallet_rows() {
     ...poolPage,
     data: { ...poolPage.data, items: [...walletPage.data.items, ...poolPage.data.items, ...creatorPage.data.items] },
   };
-  const view = mount(createElement(HoldersTable, { poolAddress: pool, price: 2 }));
+  const liveStats = { ...detail.data.stats, spotPriceWad: '2000000000000000000' };
+  const view = mount(createElement(HolderStatsContext.Provider, { value: liveStats }, createElement(HoldersTable, { poolAddress: pool, price: 3 })));
   await waitFor(() => view.container.querySelectorAll('tbody tr').length === 3);
   const rows = [...view.container.querySelectorAll('tbody tr')];
   const poolRow = rows[0]!;
@@ -213,9 +214,9 @@ async function holder_pool_badge_preserves_creator_links_and_wallet_rows() {
   expect(walletRow.querySelector('a')?.getAttribute('href')).toBe(`/profile/${holder}`);
   expect(walletRow.querySelector('[data-dev-badge], [data-pool-badge]')).toBeNull();
   expect(rows.map(row => [...row.querySelectorAll('td')].slice(1, 4).map(cell => cell.textContent))).toEqual([
-    ['3', '0.00%', '6.00 USDL'],
-    ['2', '0.00%', '4.00 USDL'],
-    ['1', '0.00%', '2.00 USDL'],
+    ['3', '0.00%', '$6.00'],
+    ['2', '0.00%', '$4.00'],
+    ['1', '0.00%', '$2.00'],
   ]);
 
   const mixedCasePool = `0x${pool.slice(2).toUpperCase()}`;

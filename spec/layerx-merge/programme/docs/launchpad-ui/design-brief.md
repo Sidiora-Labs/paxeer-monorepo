@@ -66,9 +66,9 @@ literal colour.
 | Surface active | `--sl-surface-active` | `#34343f` | `#c7d6e2` |
 | Text | `--sl-text` | `#f5f5f7` | `#101c29` |
 | Text muted (secondary lines, labels) | `--sl-text-muted` | `#a6a6b0` | `#34495e` |
-| Text faint (meta, units, placeholders) | `--sl-text-faint` | `#8e8e99` | `#435568` |
+| Text faint (meta, units, placeholders) | `--sl-text-faint` | `#9f9faa` | `#435568` |
 | Text disabled | `--sl-text-disabled` | `#5c5c66` | `#657587` |
-| Control edge | `--sl-control-edge` | `#70707c` | `#657587` |
+| Control edge | `--sl-control-edge` | `#81818e` | `#657587` |
 | Accent (primary action, up) | `--sl-accent` | `#44e8c8` | `#006852` |
 | Accent hover / active | `--sl-accent-hover`, `--sl-accent-active` | `#6bedd5` / `#2bb89e` | `#005844` / `#004735` |
 | On accent | `--sl-on-accent` | `#06201b` | `#ffffff` |
@@ -95,10 +95,12 @@ Rules:
   that starts transparent at the middle of the row and reaches 10 percent
   opacity at the right edge (`--sl-tint-accent-row-wash`,
   `--sl-tint-danger-row-wash`). A row without a change carries none.
-- Floating layers (bar of destinations at phone widths, sheets, menus, toasts,
-  the sticky trade bar) use surface 2 at 82 percent opacity over a 16 pixel
-  backdrop blur with a hairline; where blur is not supported the layer is the
-  opaque surface 2.
+- Floating layers (sheets, menus, toasts) use surface 2 at 82 percent opacity
+  over a 16 pixel backdrop blur with a hairline; where blur is not supported
+  the layer is the opaque surface 2. The bar of destinations, the sticky trade
+  bar, the cookie notice and the action bar of a create view are opaque, the
+  bar of destinations in surface 1 and the others in surface 2, each with its
+  hairline.
 - Brand colours of wallets appear only on their own marks.
 
 ## 3. Type
@@ -122,10 +124,13 @@ fallback. Weights become lighter: text is read, numbers are stressed.
 Rules:
 
 - Every figure (price, value, change, count, time) is set in tabular figures.
+- Market values read with the dollar sign before the figure; amounts of the
+  quote token paid, received, held or claimed read with USDL after the figure.
 - A view has one title of step lg; panels and sections title in md. No view
   stacks two titles above its content.
 - Weight 800 is not used. A name is 600, a value 700, a label 500.
-- Text never wraps inside a control. A name that does not fit ends in an
+- Text never wraps inside a control except a text link, whose label may wrap.
+  A name that does not fit ends in an
   ellipsis and gives its full form to assistive technology.
 
 ## 4. Shape, space and motion
@@ -250,10 +255,10 @@ The shell keeps its parts, their places and their heights.
   quiet icon buttons, its entries as chips (account, side in its direction
   colour, amount, coin). With nothing to show it holds one muted line in xs
   and no stressed call to action.
-- **Bar of destinations (phone widths).** Surface 1 at 82 percent with the
-  blur of section 2 and a hairline above it. An item is an icon with its label
-  in 2xs; the current item is in text colour, the others are muted; the create
-  action is the accent disc. Content ends above the bar.
+- **Bar of destinations (phone widths).** Opaque surface 1 with a hairline
+  above it. An item is an icon with its label in 2xs; the current item is in
+  text colour, the others are muted; the create action is the accent disc.
+  Content ends above the bar.
 - **Footer.** One muted line in xs at tablet width and above: the legal links
   at the left, the figures of the platform at the right. At phone widths two
   lines at the end of the content.

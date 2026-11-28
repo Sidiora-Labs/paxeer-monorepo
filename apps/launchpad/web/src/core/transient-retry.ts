@@ -15,6 +15,9 @@
  */
 import { StreamTransportError } from '@kindle/sdk';
 import { PolicyBlockedError, policyBlockedOrigin } from './policy-block';
+import { finiteDelay } from './retry-fields';
+
+export { retryFields, readRetryFields, type RetryFields } from './retry-fields';
 
 /** Retries after the first failed attempt; 5 attempts in all at most. */
 export const transientRetryLimit = 4;
@@ -51,11 +54,7 @@ interface RetryHint { transient: boolean; delayMs: number | null; owner: RetryOw
 const notTransient: RetryHint = { transient: false, delayMs: null, owner: 'none' };
 const policyBlock: RetryHint = { transient: false, delayMs: null, owner: 'policy' };
 
-function finiteDelay(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
-}
-
-const fetchFailure = /failed to fetch|load failed|networkerror|network request failed/i;
+const fetchFailure = /failed to fetch|fetch failed|load failed|networkerror|network request failed/i;
 
 /** True for a failure that looks like the connection never completed (SDK interruption or a fetch TypeError). */
 export function isNetworkClassError(error: unknown): boolean {
@@ -162,17 +161,3 @@ export function transientRetry(otherRetries = 0): TransientRetryOptions {
 
 /** The policy for reads that otherwise never retry. */
 export const retryTransientOnly: TransientRetryOptions = transientRetry(0);
-
-export interface RetryFields { retryable: boolean | null; retryAfterMs: number | null }
-
-/**
- * Read `retryable` / `retryAfterMs` from a failed response's JSON error body,
- * for transports that do not go through the SDK. Consumes the body; a body
- * that is not a JSON object yields nulls.
- */
-export async function readRetryFields(response: Response): Promise<RetryFields> {
-  const body: unknown = await response.json().catch(() => null);
-  if (typeof body !== 'object' || body === null) return { retryable: null, retryAfterMs: null };
-  const row = body as { retryable?: unknown; retryAfterMs?: unknown };
-  return { retryable: typeof row.retryable === 'boolean' ? row.retryable : null, retryAfterMs: finiteDelay(row.retryAfterMs) };
-}

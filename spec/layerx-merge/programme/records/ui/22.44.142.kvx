@@ -1,0 +1,54 @@
+[composition]
+brief = "launchpad-ui/design-brief.md sections 1, 2, 4, 5 and 7"
+header = "Two rows: coin identity and actions, then valuation, direction and horizontally scrolling statistics; the menu contains the coin address and social links."
+chart = "Canvas ground, one horizontally scrolling toolbar, interval and valuation segments, and one menu for secondary intervals, trade markers and currency."
+first_trade = "The application empty form covers the entire chart and volume area; opening price uses the existing reserve quote, and a neutral chip identifies a coin waiting for trades."
+trade = "Buy and sell retain their directional segments; authentication uses the inverse action and mobile trading remains above navigation."
+holders = "Rank, account badges and a right-aligned supply share with a thin track."
+trades = "Account, direction, amounts, execution price, block height and transaction link, with directional row washes and reduced-motion support."
+side_column = "Trade, holders, statistics and pool information retain their columns, neutral surfaces and aligned values."
+metadata = "Coin details and image forms share the application surfaces, labels, controls, waiting blocks and neutral empty form."
+
+[coverage]
+part = "coin"
+views = 7
+named_states = 4
+configured_renders = 374
+rendered = 374
+view_states = 11
+findings = 0
+findings_by_kind = ["load:0", "sideways:0", "cut:0", "contrast:0", "touch:0", "focus:0", "shift:0", "motion:0", "scale:0", "geometry:0"]
+schemes = ["light", "dark"]
+modes = ["default", "reduced-motion", "double-text", "keyboard"]
+phone_cases = "Two header rows, one scrolling toolbar row, an empty chart with no visible library content or warnings, and a neutral waiting chip."
+share = "The coin menu includes Share at phone widths; a Share button is visible from tablet widths."
+value_row = "Values and freshness details scroll within the header at doubled text sizes."
+menu = "Secondary intervals, trade markers and USDL are available in the open chart menu."
+
+[view.coin]
+sections = [1, 2, 4, 5, 7]
+form = "Coin identity, value, chart, activity tabs and side panels share the quiet market presentation."
+
+[view.coin_empty]
+sections = [1, 5, 7]
+form = "The chart starts with the first trade; no chart or volume library content is visible."
+
+[view.coin_error]
+sections = [1, 5, 7]
+form = "Failed reads keep their section, unknown values and recovery action."
+
+[view.coin_loading]
+sections = [1, 5, 7]
+form = "Waiting blocks retain the market sections while the coin resolves."
+
+[view.token]
+sections = [1, 2, 4, 5, 7]
+form = "Creator coins use neutral selection and aligned identity rows; signed-out viewers receive the application empty form."
+
+[view.token_pool]
+sections = [1, 2, 4, 5, 7]
+form = "The token route shares the coin market layout and chart controls."
+
+[view.token_metadata]
+sections = [1, 2, 4, 5, 7]
+form = "Coin details and approved images use neutral panels with labeled inputs and primary and secondary actions."

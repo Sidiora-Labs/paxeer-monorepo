@@ -6,9 +6,16 @@ import { subgraphQuery, POSITIONS_QUERY, rawUint256 } from "./useSubgraph";
 import { z } from "zod";
 import {
   buildGetAccount,
+  buildGetPositionDetails,
   type AccountState,
 } from "@paxeer-network/paxeer-backend/core/perps/calls";
 import { portfolioFromAccount } from "@paxeer-network/paxeer-backend/core/perps/portfolio";
+import {
+  mergePositionDetails,
+  oneWaveAtATime,
+  readPositionDetails,
+  type PositionDetailsById,
+} from "../../core/perps/positionDetails";
 import { getPublicClient } from "@paxeer-network/paxeer-backend/core/viem/clients";
 import { INDEXER_GRAPHQL } from "@paxeer-network/paxeer-backend/core/perps/config";
 import { subscribeStream } from "@paxeer-network/paxeer-backend/core/graphql/client";
@@ -98,6 +105,7 @@ const EMPTY_RAW: RawSnapshot = {
 };
 
 let _raw: RawSnapshot = EMPTY_RAW;
+let _positionDetails: PositionDetailsById = {};
 const _subs = new Set<(s: RawSnapshot) => void>();
 let _activeAddress: string | null = null;
 interface PortfolioSession {
@@ -189,6 +197,20 @@ function _setRaw(patch: Partial<RawSnapshot>) {
   _notify();
 }
 
+const _requestPositionDetails = oneWaveAtATime(async () => {
+  const session = _session;
+  if (!session || !isPageActive()) return;
+  const ids = _raw.positions.map((position) => String(position.positionId));
+  const details = await readPositionDetails(
+    ids,
+    (id) => getPublicClient().readContract(buildGetPositionDetails(BigInt(id))),
+    _positionDetails,
+  );
+  if (_session !== session) return;
+  _positionDetails = details;
+  _notify();
+});
+
 async function _fetchAccount(session: PortfolioSession) {
   const addr = session.address;
   if (!isPageActive()) return;
@@ -210,7 +232,10 @@ async function _fetchAccount(session: PortfolioSession) {
         maintenanceMarginUsd: null,
       });
   } finally {
-    if (_session === session) _setRaw({ isAccountLoading: false });
+    if (_session === session) {
+      _setRaw({ isAccountLoading: false });
+      _requestPositionDetails();
+    }
   }
 }
 
@@ -252,6 +277,7 @@ async function _fetchPositionsOnce(session: PortfolioSession) {
       return;
     _reconcileLocallyClosed(positions);
     _setRaw({ positions });
+    _requestPositionDetails();
   } catch {}
 }
 
@@ -302,6 +328,7 @@ function _startPolling(addr: string) {
     snapshotRequest: 0,
   };
   _session = session;
+  _positionDetails = {};
   _raw = { ...EMPTY_RAW, isLoading: true, isAccountLoading: true };
   _notify();
   Promise.all([_fetchAccount(session), _fetchPositionsOnce(session)]).finally(
@@ -328,6 +355,7 @@ function _startPolling(addr: string) {
       const positions = data.positionChanged ?? [];
       _reconcileLocallyClosed(positions);
       _setRaw({ positions });
+      _requestPositionDetails();
     },
   });
 }
@@ -335,13 +363,14 @@ function _startPolling(addr: string) {
 function _reset() {
   _stopPolling();
   _activeAddress = null;
+  _positionDetails = {};
   _raw = EMPTY_RAW;
   _notify();
 }
 
 /**
  * Lightweight portfolio stats hook — shared singleton pollers.
- * - Positions from the indexer stream (no RPC), shared
+ * - Positions from the indexer stream with shared venue detail reads
  * - Account totals: one getAccount(account) read at 0x1015 every 15s, shared
  */
 export function usePortfolioStats(): PortfolioStats {
@@ -397,6 +426,6 @@ export function usePortfolioStats(): PortfolioStats {
       (raw.isAccountLoading || raw.accountAddress !== wantedAddress),
     freeCollateral:
       raw.accountAddress === wantedAddress ? totals.freeCollateral : 0,
-    positions: visiblePositions,
+    positions: mergePositionDetails(visiblePositions, _positionDetails),
   };
 }

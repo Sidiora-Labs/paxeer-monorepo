@@ -53,10 +53,12 @@ export function CookieBanner() {
             Math.min(innerHeight - 1, (moved.top + moved.bottom) / 2),
           ),
         );
-        if (atFocus && banner.contains(atFocus)) {
-          const atTop = banner.style.top !== "";
-          banner.style.top = atTop ? "" : "24px";
-          banner.style.bottom = atTop ? "" : "auto";
+        if (
+          atFocus &&
+          banner.contains(atFocus) &&
+          window.matchMedia("(min-width: 1024px)").matches
+        ) {
+          banner.classList.toggle("cookie-consent-banner-at-top");
         }
       }
     };
@@ -72,7 +74,7 @@ export function CookieBanner() {
       aria-label="Cookie consent"
       aria-describedby="cookie-consent-description"
       aria-modal="false"
-      className="oui-fixed oui-bottom-6 oui-left-1/2 -oui-translate-x-1/2 oui-z-40 oui-w-full oui-max-w-[560px] oui-px-4"
+      className="cookie-consent-banner oui-z-40 oui-w-full oui-max-w-[560px] oui-px-4"
     >
       <div className="oui-rounded-xl oui-border oui-border-line-12 oui-bg-base-9 oui-shadow-2xl oui-p-5">
         <div className="oui-flex oui-items-start oui-justify-between oui-gap-3 oui-mb-3">
@@ -87,7 +89,7 @@ export function CookieBanner() {
             color="secondary"
             size="sm"
           >
-            <CloseIcon size={16} />
+            <CloseIcon size={16} color="white" opacity={1} />
           </Button>
         </div>
         <p

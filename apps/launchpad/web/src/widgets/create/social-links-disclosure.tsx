@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { FormField } from '@/ui/primitives';
-import { OptionRow } from './option-row';
+import { OptionRow } from '@/ui/primitives';
 
 export interface SocialSlots {
   x: string;

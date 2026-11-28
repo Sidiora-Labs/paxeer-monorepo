@@ -3,12 +3,47 @@ package store_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 	"github.com/redis/go-redis/v9"
 )
+
+func TestDevelopmentPriceMoversNumericOrder(t *testing.T) {
+	st, db, _ := newStore(t)
+	ctx := context.Background()
+	for i, change := range []string{"9", "10", "11", "-9", "-10", "-11"} {
+		pool := fmt.Sprintf("0x%040x", i+1)
+		if _, err := db.Exec(ctx, `INSERT INTO stats.pool_stats(pool_address,token_address,price_change_24h,created_at,updated_at)
+			VALUES($1,'0x2222222222222222222222222222222222222222',$2,100,200)`, pool, change); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, check := range []struct {
+		name    string
+		gainers bool
+		want    []string
+	}{
+		{"gainers", true, []string{"11", "10", "9"}},
+		{"losers", false, []string{"-11", "-10", "-9"}},
+	} {
+		t.Run(check.name, func(t *testing.T) {
+			for _, limit := range []int{3, 1} {
+				movers, total, err := st.DevelopmentPriceMovers(ctx, check.gainers, limit)
+				if err != nil || total != 3 || len(movers) != limit {
+					t.Fatalf("price movers limit %d: %+v total=%d err=%v", limit, movers, total, err)
+				}
+				for i, mover := range movers {
+					if mover.ChangeBps != check.want[i] {
+						t.Fatalf("price mover %d = %s, want %s", i, mover.ChangeBps, check.want[i])
+					}
+				}
+			}
+		})
+	}
+}
 
 func TestDevelopmentStoreReadsIndexedMarket(t *testing.T) {
 	st, pool, rdb := newStore(t)

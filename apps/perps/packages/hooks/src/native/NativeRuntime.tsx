@@ -16,9 +16,11 @@ import {
 import {
   nativeAccountInfo,
   nativePositionRows,
+  nativePositionTotals,
 } from "@paxeer-network/paxeer-backend/nativeClient";
 import { COLLATERAL_TOKENS } from "@paxeer-network/paxeer-backend/core/perps/config";
 import { useMarketsSnapshot } from "@paxeer-network/paxeer-backend/hooks/perps/useMarketsStream";
+import { usePerpsMarkets } from "@paxeer-network/paxeer-backend/hooks/perps/usePerpsMarkets";
 import { useFeeTier } from "@paxeer-network/paxeer-backend/hooks/perps/useFeeTier";
 import { useMarginMode } from "@paxeer-network/paxeer-backend/hooks/perps/useMarginMode";
 import { usePortfolioStats } from "@paxeer-network/paxeer-backend/hooks/perps/usePortfolioStats";
@@ -38,8 +40,12 @@ import { useTestnetChainsStore } from "../provider/store/chainInfoTestStore";
 import { useMainTokenStore } from "../provider/store/mainTokenStore";
 import { useTestTokenStore } from "../provider/store/testTokenStore";
 import { useMarketStore } from "../paxeer-network/useMarket/market.store";
+const EMPTY_CATALOG: ReturnType<typeof usePerpsMarkets>["catalog"] = [];
+
 export function NativeRuntime() {
   const wallet = useWagmiAccount();
+  const { catalog: loadedCatalog } = usePerpsMarkets();
+  const catalog = loadedCatalog.length ? loadedCatalog : EMPTY_CATALOG;
   const feedMarkets = useMarketsSnapshot();
   const [chainMarkets, setChainMarkets] = useState<any[]>([]);
   const [quotesPending, setQuotesPending] = useState(true);
@@ -86,6 +92,7 @@ export function NativeRuntime() {
     };
   }, [feedMarkets.length]);
   useLayoutEffect(() => {
+    updateNativeSnapshot({ marketCatalog: catalog, markets });
     const symbols = nativeSymbols();
     useMainnetChainsStore.setState({
       data: nativeChains() as any,
@@ -105,14 +112,14 @@ export function NativeRuntime() {
           type: "PERP",
           name: symbol.symbol,
           base_dp: getPrecisionByNumber(symbol.base_tick),
-          quote_dp: 6,
+          quote_dp: symbol.quote_dp,
         },
       ]),
     );
     useAppStore.getState().actions.setSymbolsInfo(information as any);
     useAppStore.getState().actions.setTokensInfo(nativeTokens() as any);
     useAppStore.getState().actions.updateAppStatus("ready", true);
-  }, []);
+  }, [catalog, markets]);
   useLayoutEffect(() => {
     updateNativeSnapshot({
       address: wallet.address ?? null,
@@ -134,6 +141,10 @@ export function NativeRuntime() {
         ? null
         : portfolio.freeCollateral,
       unrealizedPnl: portfolio.isLoading ? null : portfolio.unrealizedPnl,
+      maintenanceMarginUsd:
+        portfolio.isAccountLoading || portfolio.maintenanceMarginUsd === null
+          ? null
+          : Number(formatUnits(portfolio.maintenanceMarginUsd, 18)),
       dailyPnl: daily.isLoading ? undefined : daily.dailyPnl,
     });
     useMarketStore
@@ -160,6 +171,7 @@ export function NativeRuntime() {
       const rows = nativePositionRows();
       usePositionStore.getState().actions.setPositions("all", {
         ...POSITION_EMPTY,
+        ...nativePositionTotals(rows, state.totalVaultUsd),
         rows,
         free_collateral: state.freeCollateral ?? 0,
         total_collateral_value: state.totalVaultUsd ?? 0,
@@ -167,6 +179,10 @@ export function NativeRuntime() {
       for (const symbol of new Set(rows.map((row) => row.symbol!))) {
         usePositionStore.getState().actions.setPositions(symbol, {
           ...POSITION_EMPTY,
+          ...nativePositionTotals(
+            rows.filter((row) => row.symbol === symbol),
+            state.totalVaultUsd,
+          ),
           rows: rows.filter((row) => row.symbol === symbol),
         } as any);
       }
@@ -184,6 +200,7 @@ export function NativeRuntime() {
         ),
       );
   }, [
+    catalog,
     margin.data,
     feeTier.view,
     wallet.address,
@@ -198,6 +215,7 @@ export function NativeRuntime() {
     portfolio.unrealizedPnl,
     portfolio.isLoading,
     portfolio.isAccountLoading,
+    portfolio.maintenanceMarginUsd,
     daily.dailyPnl,
     daily.isLoading,
   ]);

@@ -16,7 +16,7 @@ export class USDCBorrowLimitExceededError extends Error {
   readonly borrowLimit: number;
 
   constructor(projectedBorrow: number, borrowLimit: number) {
-    super("Projected USDC borrow limit exceeded");
+    super("Projected USDL borrow limit exceeded");
     this.name = "USDCBorrowLimitExceededError";
     this.projectedBorrow = projectedBorrow;
     this.borrowLimit = borrowLimit;

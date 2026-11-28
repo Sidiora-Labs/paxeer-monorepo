@@ -21,7 +21,7 @@ beforeAll(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
   restoreBrowserSurface = applyBrowserSurface();
-});
+}, 30000);
 
 afterAll(async () => {
   await restoreBrowserSurface?.();

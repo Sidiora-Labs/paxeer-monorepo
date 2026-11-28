@@ -73,7 +73,7 @@ export const ConfirmDialogContent: FC<EditSheetState> = (props) => {
         dp={symbolInfo.quote_dp}
         padding={false}
         rm={Decimal.ROUND_DOWN}
-        suffix={<Text intensity={54}>{" USDC"}</Text>}
+        suffix={<Text intensity={54}>{" USDL"}</Text>}
       >
         {formattedOrder.trigger_price ?? "--"}
       </Text.numeral>
@@ -88,7 +88,7 @@ export const ConfirmDialogContent: FC<EditSheetState> = (props) => {
         dp={symbolInfo.quote_dp}
         padding={false}
         rm={Decimal.ROUND_DOWN}
-        suffix={<Text intensity={54}>{" USDC"}</Text>}
+        suffix={<Text intensity={54}>{" USDL"}</Text>}
         placeholder={isStopMarket ? t("common.marketPrice") : "--"}
       >
         {isStopMarket
@@ -107,7 +107,7 @@ export const ConfirmDialogContent: FC<EditSheetState> = (props) => {
           dp={symbolInfo.quote_dp}
           padding={false}
           rm={Decimal.ROUND_DOWN}
-          suffix={<Text intensity={54}>{" USDC"}</Text>}
+          suffix={<Text intensity={54}>{" USDL"}</Text>}
         >
           {formattedOrder.activated_price}
         </Text.numeral>

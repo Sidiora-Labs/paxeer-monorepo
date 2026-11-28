@@ -1,3 +1,4 @@
+import { tokenDisplayName } from "@paxeer-network/utils";
 import { format } from "date-fns";
 import { i18n } from "@paxeer-network/i18n";
 import { TimelinePoint } from "./components/axis";
@@ -212,7 +213,7 @@ export const getTicketPrizePool = (
  * @returns Formatted string like "15,000 USDC"
  */
 export const formatPrizeAmount = (amount: number, currency: string): string => {
-  return `${amount?.toLocaleString()} ${currency}`;
+  return `${amount?.toLocaleString()} ${tokenDisplayName(currency)}`;
 };
 
 /**

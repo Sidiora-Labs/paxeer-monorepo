@@ -6,6 +6,8 @@ import { UseChainMenuScriptReturn } from "./chainMenu.script";
 export const ChainMenuUiMobile = (props: UseChainMenuScriptReturn) => {
   const { t } = useTranslation();
 
+  if (!props.currentChainId) return null;
+
   return (
     <button
       onClick={(e) => {

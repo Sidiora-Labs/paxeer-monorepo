@@ -23,7 +23,7 @@ export const Infos: FC<InfosProps> = ({
     >
       <Statistic
         label={t("positions.adjustMargin.currentMargin")}
-        valueProps={{ dp: 2, unit: " USDC", padding: false }}
+        valueProps={{ dp: 2, unit: " USDL", padding: false }}
         classNames={{
           root: "oui-flex-row oui-justify-between oui-items-center oui-w-full oui-gap-2 oui-text-2xs oui-h-5",
           label: "oui-text-2xs oui-whitespace-nowrap",
@@ -34,7 +34,7 @@ export const Infos: FC<InfosProps> = ({
       </Statistic>
       <Statistic
         label={t("positions.adjustMargin.liqPriceAfter")}
-        valueProps={{ dp: 2, unit: " USDC", padding: false }}
+        valueProps={{ dp: 2, unit: " USDL", padding: false }}
         classNames={{
           root: "oui-flex-row oui-justify-between oui-items-center oui-w-full oui-gap-2 oui-text-2xs oui-h-5",
           label: "oui-text-2xs oui-whitespace-nowrap",

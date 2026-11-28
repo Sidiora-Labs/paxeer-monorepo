@@ -199,13 +199,13 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     }
   });
 
-  it('ranks served rows, formats the metric as USDL, links each row to the public profile and refetches on window and metric changes', async () => {
+  it('ranks served rows, formats the metric in dollars, links each row to the public profile and refetches on window and metric changes', async () => {
     const { root, container, queryClient } = mount(served.origin, <LeaderboardPanel />);
     await waitFor(() => container.querySelectorAll('ol li').length === 3);
     const links = Array.from(container.querySelectorAll<HTMLAnchorElement>('ol li a'));
     expect(links.map(link => link.getAttribute('href'))).toEqual([`/profile/${walletA}`, `/profile/${walletB}`, `/profile/${walletC}`]);
-    expect(links[0].textContent).toContain('+189,384.12 USDL');
-    expect(links[1].textContent).toContain('+153,149.68 USDL');
+    expect(links[0].textContent).toContain('+$189,384.12');
+    expect(links[1].textContent).toContain('+$153,149.68');
     expect(links[1].textContent).toContain('partial');
     expect(links[2].textContent).toContain('No value yet');
     expect(links[2].textContent).not.toContain('USDL');
@@ -237,28 +237,53 @@ describe('LeaderboardPanel against a real HTTP origin', () => {
     act(() => { metricSelect.value = volume!.value; metricSelect.dispatchEvent(new window.Event('change', { bubbles: true })); });
     await waitFor(() => served.paths.includes('/v2/leaderboards/volume?window=24h&limit=25'));
     await waitFor(() => container.querySelectorAll('ol li').length === 3);
-    expect(container.querySelector('ol li a')?.textContent).toContain('189,384.12 USDL');
+    expect(container.querySelector('ol li a')?.textContent).toContain('$189,384.12');
     expect(container.querySelector('ol li a')?.textContent).not.toContain('+189,384.12');
     unmount(root, container, queryClient);
   });
 
-  it('explains the missing rewards category on the Top rewards tab without issuing a request', async () => {
+  it('shows Top traders without tabs and requests only trader and volume rankings through its selects', async () => {
     const before = served.paths.length;
     const { root, container, queryClient } = mount(served.origin, <LeaderboardPanel />);
-    const rewardsTab = buttonNamed(container, 'Top rewards');
-    expect(rewardsTab?.getAttribute('role')).toBe('tab');
-    act(() => rewardsTab?.click());
-    expect(container.textContent).toContain('Top rewards are not available yet');
-    expect(container.querySelector('[data-operation]')).toBeNull();
-    expect(container.textContent).not.toContain('no response');
-    expect(container.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby')).toBe(rewardsTab?.id);
-    expect(served.paths.slice(before).some(path => path.includes('rewards'))).toBe(false);
-    unmount(root, container, queryClient);
+    try {
+      const heading = container.querySelector('h2');
+      expect(heading?.textContent).toBe('Top traders');
+      expect(heading?.id).toBeTruthy();
+      expect(container.querySelector('section')?.getAttribute('aria-labelledby')).toBe(heading?.id);
+      expect(buttonNamed(container, 'Top rewards')).toBeUndefined();
+      expect(container.querySelector('[role="tablist"], [role="tab"], [role="tabpanel"]')).toBeNull();
+      const metricSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Metric"]')!;
+      const windowSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Window"]')!;
+      expect(metricSelect).not.toBeNull();
+      expect(windowSelect).not.toBeNull();
+
+      await waitFor(() => container.querySelectorAll('ol li').length === 3);
+      expect(served.paths.slice(before)).toEqual(['/v2/leaderboards/trader?window=7d&limit=25']);
+      act(() => { windowSelect.value = '24h'; windowSelect.dispatchEvent(new window.Event('change', { bubbles: true })); });
+      await waitFor(() => served.paths.slice(before).includes('/v2/leaderboards/trader?window=24h&limit=25'));
+      await waitFor(() => container.querySelectorAll('ol li').length === 3);
+      act(() => { metricSelect.value = 'volume'; metricSelect.dispatchEvent(new window.Event('change', { bubbles: true })); });
+      await waitFor(() => served.paths.slice(before).includes('/v2/leaderboards/volume?window=24h&limit=25'));
+      await waitFor(() => container.querySelectorAll('ol li').length === 3);
+
+      expect(served.paths.slice(before)).toEqual([
+        '/v2/leaderboards/trader?window=7d&limit=25',
+        '/v2/leaderboards/trader?window=24h&limit=25',
+        '/v2/leaderboards/volume?window=24h&limit=25',
+      ]);
+      expect(served.paths.slice(before).some(path => path.includes('rewards'))).toBe(false);
+      expect(buttonNamed(container, 'Top rewards')).toBeUndefined();
+      expect(container.querySelector('[aria-label="Top rewards"], [title="Top rewards"]')).toBeNull();
+      expect(container.querySelector('[role="tablist"], [role="tab"], [role="tabpanel"]')).toBeNull();
+      expect(container.textContent).not.toMatch(/top rewards|check back soon/i);
+    } finally {
+      unmount(root, container, queryClient);
+    }
   });
 
   it('formats metric values exactly from the raw USDL integer', () => {
-    expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '5', quality: 'complete' }, 'profit')).toBe('< 0.01 USDL');
-    expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '2500000', quality: 'complete' }, 'volume')).toBe('2.50 USDL');
+    expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '5', quality: 'complete' }, 'profit')).toBe('< $0.01');
+    expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '2500000', quality: 'complete' }, 'volume')).toBe('$2.50');
     expect(leaderboardValue({ rank: 4, wallet: walletA, metricRaw: '2500000', quality: 'unavailable' }, 'volume')).toBeNull();
   });
 });

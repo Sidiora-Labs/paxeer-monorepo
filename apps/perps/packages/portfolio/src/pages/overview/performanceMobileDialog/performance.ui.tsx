@@ -9,7 +9,7 @@ import {
   VolumeAreaChart,
 } from "@paxeer-network/chart";
 import { useTranslation } from "@paxeer-network/i18n";
-import { Tabs, TabPanel, Flex, Text } from "@paxeer-network/ui";
+import { Tabs, TabPanel, Flex, Text, EmptyDataState } from "@paxeer-network/ui";
 import type { UsePerformanceScriptReturn } from "../performance/performance.script";
 import {
   PeriodType,
@@ -44,15 +44,9 @@ export const PerformanceMobileUI: React.FC<
     curPeriod,
     period,
     onPeriodChange,
-    createFakeData,
   } = props;
 
-  const mergedData = data.length
-    ? data
-    : (createFakeData?.(
-        { account_value: 0, pnl: 0 },
-        { account_value: 500, pnl: 500 },
-      ) as any[]);
+  const mergedData = data;
 
   const volumeData = React.useMemo(
     () =>
@@ -76,33 +70,45 @@ export const PerformanceMobileUI: React.FC<
           value={PeriodType.WEEK}
           className="oui-min-h-40"
         >
-          <AssetLineChart
-            data={mergedData}
-            invisible={invisible || (data?.length ?? 0) < 2}
-            responsiveContainerProps={responsiveProps}
-          />
+          {invisible || !data.length ? (
+            <EmptyDataState className="oui-min-h-40 oui-justify-center" />
+          ) : (
+            <AssetLineChart
+              data={mergedData}
+              invisible={invisible || (data?.length ?? 0) < 2}
+              responsiveContainerProps={responsiveProps}
+            />
+          )}
         </TabPanel>
         <TabPanel
           title={t("common.select.30d")}
           value={PeriodType.MONTH}
           className="oui-min-h-40"
         >
-          <AssetLineChart
-            data={mergedData}
-            invisible={invisible || (data?.length ?? 0) < 2}
-            responsiveContainerProps={responsiveProps}
-          />
+          {invisible || !data.length ? (
+            <EmptyDataState className="oui-min-h-40 oui-justify-center" />
+          ) : (
+            <AssetLineChart
+              data={mergedData}
+              invisible={invisible || (data?.length ?? 0) < 2}
+              responsiveContainerProps={responsiveProps}
+            />
+          )}
         </TabPanel>
         <TabPanel
           title={t("common.select.90d")}
           value={PeriodType.QUARTER}
           className="oui-min-h-40"
         >
-          <AssetLineChart
-            data={mergedData}
-            invisible={invisible || (data?.length ?? 0) < 2}
-            responsiveContainerProps={responsiveProps}
-          />
+          {invisible || !data.length ? (
+            <EmptyDataState className="oui-min-h-40 oui-justify-center" />
+          ) : (
+            <AssetLineChart
+              data={mergedData}
+              invisible={invisible || (data?.length ?? 0) < 2}
+              responsiveContainerProps={responsiveProps}
+            />
+          )}
         </TabPanel>
       </Tabs>
       <Flex justify="between" itemAlign="center" gap={2} my={4}>
@@ -152,44 +158,60 @@ export const PerformanceMobileUI: React.FC<
           title={t("portfolio.overview.performance.dailyPnl")}
           className="oui-min-h-40"
         >
-          <PnLBarChart
-            data={mergedData}
-            invisible={invisible || (mergedData?.length ?? 0) <= 2}
-            responsiveContainerProps={responsiveProps}
-          />
+          {invisible || !data.length ? (
+            <EmptyDataState className="oui-min-h-40 oui-justify-center" />
+          ) : (
+            <PnLBarChart
+              data={mergedData}
+              invisible={invisible || (mergedData?.length ?? 0) <= 2}
+              responsiveContainerProps={responsiveProps}
+            />
+          )}
         </TabPanel>
         <TabPanel
           value={"cumulativePnl"}
           title={t("portfolio.overview.performance.cumulativePnl")}
           className="oui-min-h-40"
         >
-          <PnlAreaChart
-            data={mergedData}
-            invisible={invisible || (mergedData?.length ?? 0) <= 2}
-            responsiveContainerProps={responsiveProps}
-          />
+          {invisible || !data.length ? (
+            <EmptyDataState className="oui-min-h-40 oui-justify-center" />
+          ) : (
+            <PnlAreaChart
+              data={mergedData}
+              invisible={invisible || (mergedData?.length ?? 0) <= 2}
+              responsiveContainerProps={responsiveProps}
+            />
+          )}
         </TabPanel>
         <TabPanel
           value={"dailyVolume"}
           title={t("portfolio.overview.performance.dailyVolume")}
           className="oui-min-h-40"
         >
-          <VolBarChart
-            data={volumeData}
-            invisible={invisible || (mergedData?.length ?? 0) <= 2}
-            responsiveContainerProps={responsiveProps}
-          />
+          {invisible || !data.length ? (
+            <EmptyDataState className="oui-min-h-40 oui-justify-center" />
+          ) : (
+            <VolBarChart
+              data={volumeData}
+              invisible={invisible || (mergedData?.length ?? 0) <= 2}
+              responsiveContainerProps={responsiveProps}
+            />
+          )}
         </TabPanel>
         <TabPanel
           value={"cumulativeVolume"}
           title={t("portfolio.overview.performance.cumulativeVolume")}
           className="oui-min-h-40"
         >
-          <VolumeAreaChart
-            data={mergedData}
-            invisible={invisible || (mergedData?.length ?? 0) <= 2}
-            responsiveContainerProps={responsiveProps}
-          />
+          {invisible || !data.length ? (
+            <EmptyDataState className="oui-min-h-40 oui-justify-center" />
+          ) : (
+            <VolumeAreaChart
+              data={mergedData}
+              invisible={invisible || (mergedData?.length ?? 0) <= 2}
+              responsiveContainerProps={responsiveProps}
+            />
+          )}
         </TabPanel>
       </Tabs>
     </div>

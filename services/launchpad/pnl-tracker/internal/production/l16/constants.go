@@ -10,6 +10,7 @@ const (
 	statusPartial       = "partial"
 	statusUnknown       = "unknown"
 	statusUnpriced      = "unpriced"
+	statusPriced        = "priced"
 	symbolUSDL          = "USDL"
 	tokenERC20          = "erc20"
 	portfolioSnapshotV2 = "portfolio.snapshot.v2"

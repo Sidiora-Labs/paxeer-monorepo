@@ -49,6 +49,8 @@ export const ChainMenu = (props: UseChainMenuScriptReturn) => {
     );
   }
 
+  if (!props.loading && !props.currentChainId) return null;
+
   const renderIcon = () => {
     if (props.loading) {
       return <Spinner className="oui-w-[18px] oui-h-[18px]" />;
