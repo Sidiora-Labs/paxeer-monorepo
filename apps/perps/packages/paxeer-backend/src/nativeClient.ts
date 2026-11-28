@@ -15,6 +15,12 @@ import {
   rowFundingFee,
 } from "./core/perps/positionDetails";
 import {
+  indexTimeMs,
+  quantityAtPrice,
+  triggerIdFields,
+  orderListVariables,
+} from "./core/perps/indexRows";
+import {
   subgraphQuery,
   ORDERS_QUERY,
   TRADES_QUERY,
@@ -105,8 +111,8 @@ export function nativePositionRows() {
       pending_long_qty: 0,
       pending_short_qty: 0,
       leverage: Number(formatUnits(BigInt(position.leverage), 18)),
-      timestamp: Number(position.openedAt) * 1000,
-      updated_time: Number(position.openedAt) * 1000,
+      timestamp: indexTimeMs(position.openedAt) ?? 0,
+      updated_time: indexTimeMs(position.openedAt) ?? 0,
     };
   });
   const totalNotional = rows.reduce(
@@ -360,10 +366,11 @@ export async function nativeRequest(
       })),
     );
   if (/\/(?:algo\/)?orders$/.test(path)) {
-    const result = await subgraphQuery<{ orders: any[] }>(ORDERS_QUERY, {
-      userAddress: state.address!.toLowerCase(),
-    });
     const wanted = location.searchParams.get("status");
+    const result = await subgraphQuery<{ orders: any[] }>(
+      ORDERS_QUERY,
+      orderListVariables(state.address!.toLowerCase(), wanted),
+    );
     const wantedSymbol = location.searchParams.get("symbol");
     const rows = result.orders
       .map((row) => {
@@ -374,7 +381,14 @@ export async function nativeRequest(
               ?.symbol,
         )?.symbol;
         const price = Number(formatUnits(BigInt(row.triggerPrice), 18));
-        const size = Number(formatUnits(BigInt(row.sizeUsd), 18));
+        const quantity = quantityAtPrice(
+          BigInt(row.sizeUsd),
+          BigInt(row.triggerPrice),
+        );
+        const executionPrice =
+          row.executionPrice !== null && row.executionPrice !== undefined
+            ? BigInt(row.executionPrice)
+            : undefined;
         const type = String(row.orderTypeName)
           .replace(/([a-z])([A-Z])/g, "$1_$2")
           .replace(/ /g, "_")
@@ -392,16 +406,29 @@ export async function nativeRequest(
           ...row,
           symbol,
           order_id: row.orderId,
-          algo_order_id: row.orderId,
+          ...triggerIdFields(type, row.orderId),
           order_type: type,
           type,
           side: row.isLong ? "BUY" : "SELL",
           order_price: price,
           price,
-          order_quantity: price > 0 ? size / price : undefined,
-          quantity: price > 0 ? size / price : undefined,
-          created_time: Number(row.placedAt) * 1000,
-          updated_time: Number(row.resolvedAt ?? row.placedAt) * 1000,
+          order_quantity: quantity,
+          quantity,
+          ...(row.remainingSize !== null && row.remainingSize !== undefined
+            ? {
+                total_executed_quantity: quantityAtPrice(
+                  BigInt(row.sizeUsd) - BigInt(row.remainingSize),
+                  BigInt(row.triggerPrice),
+                ),
+              }
+            : {}),
+          average_executed_price:
+            executionPrice !== undefined && executionPrice > 0n
+              ? Number(formatUnits(executionPrice, 18))
+              : null,
+          created_time: indexTimeMs(row.placedAt),
+          updated_time:
+            indexTimeMs(row.resolvedAt) ?? indexTimeMs(row.placedAt),
           status,
         };
       })
@@ -445,7 +472,7 @@ export async function nativeRequest(
         realized_pnl: Number(formatUnits(BigInt(row.realizedPnl ?? 0), 18)),
         fee: Number(formatUnits(BigInt(row.feeUsd ?? 0), 18)),
         executed_price: Number(formatUnits(BigInt(row.price), 18)),
-        created_time: Number(row.blockTimestamp) * 1000,
+        created_time: indexTimeMs(row.blockTimestamp),
       })),
     });
   }
@@ -466,7 +493,7 @@ export async function nativeRequest(
             : "DEPOSIT",
           trans_status: "COMPLETED",
           tx_id: row.txHash,
-          created_time: Number(row.blockTimestamp) * 1000,
+          created_time: indexTimeMs(row.blockTimestamp),
         };
       }),
     });
