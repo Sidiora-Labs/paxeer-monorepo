@@ -275271,7 +275271,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.1331]
 title = "Let the script of the local chain wait for the first block of the node that it has started again for the sequencing before it sends a governance transaction, write the two heights of that wait into its output file and prove them with a case, so that a counted verification no longer ends at a refused signature"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
