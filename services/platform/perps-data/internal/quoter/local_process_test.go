@@ -20,14 +20,15 @@ import (
 )
 
 type localQuoterProcess struct {
-	command   *exec.Cmd
-	done      chan error
-	output    *os.File
-	healthURL string
-	stopped   bool
+	command          *exec.Cmd
+	done             chan error
+	output           *os.File
+	healthURL        string
+	stopped          bool
+	ordersLeftOnStop int
 }
 
-func startLocalQuoter(t *testing.T, ctx context.Context, cfg *config.Config) *localQuoterProcess {
+func startLocalQuoter(t *testing.T, ctx context.Context, cfg *config.Config, settings ...string) *localQuoterProcess {
 	t.Helper()
 	binary := filepath.Join(t.TempDir(), "perps-quoter")
 	build := exec.CommandContext(ctx, "go", "build", "-o", binary, "../../cmd/perps-quoter")
@@ -53,6 +54,7 @@ func startLocalQuoter(t *testing.T, ctx context.Context, cfg *config.Config) *lo
 		"PERPS_QUOTER_KEY_FILE="+cfg.Quoting.KeyFile,
 		"PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND="+strconv.Itoa(cfg.Quoting.MaxTransactionsPerRound),
 		"PERPS_QUOTER_MARKETS=0", "PERPS_QUOTER_MODE=live", "PORT="+strconv.Itoa(port))
+	command.Env = append(command.Env, settings...)
 	command.Stdout, command.Stderr = logs, logs
 	require.NoError(t, command.Start())
 	p := &localQuoterProcess{command: command, done: make(chan error, 1), output: logs, healthURL: "http://127.0.0.1:" + strconv.Itoa(port) + "/healthz"}
@@ -134,7 +136,7 @@ func (p *localQuoterProcess) transactions(t *testing.T, bound int) ([]int, uint6
 		if entry.Message == "quoter round" {
 			require.GreaterOrEqual(t, entry.Transactions, 0)
 			require.LessOrEqual(t, entry.Transactions, bound)
-			require.Less(t, entry.Transactions, 16)
+			require.LessOrEqual(t, entry.Transactions, 256)
 			rounds = append(rounds, entry.Transactions)
 			total += uint64(entry.Transactions)
 		}
@@ -163,5 +165,5 @@ func (p *localQuoterProcess) stop(t *testing.T) {
 		p.stopped = true
 		t.Fatal("quoter shutdown timed out")
 	}
-	require.Contains(t, p.logs(), `"msg":"perps-quoter shutdown","mode":"live","ordersLeft":0`)
+	require.Contains(t, p.logs(), `"msg":"perps-quoter shutdown","mode":"live","ordersLeft":`+strconv.Itoa(p.ordersLeftOnStop))
 }

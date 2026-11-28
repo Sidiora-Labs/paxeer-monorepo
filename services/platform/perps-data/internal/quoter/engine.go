@@ -42,11 +42,12 @@ type Health struct {
 	TransactionsLastRound int            `json:"transactionsLastRound"`
 }
 type marketRound struct {
-	anchor *big.Int
-	born   time.Time
-	round  uint64
-	seen   map[[16]byte]bool
-	health MarketHealth
+	started bool
+	anchor  *big.Int
+	born    time.Time
+	round   uint64
+	seen    map[[16]byte]bool
+	health  MarketHealth
 }
 
 // Engine serializes rounds and shutdown while allowing concurrent health reads.
@@ -59,6 +60,7 @@ type Engine struct {
 	health     Health
 	states     map[uint64]*marketRound
 	generation uint64
+	nextMarket *uint64
 }
 
 func New(chain Chain, q config.QuoterConfig, logger *slog.Logger) (*Engine, error) {
@@ -175,11 +177,20 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 			ids = append(ids, o.Market)
 		}
 	}
+	if e.nextMarket != nil {
+		if index := slices.Index(ids, *e.nextMarket); index >= 0 {
+			ids = append(slices.Clone(ids[index:]), ids[:index]...)
+		}
+	}
+	e.nextMarket = nil
 	plans := map[uint64][]Order{}
 	drySpent := new(big.Int)
+markets:
 	for _, id := range ids {
 		marketTransactions := transactions
 		state := e.state(id)
+		first := !state.started
+		state.started = true
 		snap, err := e.chain.Snapshot(ctx, id)
 		if err == nil {
 			err = validateSnapshot(snap)
@@ -201,6 +212,9 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 					e.observe(state, current, now)
 				}
 			}
+			if e.nextMarket != nil {
+				break
+			}
 			continue
 		}
 		e.observe(state, snap, now)
@@ -214,6 +228,19 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 		}
 		var wanted []Order
 		if selected && fresh(snap, now.Add(time.Since(started)), e.cfg.MaxPriceAge) && !cooling {
+			if first {
+				if anchor, generation, ok := e.carryOver(snap, now); ok {
+					state.anchor = anchor
+					state.round = generation
+					state.born = time.UnixMilli(int64(generation)).UTC()
+					state.seen = map[[16]byte]bool{}
+					for _, o := range snap.Orders {
+						state.seen[o.Cloid] = true
+					}
+					e.generation = max(e.generation, generation)
+					e.log.Info("quoter keep", "market", id, "round", generation, "orders", len(snap.Orders))
+				}
+			}
 			renew := state.anchor == nil || now.Sub(state.born) >= e.cfg.MaxQuoteAge
 			if !renew {
 				renew = priceMoved(state.anchor, snap.Price.Mark, e.cfg.RefreshBPS)
@@ -266,12 +293,12 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 				kept = append(kept, actual)
 				continue
 			}
+			if e.roundLimit(id, transactions) {
+				result = errors.Join(result, e.closeMarket(ctx, id, state, now, transactions > marketTransactions))
+				break markets
+			}
 			e.log.Info("quoter cancel", "mode", e.cfg.Mode, "order", orderText(actual))
 			if e.cfg.Mode == "live" {
-				if transactions >= e.cfg.MaxTransactionsPerRound {
-					cancelFailed = true
-					continue
-				}
 				transactions++
 				if err := e.chain.Cancel(ctx, actual); err != nil {
 					e.record(state, err, now)
@@ -310,8 +337,9 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 			if found {
 				continue
 			}
-			if e.cfg.Mode == "live" && transactions >= e.cfg.MaxTransactionsPerRound {
-				break
+			if e.roundLimit(id, transactions) {
+				result = errors.Join(result, e.closeMarket(ctx, id, state, now, transactions > marketTransactions))
+				break markets
 			}
 			current := snap
 			current.Orders = kept
@@ -328,7 +356,8 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 				e.observe(state, current, now)
 				budget = clone(current.FreeUSD)
 				if !fresh(current, now.Add(time.Since(started)), e.cfg.MaxPriceAge) {
-					result = errors.Join(result, e.cancelMarket(ctx, id, now, &transactions))
+					cancelErr := e.cancelMarket(ctx, id, now, &transactions)
+					result = errors.Join(result, cancelErr)
 					state.anchor = nil
 					break
 				}
@@ -358,10 +387,14 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 			kept = append(kept, target)
 		}
 		if now.Before(state.health.RestUntil) && e.cfg.Mode == "live" {
-			result = errors.Join(result, e.cancelMarket(ctx, id, now, &transactions))
+			cancelErr := e.cancelMarket(ctx, id, now, &transactions)
+			result = errors.Join(result, cancelErr)
 		}
 		// Refresh the book after a transaction, including a refused submission.
 		if transactions == marketTransactions {
+			if e.nextMarket != nil {
+				break
+			}
 			continue
 		}
 		current, err := e.chain.Snapshot(ctx, id)
@@ -373,6 +406,9 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 			result = errors.Join(result, failed(reason(err)))
 		} else {
 			e.observe(state, current, now)
+		}
+		if e.nextMarket != nil {
+			break
 		}
 	}
 	e.publish(now)
@@ -404,11 +440,11 @@ func (e *Engine) cancelMarket(ctx context.Context, id uint64, now time.Time, tra
 		if o.Market != id {
 			continue
 		}
+		if e.roundLimit(id, *transactions) {
+			return result
+		}
 		e.log.Info("quoter cancel", "mode", e.cfg.Mode, "order", orderText(o))
 		if e.cfg.Mode == "live" {
-			if *transactions >= e.cfg.MaxTransactionsPerRound {
-				break
-			}
 			*transactions++
 			if err := e.chain.Cancel(ctx, o); err != nil {
 				e.record(e.state(id), err, now)
@@ -503,8 +539,9 @@ func (e *Engine) Handler() http.Handler {
 }
 
 // Run checks the stop variable before each round and uses a fresh context for
-// cancellation after the signal context has ended.
-func (e *Engine) Run(ctx context.Context, stop func() bool) error {
+// cancellation after the signal context has ended. An optional signal predicate
+// distinguishes a signal from cancellation caused by the health server.
+func (e *Engine) Run(ctx context.Context, stop func() bool, signal ...func() bool) error {
 	ticker := time.NewTicker(e.cfg.Interval)
 	defer ticker.Stop()
 	for ctx.Err() == nil && !e.cfg.Stop && (stop == nil || !stop()) {
@@ -518,6 +555,14 @@ func (e *Engine) Run(ctx context.Context, stop func() bool) error {
 	}
 	cleanup, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
+	stopping := e.cfg.Stop || (stop != nil && stop())
+	signalled := ctx.Err() != nil
+	if len(signal) > 0 {
+		signalled = signalled && signal[0]()
+	}
+	if e.cfg.Handover && signalled && !stopping {
+		return e.handover(cleanup)
+	}
 	_, err := e.Stop(cleanup)
 	return err
 }

@@ -31,6 +31,7 @@ type QuoterConfig struct {
 	MaxTransactionsPerRound int           `json:"maxTransactionsPerRound"`
 	Mode                    string        `json:"mode"`
 	Stop                    bool          `json:"stop"`
+	Handover                bool          `json:"handover"`
 }
 
 const quoterPrefix = "PERPS_QUOTER_"
@@ -142,11 +143,16 @@ func loadQuoter() (*QuoterConfig, error) {
 	if raw, set := os.LookupEnv(quoterPrefix + "MODE"); set {
 		q.Mode = raw
 	}
-	if raw, set := os.LookupEnv(quoterPrefix + "STOP"); set {
-		if raw != "true" && raw != "false" {
-			return nil, errors.New(quoterPrefix + "STOP must be true or false")
+	for _, v := range []struct {
+		name   string
+		target *bool
+	}{{"STOP", &q.Stop}, {"HANDOVER", &q.Handover}} {
+		if raw, set := os.LookupEnv(quoterPrefix + v.name); set {
+			if raw != "true" && raw != "false" {
+				return nil, fmt.Errorf("%s%s must be true or false", quoterPrefix, v.name)
+			}
+			*v.target = raw == "true"
 		}
-		q.Stop = raw == "true"
 	}
 	return &q, q.Validate()
 }
@@ -180,8 +186,8 @@ func (q QuoterConfig) Validate() error {
 	if q.RefusalLimit < 1 || q.RefusalLimit > 100 {
 		return errors.New(quoterPrefix + "REFUSAL_LIMIT must be in [1,100]")
 	}
-	if q.MaxTransactionsPerRound < 1 || q.MaxTransactionsPerRound > 15 {
-		return errors.New(quoterPrefix + "MAX_TRANSACTIONS_PER_ROUND must be in [1,15]")
+	if q.MaxTransactionsPerRound < 1 || q.MaxTransactionsPerRound > 256 {
+		return errors.New(quoterPrefix + "MAX_TRANSACTIONS_PER_ROUND must be in [1,256]")
 	}
 	seen := map[uint64]bool{}
 	for _, id := range q.Markets {
