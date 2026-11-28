@@ -183300,7 +183300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1326]
 title = "Let the margin figures of the trading workspace pass over a position row without a maintenance margin instead of throwing, so that the pages of an account with an open position load again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
