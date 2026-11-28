@@ -215428,7 +215428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1322]
 title = "Let the chain fixture of the holdings service of the launchpad repeat a range that the epoch check refuses by its own bound, as the run loop of the indexer does, and add a case for the repeat"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
