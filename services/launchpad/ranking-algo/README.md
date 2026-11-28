@@ -18,5 +18,6 @@ A non-200 visibility response, incomplete response, missing or null `pools`,
 missing observation time, future observation, observation older than 60 seconds,
 or revision whose length is not 64 characters remains unavailable. A frozen
 refresh also requires the visibility observation to be at or before its cutoff
-and no more than 60 seconds earlier. Empty markets do not bypass source
-completeness, accounting coherence or publication checks.
+and no more than 60 seconds earlier. On the service path, visibility is read first
+and the cutoff is then taken from the database clock. Empty markets do not bypass
+source completeness, accounting coherence or publication checks.

@@ -48,6 +48,7 @@ func (s *FrozenInputs) Freeze(ctx context.Context, runID string, cutoffs ...time
 
 // FreezeAtDatabaseClock is the service path. The transaction chooses and uses
 // one UTC second for every input comparison.
+// Visibility is read and validated before the transaction reads its clock.
 func (s *FrozenInputs) FreezeAtDatabaseClock(ctx context.Context, runID string) (ranker.InputSnapshot, error) {
 	return s.freeze(ctx, runID, nil)
 }
@@ -145,14 +146,10 @@ func (r *CanonicalInputReader) ReadRankingUniverseTxDetailed(ctx context.Context
 	var cutoff time.Time
 	if len(cutoffs) == 1 {
 		cutoff = cutoffs[0].UTC().Truncate(time.Second)
-	} else if err := tx.QueryRow(ctx, "SELECT date_trunc('second', clock_timestamp())").Scan(&cutoff); err != nil {
-		return in, err
-	} else {
-		cutoff = cutoff.UTC().Truncate(time.Second)
-	}
-	in.CutoffTimeUTC = cutoff.Unix()
-	if cutoff.Unix() < 86400 {
-		return in, ranker.NewRefreshRefusal("cutoff", "validation", ranker.ErrUnavailable)
+		in.CutoffTimeUTC = cutoff.Unix()
+		if cutoff.Unix() < 86400 {
+			return in, ranker.NewRefreshRefusal("cutoff", "validation", ranker.ErrUnavailable)
+		}
 	}
 	visibility, err := r.Visibility.ReadRankingVisibility(ctx)
 	if err != nil {
@@ -160,6 +157,16 @@ func (r *CanonicalInputReader) ReadRankingUniverseTxDetailed(ctx context.Context
 	}
 	if !visibility.Complete || visibility.Revision == "" || visibility.ObservedAt.IsZero() {
 		return in, ranker.NewRefreshRefusal("visibility", "validation", ranker.ErrUnavailable)
+	}
+	if len(cutoffs) == 0 {
+		if err := tx.QueryRow(ctx, "SELECT date_trunc('second', clock_timestamp())").Scan(&cutoff); err != nil {
+			return in, err
+		}
+		cutoff = cutoff.UTC().Truncate(time.Second)
+		in.CutoffTimeUTC = cutoff.Unix()
+		if cutoff.Unix() < 86400 {
+			return in, ranker.NewRefreshRefusal("cutoff", "validation", ranker.ErrUnavailable)
+		}
 	}
 	// The snapshot admits only moderation observed at or before the cutoff and
 	// at most 60 s before it; an observation outside that window would exclude
