@@ -183360,7 +183360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1330]
 title = "Let the rate of the result of a position row of the trading workspace come from the leverage of the position, and feed the liquidation price and the funding of the venue into the row with one read for each open position, so that a position of a cross account no longer shows 0.00 beside its result and no funding fee"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
