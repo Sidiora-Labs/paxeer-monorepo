@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { getContractByEnv } from "./abis/contrast";
+import { claimedReadTarget } from "./claimedTarget";
 import { toOrder } from "./utils";
 import { useGetEnv } from "./useGetEnv";
 import { useAccount } from "../useAccount";
@@ -52,12 +53,18 @@ export const useGetClaimed = (
     )
       return;
 
+    const target = claimedReadTarget(
+      params.paxeerNetworkChainRpcUrl,
+      params.paxeerNetworkContract
+    );
+    if (target === null) return;
+
     console.log(`get claimed(${id})`, [id, address]);
     account.walletAdapter
       ?.callOnChain(
         // @ts-ignore
-        { public_rpc_url: params.paxeerNetworkChainRpcUrl },
-        params.paxeerNetworkContract,
+        { public_rpc_url: target.endpoint },
+        target.ledger,
         "getClaimed",
         [id, address],
         {
