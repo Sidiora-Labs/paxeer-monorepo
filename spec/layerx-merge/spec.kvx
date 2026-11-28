@@ -275286,7 +275286,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.39.1333]
 title = "Store a copy of the round state in the consensus reactor right after the load of the state and right before the ready signal, and let the routine queryMaj23Routine read the vote set of a copy only where the copy has one, so that a node that starts without a wait for the sync no longer ends with a nil pointer fault"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
