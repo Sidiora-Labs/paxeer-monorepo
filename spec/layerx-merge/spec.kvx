@@ -215553,7 +215553,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1328]
 title = "Let a ranking run ask for the visibility before it takes its cutoff from the clock of the database, so that a turn of a second between the two reads no longer refuses a run whose inputs are complete"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
