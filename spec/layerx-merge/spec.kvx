@@ -17794,6 +17794,12 @@ value = "One. Keeping after a start. At the first snapshot of a market after the
 basis = "Gotcha 5057."
 affects = []
 
+[decision.4114]
+title = "The sum of the maintenance margins of the position rows passes over a row without a finite value, and gives no figure when no row has one"
+value = "One. The function. useMarginRatio.ts gets one function for the sum, exported under the name sumPositionMaintenanceMargin. It takes the rows, or null or nothing in their place, and returns a number or null. It adds the field mm of a row only when the value is a finite number. A row without the field, a row whose field is null or undefined, a value that is not a number, the value NaN and an infinite value are passed over. The add stays an add of the decimal type of the workspace, as it is today, so that 0.1 and 0.2 give 0.3. It returns null when there are no rows and when no row gave a value. Two. The two memo functions of gotcha 5058 point four take their sum from that function. No other place of the file adds the field. The maintenance margin ratio is null when the sum is null; otherwise it is what the function MMR of apps/perps/packages/perp/src/account/mmr.ts gives for the sum and the notional, as today (that function gives null for a notional of 0, line 46). The maintenance margin is the sum, and null when the sum is null. For a list in which every row carries a finite value both results are what they are today. A list in which no row carries one gets null for the maintenance margin, where the present code would give 0 for rows whose field is null; the views show no figure for null. Three. What stays. The checks of the rows and of the notional before the sum, the margin ratio, the current leverage and the type of what the function useMarginRatio returns stay as they are. Four. The cases. A new file apps/perps/tests/margin-ratio-missing-field.test.ts holds them. They call the function of point one with rows of their own making and render no view. When the load of useMarginRatio.ts needs a window, the file makes one before the load in the way of apps/perps/tests/native-order-funding.test.ts. No case needs a node, a wallet or a network. Five. Not done in this task. apps/perps/packages/paxeer-backend/src/nativeClient.ts and NativeRuntime.tsx do not change: the figures that the row and the account of the native binding do not show, gotcha 5058 point eight, get a task of their own. No file of the record of the presentation changes, and no text, name or style of the workspace changes. Six. After the task. A deployment built with the change is rendered in the way of gotcha 5058 point three with the address of an account that holds an open position: the trade page and the portfolio page show the workspace. A further error that such a render shows gets a task of its own. "
+basis = "Gotcha 5058."
+affects = []
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -47454,6 +47460,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.1326]
+title = "Let the margin figures of the trading workspace pass over a position row without a maintenance margin instead of throwing, so that the pages of an account with an open position load again"
+reqs = ["22998.1"]
+touches = ["apps/perps/packages/hooks/src/paxeer-network/useMarginRatio.ts", "apps/perps/tests"]
+tests = []
+verification_contract = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/margin-ratio-missing-field.test.ts && grep -e aRowWithoutTheFieldIsPassedOver apps/perps/tests/margin-ratio-missing-field.test.ts > /dev/null && grep -e aValueThatIsNoFiniteNumberIsPassedOver apps/perps/tests/margin-ratio-missing-field.test.ts > /dev/null && grep -e whenNoRowGivesAValueTheSumIsNull apps/perps/tests/margin-ratio-missing-field.test.ts > /dev/null && grep -e valuesAddUpAsDecimals apps/perps/tests/margin-ratio-missing-field.test.ts > /dev/null"
+do_1 = "do_1 Gotcha 5058, decision 4114. Read whole: useMarginRatio.ts, the file that the paths name, and apps/perps/tests/native-order-funding.test.ts as the model of a case file that loads files of the workspace. Read the function nativePositionRows of apps/perps/packages/paxeer-backend/src/nativeClient.ts and the type PositionExt of apps/perps/packages/types/src/types/api.ts; both lie outside the paths and do not change. This task changes useMarginRatio.ts and adds apps/perps/tests/margin-ratio-missing-field.test.ts. It changes no other file."
+symbols = []
 
 [capability.22.39.1325]
 title = "Let the quoting process of the trading venue keep its resting orders over a restart, go on at the market where a round reached its bound of transactions, and accept a bound of up to 256, so that a restart no longer cancels and places every order and no market waits behind the others"
@@ -183279,6 +183294,39 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.1326]
+title = "Let the margin figures of the trading workspace pass over a position row without a maintenance margin instead of throwing, so that the pages of an account with an open position load again"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.1326"]
+interfaces = []
+do_1 = "do_1 Gotcha 5058, decision 4114. Read whole: useMarginRatio.ts, the file that the paths name, and apps/perps/tests/native-order-funding.test.ts as the model of a case file that loads files of the workspace. Read the function nativePositionRows of apps/perps/packages/paxeer-backend/src/nativeClient.ts and the type PositionExt of apps/perps/packages/types/src/types/api.ts; both lie outside the paths and do not change. This task changes useMarginRatio.ts and adds apps/perps/tests/margin-ratio-missing-field.test.ts. It changes no other file."
+do_2 = "do_2 Before the rule, a run by hand. It is part of the work of this task and is not left out. Run the build. Add the function sumPositionMaintenanceMargin to useMarginRatio.ts first with the present comparison of line 98, write the case aRowWithoutTheFieldIsPassedOver and run it with the command pnpm --dir apps/perps exec node --test --import tsx tests/margin-ratio-missing-field.test.ts. It does not pass: the add throws the error of the decimal library of gotcha 5058 point three. Keep its message for the final message."
+do_3 = "do_3 The function and the two memo functions, points one to three. The function sumPositionMaintenanceMargin gets the rule of point one. The memo function of the maintenance margin ratio (the comparison at line 98, the add at line 101, the call of MMR at line 105) and the memo function of the maintenance margin (the comparison at line 124, the add at line 125) take their sum from it as point two says. Their checks at lines 90 and 116 and their lists of dependencies stay. Nothing else of the file changes."
+do_4 = "do_4 The cases, point four, each under its name. aRowWithoutTheFieldIsPassedOver: two rows, the first without the field mm and the second with the value 2.5; the function does not throw and returns 2.5. aValueThatIsNoFiniteNumberIsPassedOver: rows whose field is null, undefined, NaN, an infinite value and a text, and one row with the value 4; the function returns 4. whenNoRowGivesAValueTheSumIsNull: the function returns null for null in place of the rows, for an empty list, and for a list whose rows all lack a finite value. valuesAddUpAsDecimals: rows with the values 0.1 and 0.2 return a number strictly equal to 0.3, and rows with the values 1.25 and 2.5 return 3.75. No case waits longer than a few seconds."
+do_5 = "do_5 Point five holds throughout. Give in the final message the message of the run of do_2, for each case its result, whether the case file needed a window for the load, and the lines of the two memo functions after the change."
+do_6 = "do_6 First run each command of the build and of the verification by hand, in the order of the command line, in the working tree. Repair what a command shows inside the paths and repeat it until the whole sequence passes. These runs by hand are part of the work of this task and are not left out; they are made with the commands themselves, they are not the counted runs and they use no repair cycle. Then run the verification. A case of the verification that does not pass for a cause outside the paths: change nothing there and give test, file and first message in the final message. No case of a new file is marked todo or skipped in the final revision unless this text says so. Before each commit read the output of git status. The spec tool changes spec/layerx-merge/spec.kvx when it records the task: leave that file as it is and do not restore it. Do not ask a question and wait for its answer: decide and name the decision in the final message. Run the build once and the verification once at the final revision."
+symbols = []
+touches = ["apps/perps/packages/hooks/src/paxeer-network/useMarginRatio.ts", "apps/perps/tests"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck"
+verify_cmd = "pnpm --dir apps/perps install --frozen-lockfile && pnpm --dir apps/perps typecheck && pnpm --dir apps/perps run check:ui && pnpm --dir apps/perps exec node --test --import tsx tests/margin-ratio-missing-field.test.ts && grep -e aRowWithoutTheFieldIsPassedOver apps/perps/tests/margin-ratio-missing-field.test.ts > /dev/null && grep -e aValueThatIsNoFiniteNumberIsPassedOver apps/perps/tests/margin-ratio-missing-field.test.ts > /dev/null && grep -e whenNoRowGivesAValueTheSumIsNull apps/perps/tests/margin-ratio-missing-field.test.ts > /dev/null && grep -e valuesAddUpAsDecimals apps/perps/tests/margin-ratio-missing-field.test.ts > /dev/null"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-markets"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
