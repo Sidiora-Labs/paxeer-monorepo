@@ -11,6 +11,10 @@ import { executeNativeOrder, cancelNativeOrder } from "./nativeTrading";
 import { COLLATERAL_TOKENS, PERPS_MARKETS } from "./core/perps/config";
 import { highestPerpsFeeTier } from "./core/perps/feeTier";
 import {
+  positionMarginRate,
+  rowFundingFee,
+} from "./core/perps/positionDetails";
+import {
   subgraphQuery,
   ORDERS_QUERY,
   TRADES_QUERY,
@@ -56,13 +60,7 @@ export function nativePositionRows() {
     const quantity =
       entry > 0 ? (size / entry) * (position.isLong ? 1 : -1) : 0;
     const leverage = Number(formatUnits(BigInt(position.leverage), 18));
-    const imr = size > 0 ? collateral / size : undefined;
-    const rate =
-      imr !== undefined && Number.isFinite(imr) && imr > 0
-        ? imr
-        : Number.isFinite(leverage) && leverage > 0
-          ? 1 / leverage
-          : 0;
+    const rate = positionMarginRate(leverage, collateral, size);
     const roi = (pnl: number) =>
       Number.isFinite(pnl) &&
       pnl !== 0 &&
@@ -96,8 +94,13 @@ export function nativePositionRows() {
       est_liq_price: position.liquidationPrice
         ? Number(formatUnits(BigInt(position.liquidationPrice), 18))
         : undefined,
+      accrued_funding_fee: rowFundingFee(
+        position.fundingOwedUsd === undefined
+          ? undefined
+          : Number(formatUnits(BigInt(position.fundingOwedUsd), 18)),
+      ),
       cost_position: size,
-      imr: size > 0 ? collateral / size : undefined,
+      imr: rate > 0 ? rate : undefined,
       mmr: undefined,
       pending_long_qty: 0,
       pending_short_qty: 0,

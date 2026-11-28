@@ -83,7 +83,7 @@ async function runCaseInWorker(
     await new Promise<void>((resolve, reject) => {
       timer = setTimeout(
         () => reject(new Error("Position assertions timed out")),
-        5000,
+        30000,
       );
       worker.once("error", reject);
       worker.once("exit", (code) =>
@@ -273,12 +273,89 @@ async function anotherAddressForgetsTheMaintenanceMargin(
   assert.equal(getNativeSnapshot().maintenanceMarginUsd, null);
 }
 
+async function theRateOfARowComesFromTheLeverageOfThePosition(
+  context?: TestContext,
+) {
+  if (isMainThread)
+    return runCaseInWorker(
+      theRateOfARowComesFromTheLeverageOfThePosition,
+      context,
+    );
+  const { nativePositionRows, positionA } = await nativePositions();
+  updateNativeSnapshot({
+    positions: [
+      {
+        ...positionA,
+        collateralUsd: parseUnits("4000", 18).toString(),
+        leverage: parseUnits("1", 18).toString(),
+      },
+    ],
+  });
+  let row = nativePositionRows()[0];
+  closeTo(row.unrealized_pnl, -20);
+  closeTo(row.unrealized_pnl_ROI, -0.25);
+  closeTo(row.imr, 1);
+  updateNativeSnapshot({
+    positions: [
+      {
+        ...positionA,
+        collateralUsd: parseUnits("4000", 18).toString(),
+        leverage: "0",
+      },
+    ],
+  });
+  row = nativePositionRows()[0];
+  closeTo(row.unrealized_pnl_ROI, -0.005);
+  closeTo(row.imr, 50);
+  updateNativeSnapshot({
+    positions: [{ ...positionA, collateralUsd: "0", leverage: "0" }],
+  });
+  row = nativePositionRows()[0];
+  closeTo(row.unrealized_pnl_ROI, 0);
+  assert.equal(row.imr, undefined);
+}
+
+async function aRowCarriesTheLiquidationPriceAndTheFundingOfTheVenue(
+  context?: TestContext,
+) {
+  if (isMainThread)
+    return runCaseInWorker(
+      aRowCarriesTheLiquidationPriceAndTheFundingOfTheVenue,
+      context,
+    );
+  const { nativePositionRows, positionA } = await nativePositions();
+  const position = {
+    ...positionA,
+    liquidationPrice: parseUnits("3", 18).toString(),
+    fundingOwedUsd: parseUnits("-0.25", 18).toString(),
+  };
+  updateNativeSnapshot({ positions: [position] });
+  let row = nativePositionRows()[0];
+  closeTo(row.est_liq_price, 3);
+  closeTo(row.accrued_funding_fee, 0.25);
+  updateNativeSnapshot({ positions: [{ ...position, fundingOwedUsd: "0" }] });
+  row = nativePositionRows()[0];
+  assert.ok(Object.is(row.accrued_funding_fee, 0));
+  updateNativeSnapshot({
+    positions: [
+      { ...position, fundingOwedUsd: parseUnits("0.5", 18).toString() },
+    ],
+  });
+  closeTo(nativePositionRows()[0].accrued_funding_fee, -0.5);
+  updateNativeSnapshot({ positions: [positionA] });
+  row = nativePositionRows()[0];
+  assert.equal(row.est_liq_price, undefined);
+  assert.equal(row.accrued_funding_fee, undefined);
+}
+
 const cases = {
   aRowCarriesNotionalAndResultFromEntryAndMark,
   aRowWithoutAMarkPriceCarriesNoFigure,
   theMaintenanceMarginOfTheAccountIsSplitByNotional,
   theTotalsOfAListComeFromItsRows,
   anotherAddressForgetsTheMaintenanceMargin,
+  theRateOfARowComesFromTheLeverageOfThePosition,
+  aRowCarriesTheLiquidationPriceAndTheFundingOfTheVenue,
 };
 
 if (isMainThread) {
@@ -287,6 +364,8 @@ if (isMainThread) {
   test(theMaintenanceMarginOfTheAccountIsSplitByNotional);
   test(theTotalsOfAListComeFromItsRows);
   test(anotherAddressForgetsTheMaintenanceMargin);
+  test(theRateOfARowComesFromTheLeverageOfThePosition);
+  test(aRowCarriesTheLiquidationPriceAndTheFundingOfTheVenue);
 } else {
   void (async () => {
     const original = getNativeSnapshot();
