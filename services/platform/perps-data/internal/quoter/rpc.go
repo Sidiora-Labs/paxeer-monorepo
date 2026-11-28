@@ -22,6 +22,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 
+	"golang.org/x/sync/errgroup"
+
 	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
 	priceabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pricefeed/abi"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
@@ -34,6 +36,7 @@ var venueABI, venueABIError = perpsabi.ABI()
 var feedABI, feedABIError = abi.JSON(strings.NewReader(priceabi.JSON))
 
 const requestTimeout = 45 * time.Second
+const maxReadWave = 2
 const pendingTagRetryInterval = time.Minute
 
 // RPC owns one signing account and a serial transaction stream. Ambiguous
@@ -50,6 +53,7 @@ type RPC struct {
 	completionOrder   []string
 	now               func() time.Time
 	pendingTagRetryAt time.Time
+	orderMarkets      map[string]uint64
 }
 type pendingTx struct {
 	tx   *types.Transaction
@@ -251,22 +255,65 @@ type accountTuple struct {
 }
 type summaryTuple struct{ Idle, TotalLocked, PositionCount *big.Int }
 
-func (r *RPC) orders(ctx context.Context, at *big.Int) ([]Order, error) {
-	values, err := r.venue(ctx, at, "getUserOrderIds", r.account)
-	if err != nil {
+// readWave waits for all readers to stop before returning the first failure.
+func readWave(ctx context.Context, reads []func(context.Context) error) error {
+	group, wave := errgroup.WithContext(ctx)
+	group.SetLimit(maxReadWave)
+	for _, read := range reads {
+		group.Go(func() error {
+			if err := wave.Err(); err != nil {
+				return err
+			}
+			return read(wave)
+		})
+	}
+	return group.Wait()
+}
+
+// The caller holds mu. Only market membership is retained between reads.
+func (r *RPC) orderDetails(ctx context.Context, at *big.Int, ids []*big.Int, market *uint64, dependent ...func(context.Context) error) ([]Order, error) {
+	present := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		present[id.String()] = true
+	}
+	for key := range r.orderMarkets {
+		if !present[key] {
+			delete(r.orderMarkets, key)
+		}
+	}
+	details := make([]*orderTuple, len(ids))
+	reads := append([]func(context.Context) error{}, dependent...)
+	for i, id := range ids {
+		known, ok := r.orderMarkets[id.String()]
+		if market != nil && ok && known != *market {
+			continue
+		}
+		reads = append(reads, func(ctx context.Context) error {
+			values, err := r.venue(ctx, at, "getOrderDetails", id)
+			if err != nil {
+				return err
+			}
+			o := tuple[orderTuple](values)
+			if o.User != r.account || !o.MarketId.IsUint64() || o.FilledBase.Cmp(o.SizeBase) > 0 || (ok && o.MarketId.Uint64() != known) {
+				return failed("invalid chain response")
+			}
+			details[i] = o
+			return nil
+		})
+	}
+	if err := readWave(ctx, reads); err != nil {
 		return nil, err
 	}
+	if r.orderMarkets == nil {
+		r.orderMarkets = make(map[string]uint64)
+	}
 	out := []Order{}
-	for _, id := range values[0].([]*big.Int) {
-		values, err := r.venue(ctx, at, "getOrderDetails", id)
-		if err != nil {
-			return nil, err
+	for i, o := range details {
+		if o == nil {
+			continue
 		}
-		o := tuple[orderTuple](values)
-		if o.User != r.account || !o.MarketId.IsUint64() || o.FilledBase.Cmp(o.SizeBase) > 0 {
-			return nil, failed("invalid chain response")
-		}
-		if o.Status > 1 {
+		r.orderMarkets[ids[i].String()] = o.MarketId.Uint64()
+		if (market != nil && o.MarketId.Uint64() != *market) || o.Status > 1 {
 			continue
 		}
 		remaining := new(big.Int).Sub(o.SizeBase, o.FilledBase)
@@ -274,9 +321,17 @@ func (r *RPC) orders(ctx context.Context, at *big.Int) ([]Order, error) {
 			continue
 		}
 		_, _, level, round, _ := decodeClientID(o.Cloid)
-		out = append(out, Order{ID: clone(id), Market: o.MarketId.Uint64(), Buy: o.IsLong, Level: level, Round: round, Cloid: o.Cloid, Price: o.LimitPrice, SizeUSD: o.SizeUsd, Base: remaining})
+		out = append(out, Order{ID: clone(ids[i]), Market: o.MarketId.Uint64(), Buy: o.IsLong, Level: level, Round: round, Cloid: o.Cloid, Price: o.LimitPrice, SizeUSD: o.SizeUsd, Base: remaining})
 	}
 	return out, nil
+}
+
+func (r *RPC) orders(ctx context.Context, at *big.Int, market *uint64) ([]Order, error) {
+	values, err := r.venue(ctx, at, "getUserOrderIds", r.account)
+	if err != nil {
+		return nil, err
+	}
+	return r.orderDetails(ctx, at, values[0].([]*big.Int), market)
 }
 func (r *RPC) Orders(ctx context.Context) ([]Order, error) {
 	r.mu.Lock()
@@ -290,7 +345,7 @@ func (r *RPC) Orders(ctx context.Context) ([]Order, error) {
 	if err != nil {
 		return nil, rpcError(err, false)
 	}
-	return r.orders(ctx, header.Number)
+	return r.orders(ctx, header.Number, nil)
 }
 func (r *RPC) Snapshot(ctx context.Context, id uint64) (Snapshot, error) {
 	r.mu.Lock()
@@ -307,62 +362,6 @@ func (r *RPC) Snapshot(ctx context.Context, id uint64) (Snapshot, error) {
 	}
 	at := header.Number
 	marketID := new(big.Int).SetUint64(id)
-	values, err := r.venue(ctx, at, "getMarketConfig", marketID)
-	if err != nil {
-		return s, err
-	}
-	m := tuple[marketTuple](values)
-	s.Market = Market{ID: id, Tick: m.TickSize, Lot: m.LotSize, MinOrderUSD: clone(minimumOrderUSD), Enabled: m.Enabled}
-	values, err = r.venue(ctx, at, "getMarkPriceDetails", marketID)
-	if err != nil {
-		return s, err
-	}
-	mark := values[0].(*big.Int)
-	venueFresh := values[3].(bool)
-	values, err = r.venue(ctx, at, "quoteMarket", marketID)
-	if err != nil {
-		return s, err
-	}
-	quote := tuple[quoteTuple](values)
-	values, err = r.call(ctx, feedABI, feedAddress, at, "getPrice", marketID)
-	if err != nil {
-		return s, err
-	}
-	price := tuple[priceTuple](values)
-	if price.TimestampMs > uint64(1<<63-1) {
-		return s, failed("invalid chain response")
-	}
-	s.Price = Price{Mark: mark, Time: time.UnixMilli(int64(price.TimestampMs)).UTC(), Fresh: venueFresh && price.Fresh && !quote.PriceStale && quote.Enabled}
-	orders, err := r.orders(ctx, at)
-	if err != nil {
-		return s, err
-	}
-	s.Orders = []Order{}
-	for _, o := range orders {
-		if o.Market == id {
-			s.Orders = append(s.Orders, o)
-		}
-	}
-	values, err = r.venue(ctx, at, "getUserMarketPosition", r.account, marketID)
-	if err != nil {
-		return s, err
-	}
-	if positionID := values[0].(*big.Int); positionID.Sign() != 0 {
-		values, err = r.venue(ctx, at, "getPositionDetails", positionID)
-		if err != nil {
-			return s, err
-		}
-		p := tuple[positionTuple](values)
-		s.PositionBase = clone(p.SizeBase)
-		if !p.IsLong {
-			s.PositionBase.Neg(s.PositionBase)
-		}
-	}
-	values, err = r.venue(ctx, at, "getAccount", r.account)
-	if err != nil {
-		return s, err
-	}
-	account := tuple[accountTuple](values)
 	// Select the explicit-account overload by its ABI input signature.
 	summaryMethod := ""
 	for name, method := range venueABI.Methods {
@@ -372,13 +371,67 @@ func (r *RPC) Snapshot(ctx context.Context, id uint64) (Snapshot, error) {
 		}
 	}
 	if summaryMethod == "" {
-		return s, failed("invalid chain response")
+		return Snapshot{}, failed("invalid chain response")
 	}
-	values, err = r.venue(ctx, at, summaryMethod, r.account, collateralAddress)
+	var values [9][]any
+	read := func(slot int, contract abi.ABI, to common.Address, method string, args ...any) func(context.Context) error {
+		return func(ctx context.Context) error {
+			var err error
+			values[slot], err = r.call(ctx, contract, to, at, method, args...)
+			return err
+		}
+	}
+	reads := []func(context.Context) error{
+		read(0, venueABI, venueAddress, "getMarketConfig", marketID),
+		read(1, venueABI, venueAddress, "getMarkPriceDetails", marketID),
+		read(2, venueABI, venueAddress, "quoteMarket", marketID),
+		read(3, feedABI, feedAddress, "getPrice", marketID),
+		read(4, venueABI, venueAddress, "getUserOrderIds", r.account),
+		read(5, venueABI, venueAddress, "getUserMarketPosition", r.account, marketID),
+		read(6, venueABI, venueAddress, "getAccount", r.account),
+		read(7, venueABI, venueAddress, summaryMethod, r.account, collateralAddress),
+		read(8, venueABI, venueAddress, "getFeeTier", r.account),
+	}
+	if err := readWave(ctx, reads); err != nil {
+		return Snapshot{}, err
+	}
+	m := tuple[marketTuple](values[0])
+	s.Market = Market{ID: id, Tick: m.TickSize, Lot: m.LotSize, MinOrderUSD: clone(minimumOrderUSD), Enabled: m.Enabled}
+	mark := values[1][0].(*big.Int)
+	venueFresh := values[1][3].(bool)
+	quote := tuple[quoteTuple](values[2])
+	price := tuple[priceTuple](values[3])
+	if price.TimestampMs > uint64(1<<63-1) {
+		return Snapshot{}, failed("invalid chain response")
+	}
+	s.Price = Price{Mark: mark, Time: time.UnixMilli(int64(price.TimestampMs)).UTC(), Fresh: venueFresh && price.Fresh && !quote.PriceStale && quote.Enabled}
+	fee := values[8][1].(*big.Int)
+	if !fee.IsUint64() {
+		return Snapshot{}, failed("invalid chain response")
+	}
+	s.TakerFeePPM = fee.Uint64()
+	dependent := []func(context.Context) error{}
+	if positionID := values[5][0].(*big.Int); positionID.Sign() != 0 {
+		dependent = append(dependent, func(ctx context.Context) error {
+			values, err := r.venue(ctx, at, "getPositionDetails", positionID)
+			if err != nil {
+				return err
+			}
+			p := tuple[positionTuple](values)
+			s.PositionBase = clone(p.SizeBase)
+			if !p.IsLong {
+				s.PositionBase.Neg(s.PositionBase)
+			}
+			return nil
+		})
+	}
+	orders, err := r.orderDetails(ctx, at, values[4][0].([]*big.Int), &id, dependent...)
 	if err != nil {
-		return s, err
+		return Snapshot{}, err
 	}
-	summary := tuple[summaryTuple](values)
+	s.Orders = orders
+	account := tuple[accountTuple](values[6])
+	summary := tuple[summaryTuple](values[7])
 	free := new(big.Int).Sub(account.EquityUsd, account.InitialMarginUsd)
 	if free.Sign() < 0 {
 		free.SetInt64(0)
@@ -386,16 +439,10 @@ func (r *RPC) Snapshot(ctx context.Context, id uint64) (Snapshot, error) {
 	free = min(free, new(big.Int).Mul(summary.Idle, big.NewInt(1_000_000_000_000)))
 	free = min(free, new(big.Int).Mul(account.Withdrawable, big.NewInt(1_000_000_000_000)))
 	s.FreeUSD = free
-	values, err = r.venue(ctx, at, "getFeeTier", r.account)
-	if err != nil {
-		return s, err
+	if err := validateSnapshot(s); err != nil {
+		return Snapshot{}, err
 	}
-	fee := values[1].(*big.Int)
-	if !fee.IsUint64() {
-		return s, failed("invalid chain response")
-	}
-	s.TakerFeePPM = fee.Uint64()
-	return s, validateSnapshot(s)
+	return s, nil
 }
 
 // orderParams matches the canonical placeOrder tuple. CollateralAmount remains

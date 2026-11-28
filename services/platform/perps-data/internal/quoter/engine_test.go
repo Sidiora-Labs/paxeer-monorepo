@@ -36,6 +36,7 @@ type keeperChain struct {
 	perpsKey, pfKey sdk.StoreKey
 	account         common.Address
 	places, cancels int
+	snapshots       map[uint64]int
 }
 
 func usd(t *testing.T, raw string) *big.Int {
@@ -107,6 +108,10 @@ func (c *keeperChain) Orders(context.Context) ([]Order, error) {
 	return out, nil
 }
 func (c *keeperChain) Snapshot(ctx context.Context, id uint64) (Snapshot, error) {
+	if c.snapshots == nil {
+		c.snapshots = map[uint64]int{}
+	}
+	c.snapshots[id]++
 	s := Snapshot{PositionBase: new(big.Int)}
 	m, err := c.k.GetMarket(c.ctx, id)
 	if err != nil {
@@ -531,4 +536,81 @@ func TestHealthAndErrorsRedactCredentials(t *testing.T) {
 	copy.Markets[0].Orders = slices.Clone(copy.Markets[0].Orders)
 	copy.Markets[0].Orders[0].Price = "changed"
 	require.NotEqual(t, "changed", e.Health().Markets[0].Orders[0].Price)
+}
+
+func TestReadWaveRoundSnapshotsFollowMarketTransactions(t *testing.T) {
+	for _, mode := range []string{"live", "dry", "refused"} {
+		t.Run(mode, func(t *testing.T) {
+			c := newKeeperChain(t)
+			market, err := c.k.GetMarket(c.ctx, 0)
+			require.NoError(t, err)
+			market.ID, market.Symbol, market.Name, market.OracleSymbol = 1, "ETH", "Ethereum", "ETH"
+			require.NoError(t, c.k.SetMarket(c.ctx, c.k.Authority(), market))
+			c.ctx.KVStore(c.pfKey).Set(pricetypes.AggregateKey(1), c.ctx.KVStore(c.pfKey).Get(pricetypes.AggregateKey(0)))
+			_, err = c.k.UpdatePrices(c.ctx)
+			require.NoError(t, err)
+			state, err := c.k.GetMarketState(c.ctx, 1)
+			require.NoError(t, err)
+			state.MarkPrice = word(usd(t, "60000"))
+			c.k.SetMarketState(c.ctx, state)
+			e, logs := testEngine(t, c, func(q *config.QuoterConfig) {
+				q.Markets = []uint64{0, 1}
+				q.MaxTransactionsPerRound = 1
+				if mode == "dry" {
+					q.Mode = "dry"
+				}
+			})
+			if mode == "refused" {
+				params, err := c.k.GetParams(c.ctx)
+				require.NoError(t, err)
+				params.Paused = true
+				require.NoError(t, c.k.UpdateParams(c.ctx, c.k.Authority(), params))
+			}
+			_, err = e.Round(context.Background(), c.ctx.BlockTime())
+			if mode == "refused" {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			if mode == "dry" {
+				require.Equal(t, map[uint64]int{0: 1, 1: 1}, c.snapshots)
+				require.Zero(t, e.Health().TransactionsLastRound)
+			} else {
+				require.Equal(t, map[uint64]int{0: 3, 1: 1}, c.snapshots)
+				require.Equal(t, 1, e.Health().TransactionsLastRound)
+			}
+			require.Empty(t, e.Health().Markets[1].Orders)
+			actual := orders(t, c)
+			require.Len(t, e.Health().Markets[0].Orders, len(actual))
+			var last map[string]any
+			for _, line := range bytes.Split(bytes.TrimSpace(logs.Bytes()), []byte("\n")) {
+				var entry map[string]any
+				require.NoError(t, json.Unmarshal(line, &entry))
+				if entry["msg"] == "quoter round" {
+					last = entry
+				}
+			}
+			require.NotNil(t, last)
+			seconds, ok := last["seconds"].(float64)
+			require.True(t, ok)
+			require.GreaterOrEqual(t, seconds, float64(0))
+		})
+	}
+	t.Run("unchanged book", func(t *testing.T) {
+		c := newKeeperChain(t)
+		e, _ := testEngine(t, c, nil)
+		round(t, e, c)
+		require.Equal(t, map[uint64]int{0: 6}, c.snapshots)
+		c.snapshots = nil
+		round(t, e, c)
+		require.Equal(t, map[uint64]int{0: 1}, c.snapshots)
+		require.Zero(t, e.Health().TransactionsLastRound)
+		require.Len(t, e.Health().Markets[0].Orders, 4)
+		c.snapshots = nil
+		c.ctx = c.ctx.WithBlockTime(c.ctx.BlockTime().Add(11 * time.Second))
+		round(t, e, c)
+		require.Equal(t, map[uint64]int{0: 2}, c.snapshots)
+		require.Equal(t, 4, e.Health().TransactionsLastRound)
+		require.Empty(t, e.Health().Markets[0].Orders)
+	})
 }

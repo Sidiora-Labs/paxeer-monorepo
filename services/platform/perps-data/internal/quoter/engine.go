@@ -148,7 +148,7 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 		e.mu.Lock()
 		e.health.TransactionsLastRound = transactions
 		e.mu.Unlock()
-		e.log.Info("quoter round", "mode", e.cfg.Mode, "transactions", transactions)
+		e.log.Info("quoter round", "mode", e.cfg.Mode, "transactions", transactions, "seconds", time.Since(started).Seconds())
 	}()
 	e.mu.RLock()
 	stopped := e.health.Stopped
@@ -178,6 +178,7 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 	plans := map[uint64][]Order{}
 	drySpent := new(big.Int)
 	for _, id := range ids {
+		marketTransactions := transactions
 		state := e.state(id)
 		snap, err := e.chain.Snapshot(ctx, id)
 		if err == nil {
@@ -188,6 +189,18 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 			// With unreadable risk or price, only cancellations are permitted.
 			cancelErr := e.cancelMarket(ctx, id, now, &transactions)
 			result = errors.Join(result, failed(reason(err)), cancelErr)
+			if transactions > marketTransactions {
+				current, readErr := e.chain.Snapshot(ctx, id)
+				if readErr == nil {
+					readErr = validateSnapshot(current)
+				}
+				if readErr != nil {
+					e.record(state, readErr, now)
+					result = errors.Join(result, failed(reason(readErr)))
+				} else {
+					e.observe(state, current, now)
+				}
+			}
 			continue
 		}
 		e.observe(state, snap, now)
@@ -270,6 +283,9 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 			}
 		}
 		if cancelFailed {
+			if transactions == marketTransactions {
+				continue
+			}
 			current, readErr := e.chain.Snapshot(ctx, id)
 			if readErr == nil {
 				readErr = validateSnapshot(current)
@@ -309,6 +325,7 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 					result = errors.Join(result, failed(reason(err)))
 					break
 				}
+				e.observe(state, current, now)
 				budget = clone(current.FreeUSD)
 				if !fresh(current, now.Add(time.Since(started)), e.cfg.MaxPriceAge) {
 					result = errors.Join(result, e.cancelMarket(ctx, id, now, &transactions))
@@ -343,7 +360,10 @@ func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, 
 		if now.Before(state.health.RestUntil) && e.cfg.Mode == "live" {
 			result = errors.Join(result, e.cancelMarket(ctx, id, now, &transactions))
 		}
-		// Report actual chain orders, including dry mode's unchanged book.
+		// Refresh the book after a transaction, including a refused submission.
+		if transactions == marketTransactions {
+			continue
+		}
 		current, err := e.chain.Snapshot(ctx, id)
 		if err == nil {
 			err = validateSnapshot(current)

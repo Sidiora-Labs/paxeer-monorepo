@@ -95,7 +95,7 @@ func (p *localQuoterProcess) waitOrders(t *testing.T, ctx context.Context, chain
 					continue
 				}
 				open, err := chain.Orders(deadline)
-				require.NoError(t, err)
+				require.NoError(t, err, "quoter: %s", p.logs())
 				complete := len(open) == 4
 				for _, order := range open {
 					if priorRound != 0 && order.Round == priorRound {
