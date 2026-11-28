@@ -183315,7 +183315,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1327]
 title = "Give the position rows of the trading workspace their notional, their unrealized result and a share of the maintenance margin of the account, and the position lists their totals, so that the row, the head of the list and the margin figures of an account show figures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -275104,7 +275104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.1324]
 title = "Let the quoting process of the trading venue issue the independent reads of a market side by side and read the details of orders by market, so that a round over all markets no longer waits for one request after the other"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
