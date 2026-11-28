@@ -80,6 +80,14 @@ below the supported venue minimum of 10 USD are omitted. Orders use the
 canonical `placeOrder` entry point with post-only time in force, a client id and
 zero collateral amount. They cannot take liquidity on placement.
 
+Snapshot reads run side by side at one block. The two-request wave limit keeps
+concurrency below the ceiling of eight requests. Order details are read for the
+market being quoted and for newly seen order ids; the client retains only each
+id's market. A closing snapshot follows
+only a transaction for that market, including a refused transaction. Otherwise
+health reports the last snapshot read, and dry rounds take no closing snapshot.
+The `quoter round` log line includes its duration in `seconds`.
+
 Client ids encode market, side, level and round. Reconciliation retains matching
 orders, cancels obsolete orders by client id (by order id for an order without a
 client id), confirms cancellation, then places missing levels. A filled or
