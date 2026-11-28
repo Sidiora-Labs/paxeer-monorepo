@@ -2149,6 +2149,29 @@
     "function": "LiveTransferWorker.EnqueueOwned",
     "call": 1,
     "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [],
+    "columns": [
+      "account_id",
+      "auth_epoch",
+      "cancelled_at",
+      "expires_at",
+      "proof_at",
+      "session_id",
+      "wallet"
+    ],
+    "sha256": "94759987293c9e43accd5b83f79c276385d5fa1ca9cc794038820f9716249b2b"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.EnqueueOwned:2",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.EnqueueOwned",
+    "call": 2,
+    "role": "pnl_runtime",
     "kind": "INSERT",
     "tables": [
       "pnl.inventory_l16_live_owners_v1"
@@ -2173,6 +2196,28 @@
       "wallet"
     ],
     "sha256": "f801edd0bcd067f146980789a1d8d69a6dd9ec06e7f5c1abcd34ece00978f110"
+  },
+  {
+    "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.EnrollmentMiddleware:1",
+    "file": "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+    "function": "LiveTransferWorker.EnrollmentMiddleware",
+    "call": 1,
+    "role": "pnl_runtime",
+    "kind": "SELECT",
+    "tables": [
+      "pnl.inventory_l16_live_owners_v1"
+    ],
+    "sequences": [],
+    "functions": [
+      "pg_catalog.clock_timestamp"
+    ],
+    "columns": [
+      "account_id",
+      "cancelled_at",
+      "expires_at",
+      "wallet"
+    ],
+    "sha256": "7e7b162ef0dbdef58d9cb15c8ba867196899c86513d08fc3809781bbdee272c3"
   },
   {
     "id": "internal/production/l16/live_transfers.go:LiveTransferWorker.CancelOwned:1",

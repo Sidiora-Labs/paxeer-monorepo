@@ -6,11 +6,14 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { LaunchpadAgentKit, invokeTool, agentPublicKey, routerAbi } from '../dist/index.js';
 import { encodeFunctionData } from 'viem';
-import { startLaunchpadChain, repository } from './local-chain.mjs';
+import { startLaunchpadChain, confirmedReceipt, repository } from './local-chain.mjs';
 import { startChainData } from './chain-data.mjs';
 
 function walletUserId(did) {
-  const bytes = createHash('sha256').update(`paxeer-agent-wallet:${did}`).digest().subarray(0, 16);
+  const bytes = createHash('sha256')
+    .update(`paxeer-agent-wallet:${did}`)
+    .digest()
+    .subarray(0, 16);
   bytes[6] = (bytes[6] & 15) | 128;
   bytes[8] = (bytes[8] & 63) | 128;
   const hex = bytes.toString('hex');
@@ -18,8 +21,8 @@ function walletUserId(did) {
 }
 
 async function agentWalksTheLaunchpadOnALocalChain(t) {
-  const chain = await startLaunchpadChain();
-  const unregister = register();
+  let chain;
+  let unregister;
   let gateway;
   let data;
   t.after(async () => {
@@ -29,11 +32,17 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
       try {
         await gateway?.stop();
       } finally {
-        await unregister();
-        await chain.stop();
+        try {
+          await unregister?.();
+        } finally {
+          await chain?.stop();
+        }
       }
     }
   });
+  chain = await startLaunchpadChain({ signal: t.signal, after: (stop) => t.after(stop) });
+  t.signal.throwIfAborted();
+  unregister = register();
   const { startJourneyGateway } = await import(
     pathToFileURL(resolve(repository, 'services/wallet/gateway/test/support/local-journey.ts'))
   );
@@ -52,7 +61,12 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   const did = kit.gateway.did;
   const ownerPath = `/v1/agents/${encodeURIComponent(did)}`;
   const owner = async (method, suffix, body) => {
-    const response = await gateway.request(method, ownerPath + suffix, body, gateway.ownerToken);
+    const response = await gateway.request(
+      method,
+      ownerPath + suffix,
+      body,
+      gateway.ownerToken,
+    );
     assert.ok(
       response.status >= 200 && response.status < 300,
       `${method} ${suffix}: ${JSON.stringify(response)}`,
@@ -78,22 +92,7 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   const activityHashes = [];
   async function receipt(hash, expectedFrom, expectedTo, expectedValue = 0n) {
     assert.match(hash, /^0x[0-9a-fA-F]{64}$/);
-    const deadline = Date.now() + 120000;
-    let mined;
-    for (;;) {
-      mined = await provider.getTransactionReceipt(hash);
-      if (mined) break;
-      if (Date.now() >= deadline) {
-        const [blockNumber, transaction] = await Promise.all([
-          provider.getBlockNumber(),
-          provider.getTransaction(hash),
-        ]);
-        throw new Error(
-          `Receipt timed out for ${hash}: block ${blockNumber}, transaction known: ${transaction !== null}`,
-        );
-      }
-      await new Promise((done) => setTimeout(done, 50));
-    }
+    const mined = await confirmedReceipt(provider, { hash }, 120000, 120000, t.signal);
     assert.equal(mined.status, 1, hash);
     const transaction = await provider.getTransaction(hash);
     assert.equal(transaction.from.toLowerCase(), expectedFrom.toLowerCase());
@@ -184,7 +183,8 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
       assert.equal(decoded.args[1], amount);
       assert.ok(decoded.args[2] > 0n);
       assert.ok(
-        decoded.args[3] >= BigInt((await provider.getBlock(call.receipt.blockNumber)).timestamp),
+        decoded.args[3] >=
+          BigInt((await provider.getBlock(call.receipt.blockNumber)).timestamp),
       );
     }
     activityHashes.push(action.approval.tx_hash, action.call.tx_hash);
@@ -348,7 +348,11 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   assert.equal(market.length, 1);
   assert.equal(market[0].args.creator.toLowerCase(), agentAddress.toLowerCase());
   pool = market[0].args.pool;
-  token = new ethers.Contract(market[0].args.token, chain.artifact('SidioraERC20').abi, provider);
+  token = new ethers.Contract(
+    market[0].args.token,
+    chain.artifact('SidioraERC20').abi,
+    provider,
+  );
   assert.equal(await chain.registry.isRegisteredPool(pool), true);
   assert.equal(await token.name(), 'Journey');
   assert.equal(await token.symbol(), 'JRNY');
@@ -417,7 +421,11 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   assert.equal(positions.data.positions[0].balanceRaw, String(expectedCoin));
   assert.equal(positions.data.positions[0].tokenAddress, token.target.toLowerCase());
   assert.equal(positions.data.positions[0].remainingCostUsdlRaw, null);
-  await step('read position', 'positions', 'GET /v1/agent/me; GET /v3/wallets/:wallet/portfolio');
+  await step(
+    'read position',
+    'positions',
+    'GET /v1/agent/me; GET /v3/wallets/:wallet/portfolio',
+  );
 
   for (const portion of ['part', 'rest']) {
     const amount = portion === 'part' ? expectedCoin / 2n : expectedCoin;
@@ -496,7 +504,11 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   assert.equal(await usdl.allowance(agentAddress, chain.router.target), 0n);
   await step('outside preset', 'gateway.send', 'POST /v1/agent/send');
   t.diagnostic(
-    JSON.stringify({ refusal: 'outside preset', status: 403, code: 'CONTRACT_NOT_ALLOWLISTED' }),
+    JSON.stringify({
+      refusal: 'outside preset',
+      status: 403,
+      code: 'CONTRACT_NOT_ALLOWLISTED',
+    }),
   );
 
   const frozen = await owner('POST', '/freeze');
@@ -516,7 +528,12 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   assert.equal((await owner('POST', '/unfreeze')).is_frozen, false);
   await step('unfreeze', 'agent_identity', 'POST /v1/agents/:did/unfreeze');
   const next = await quote('buy', 1000000n);
-  const afterUnfreeze = await settle(await tool('buy', tradeInput(next)), 'buy', 1000000n, 'buy');
+  const afterUnfreeze = await settle(
+    await tool('buy', tradeInput(next)),
+    'buy',
+    1000000n,
+    'buy',
+  );
   expectedCoin += BigInt(next.outputRaw);
   expectedQuote -= 1000000n;
   await step(
@@ -529,7 +546,10 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   for (const asset of [token, usdl]) {
     const amount = await asset.balanceOf(agentAddress);
     const before = await asset.balanceOf(ownerAddress);
-    const swept = await owner('POST', '/sweep', { token: asset.target, amount: String(amount) });
+    const swept = await owner('POST', '/sweep', {
+      token: asset.target,
+      amount: String(amount),
+    });
     assert.equal(swept.to.toLowerCase(), ownerAddress.toLowerCase());
     const sent = await receipt(swept.tx_hash, agentAddress, asset.target);
     assert.equal(
@@ -576,7 +596,9 @@ async function agentWalksTheLaunchpadOnALocalChain(t) {
   assert.ok(data.reads.some((read) => read.route === '/v2/pools'));
   assert.ok(data.reads.some((read) => read.route === `/v2/pools/${pool.toLowerCase()}`));
   assert.ok(
-    data.reads.some((read) => read.route === `/v3/wallets/${agentAddress.toLowerCase()}/portfolio`),
+    data.reads.some(
+      (read) => read.route === `/v3/wallets/${agentAddress.toLowerCase()}/portfolio`,
+    ),
   );
   t.diagnostic(
     'Chain-backed data stand-in serves list_coins, coin, quote pool metadata and positions. Quotes, balances, allowances, signatures and receipts use the gateway and Anvil. Portfolio cost basis is unknown. LayerX binding remains pending.',

@@ -112,6 +112,10 @@ func TestInventoryDatabaseCancellationIsAtomic(t *testing.T) {
 					}
 					workers[s] = worker
 					principals[s] = principal
+					if mode == "enroll" {
+						principal.AccessExpiresAt = principal.AccessExpiresAt.Add(time.Minute)
+						principals[s] = principal
+					}
 					if mode == "measurement" {
 						summary, err := worker.RebuildOwned(ctx, principal)
 						if err != nil || summary.SnapshotID == "" {

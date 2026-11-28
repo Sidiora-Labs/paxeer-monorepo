@@ -38,15 +38,23 @@ type rewardMeasuredNode struct {
 	delay               time.Duration
 	calls, active, peak int
 	batches             []int
+	reads               []rewardMeasuredRead
 	hangMethod          string
+	hangEntered         time.Time
 	failID              string
 	failure             error
 	block               string
 }
 
-func (n *rewardMeasuredNode) enter() func() {
+type rewardMeasuredRead struct {
+	method string
+	batch  bool
+}
+
+func (n *rewardMeasuredNode) enter(method string, batch bool) func() {
 	n.mu.Lock()
 	n.calls++
+	n.reads = append(n.reads, rewardMeasuredRead{method, batch})
 	n.active++
 	n.peak = max(n.peak, n.active)
 	n.mu.Unlock()
@@ -60,6 +68,9 @@ func (n *rewardMeasuredNode) enter() func() {
 func (n *rewardMeasuredNode) wait(ctx context.Context, method string) error {
 	n.mu.Lock()
 	delay, hang := n.delay, n.hangMethod == method
+	if hang && n.hangEntered.IsZero() {
+		n.hangEntered = time.Now()
+	}
 	n.mu.Unlock()
 	if hang {
 		<-ctx.Done()
@@ -73,6 +84,12 @@ func (n *rewardMeasuredNode) wait(ctx context.Context, method string) error {
 	case <-timer.C:
 		return nil
 	}
+}
+
+func (n *rewardMeasuredNode) hangEnteredAt() time.Time {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.hangEntered
 }
 
 func (n *rewardMeasuredNode) check(method string, args []any) error {
@@ -98,7 +115,7 @@ func (n *rewardMeasuredNode) check(method string, args []any) error {
 }
 
 func (n *rewardMeasuredNode) CallContext(ctx context.Context, out any, method string, args ...any) error {
-	leave := n.enter()
+	leave := n.enter(method, false)
 	defer leave()
 	if err := n.wait(ctx, method); err != nil {
 		return err
@@ -112,7 +129,7 @@ func (n *rewardMeasuredNode) CallContext(ctx context.Context, out any, method st
 type rewardMeasuredBatch struct{ *rewardMeasuredNode }
 
 func (n *rewardMeasuredBatch) BatchCallContext(ctx context.Context, batch []rpc.BatchElem) error {
-	leave := n.enter()
+	leave := n.enter(batch[0].Method, true)
 	defer leave()
 	n.mu.Lock()
 	n.batches = append(n.batches, len(batch))
@@ -246,6 +263,7 @@ func rewardsBoundedFixture(t *testing.T) boundedRewardsFixture {
 		t.Fatal(err)
 	}
 	node.calls, node.batches, node.peak = 0, nil, 0
+	node.reads = nil
 	return boundedRewardsFixture{service, node, chain.Alice, block, hashes}
 }
 
@@ -392,13 +410,47 @@ func TestRewardsBoundedConfiguration(t *testing.T) {
 
 func TestRewardsBoundedRoundTrip(t *testing.T) {
 	f := rewardsBoundedFixture(t)
+	if !f.node.hangEnteredAt().IsZero() {
+		t.Fatal("hanging read entered before request")
+	}
 	f.node.hangMethod = "eth_call"
 	response := httptest.NewRecorder()
 	start := time.Now()
 	f.http(0).Rewards(response, httptest.NewRequest(http.MethodGet, "/v2/me/rewards", nil))
-	if response.Code != http.StatusServiceUnavailable || time.Since(start) < 2*time.Second || time.Since(start) > 2500*time.Millisecond {
-		t.Fatalf("round trip status=%d elapsed=%s", response.Code, time.Since(start))
+	end := time.Now()
+	entered := f.node.hangEnteredAt()
+	elapsed := end.Sub(start)
+	var before, after time.Duration
+	if !entered.IsZero() {
+		before, after = entered.Sub(start), end.Sub(entered)
 	}
+	if entered.IsZero() || response.Code != http.StatusServiceUnavailable || elapsed < 2*time.Second || after > 2500*time.Millisecond || elapsed >= 5*time.Second {
+		t.Fatalf("round trip status=%d elapsed=%s before=%s after=%s hangingRead=%t", response.Code, elapsed, before, after, !entered.IsZero())
+	}
+	t.Logf("round trip status=%d elapsed=%s before=%s after=%s reads=%+v", response.Code, elapsed, before, after, f.node.reads)
+}
+
+func TestRewardsBoundedRoundTripAfterSlowReads(t *testing.T) {
+	f := rewardsBoundedFixture(t)
+	if !f.node.hangEnteredAt().IsZero() {
+		t.Fatal("hanging read entered before request")
+	}
+	f.node.delay = 200 * time.Millisecond
+	f.node.hangMethod = "eth_call"
+	response := httptest.NewRecorder()
+	start := time.Now()
+	f.http(0).Rewards(response, httptest.NewRequest(http.MethodGet, "/v2/me/rewards", nil))
+	end := time.Now()
+	entered := f.node.hangEnteredAt()
+	elapsed := end.Sub(start)
+	var before, after time.Duration
+	if !entered.IsZero() {
+		before, after = entered.Sub(start), end.Sub(entered)
+	}
+	if entered.IsZero() || response.Code != http.StatusServiceUnavailable || elapsed < 2*time.Second || before < 600*time.Millisecond || after > 2500*time.Millisecond || elapsed >= 5*time.Second {
+		t.Fatalf("round trip status=%d elapsed=%s before=%s after=%s hangingRead=%t", response.Code, elapsed, before, after, !entered.IsZero())
+	}
+	t.Logf("round trip status=%d elapsed=%s before=%s after=%s reads=%+v", response.Code, elapsed, before, after, f.node.reads)
 }
 
 func TestRewardsBoundedBatchChunks(t *testing.T) {

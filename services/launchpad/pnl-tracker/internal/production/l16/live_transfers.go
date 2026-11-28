@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"math/big"
 	"net/http"
 	"sort"
@@ -23,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // rebuildCreationPath requires the creation block of a rebuilt token to hold
@@ -1092,6 +1094,14 @@ func NewLiveTransferWorker(service *Service, repository l17.Repository, identity
 	return &LiveTransferWorker{service: service, repository: repository, identity: identity, batch: batch}, nil
 }
 
+type enrollmentBusyError struct {
+	cause error
+}
+
+func (e *enrollmentBusyError) Error() string { return e.cause.Error() }
+
+func (e *enrollmentBusyError) Unwrap() error { return e.cause }
+
 func (w *LiveTransferWorker) EnqueueOwned(ctx context.Context, p auth.IdentityPrincipal) error {
 	now := time.Now().UTC()
 	if e := p.Validate(now); e != nil {
@@ -1101,6 +1111,14 @@ func (w *LiveTransferWorker) EnqueueOwned(ctx context.Context, p auth.IdentityPr
 		return e
 	}
 	a := w.service.authority
+	var unchanged bool
+	e := a.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM `+a.table("inventory_l16_live_owners_v1")+` WHERE wallet=$1 AND account_id=$2 AND session_id=$3 AND auth_epoch=$4 AND proof_at=$5 AND expires_at=$6 AND cancelled_at IS NULL)`, p.Wallet, p.AccountID, p.SessionID, p.AuthEpoch, p.ProofAt, p.AccessExpiresAt).Scan(&unchanged)
+	if e != nil {
+		return e
+	}
+	if unchanged {
+		return nil
+	}
 	tx, e := a.pool.Begin(ctx)
 	if e != nil {
 		return e
@@ -1111,6 +1129,10 @@ func (w *LiveTransferWorker) EnqueueOwned(ctx context.Context, p auth.IdentityPr
 	}
 	_, e = tx.Exec(ctx, `INSERT INTO `+a.table("inventory_l16_live_owners_v1")+` (wallet,account_id,session_id,auth_epoch,proof_at,expires_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(wallet) DO UPDATE SET account_id=EXCLUDED.account_id,session_id=EXCLUDED.session_id,auth_epoch=EXCLUDED.auth_epoch,proof_at=EXCLUDED.proof_at,expires_at=EXCLUDED.expires_at,cancelled_at=NULL,updated_at=clock_timestamp()`, p.Wallet, p.AccountID, p.SessionID, p.AuthEpoch, p.ProofAt, p.AccessExpiresAt)
 	if e != nil {
+		var postgres *pgconn.PgError
+		if errors.As(e, &postgres) && postgres.Code == "55P03" {
+			return &enrollmentBusyError{cause: e}
+		}
 		return e
 	}
 	if e = w.identity.CheckStreamSession(ctx, p.StreamPrincipal()); e != nil {
@@ -1134,9 +1156,26 @@ func (w *LiveTransferWorker) EnrollmentMiddleware(next http.Handler) http.Handle
 			return
 		}
 		if e = w.EnqueueOwned(request.Context(), principal); e != nil {
+			var busy *enrollmentBusyError
+			if (request.Method == http.MethodGet || request.Method == http.MethodHead) && errors.As(e, &busy) {
+				a := w.service.authority
+				var live bool
+				readErr := a.pool.QueryRow(request.Context(), `SELECT EXISTS(SELECT 1 FROM `+a.table("inventory_l16_live_owners_v1")+` WHERE wallet=$1 AND account_id=$2 AND cancelled_at IS NULL AND expires_at>clock_timestamp())`, principal.Wallet, principal.AccountID).Scan(&live)
+				if readErr == nil && live {
+					slog.WarnContext(request.Context(), "portfolio enrollment busy", slog.Any("err", e), slog.String("method", request.Method))
+					next.ServeHTTP(response, request)
+					return
+				}
+				if readErr != nil {
+					e = readErr
+				}
+			}
 			status := http.StatusServiceUnavailable
 			if errors.Is(e, auth.ErrScopeDenied) {
 				status = http.StatusForbidden
+			}
+			if status == http.StatusServiceUnavailable {
+				slog.ErrorContext(request.Context(), "portfolio enrollment unavailable", slog.Any("err", e), slog.String("method", request.Method))
 			}
 			http.Error(response, "portfolio enrollment unavailable", status)
 			return
