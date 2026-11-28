@@ -109,6 +109,7 @@ require_merge_precompiles() {
 
 enable_sequencer() {
     local deadline=$((SECONDS + 120))
+    local height
     stop_node "$NODE_HOME" node
     set_toml "$NODE_HOME/config/config.toml" consensus.sequencer enable true
     export PAX_LOG_LEVEL=info PAX_LOG_OUTPUT=stderr
@@ -128,6 +129,23 @@ enable_sequencer() {
         (( SECONDS < deadline )) || fail "sequencer primary did not restart: $NODE_HOME/node.log"
         sleep 0.2
     done
+    SEQUENCER_RESTART_HEIGHT=
+    while :; do
+        kill -0 "$(cat "$NODE_HOME/node.pid")" 2>/dev/null || fail "node exited: $NODE_HOME/node.log"
+        (( SECONDS < deadline )) || fail "sequencer primary made no block after its restart: $NODE_HOME/node.log"
+        if height=$(curl --fail --silent --show-error --max-time 3 "http://127.0.0.1:$RPC_PORT/status" \
+            | jq -er '.sync_info.latest_block_height | strings | select(test("^[1-9][0-9]*$"))'); then
+            if [ -z "$SEQUENCER_RESTART_HEIGHT" ]; then
+                SEQUENCER_RESTART_HEIGHT=$height
+            elif (( height > SEQUENCER_RESTART_HEIGHT )); then
+                SEQUENCER_FIRST_HEIGHT=$height
+                break
+            fi
+        fi
+        sleep 0.2
+    done
+    printf 'v6120-node: sequencer made a block after restart; restart_height=%d first_height=%d\n' \
+        "$SEQUENCER_RESTART_HEIGHT" "$SEQUENCER_FIRST_HEIGHT" >&2
 }
 
 governance_tx() {
@@ -973,6 +991,8 @@ fi
     printf 'LOCAL_NODE_START_HEIGHT=%q\n' "$HEIGHT"
     if [ "$SEQUENCER" = 1 ]; then
         printf 'LOCAL_NODE_SEQUENCER_RPC=%q\n' "$EVM"
+        printf 'LOCAL_NODE_SEQUENCER_RESTART_HEIGHT=%q\n' "$SEQUENCER_RESTART_HEIGHT"
+        printf 'LOCAL_NODE_SEQUENCER_FIRST_HEIGHT=%q\n' "$SEQUENCER_FIRST_HEIGHT"
         printf 'LOCAL_NODE_PROFILE_RPC=%q\n' "http://127.0.0.1:$PRIMARY_PROFILE_PORT"
     fi
     if [ "$FOLLOWER" = 1 ]; then

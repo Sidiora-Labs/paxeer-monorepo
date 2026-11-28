@@ -53,6 +53,7 @@ func startLocalQuoter(t *testing.T, ctx context.Context, cfg *config.Config, set
 		"PERPS_RPC_URLS="+strings.Join(cfg.RPCURLs, ","),
 		"PERPS_QUOTER_KEY_FILE="+cfg.Quoting.KeyFile,
 		"PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND="+strconv.Itoa(cfg.Quoting.MaxTransactionsPerRound),
+		"PERPS_QUOTER_MAX_OPEN_READS="+strconv.Itoa(cfg.Quoting.MaxOpenReads),
 		"PERPS_QUOTER_MARKETS=0", "PERPS_QUOTER_MODE=live", "PORT="+strconv.Itoa(port))
 	command.Env = append(command.Env, settings...)
 	command.Stdout, command.Stderr = logs, logs

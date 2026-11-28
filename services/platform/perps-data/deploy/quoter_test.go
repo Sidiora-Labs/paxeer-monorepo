@@ -5,6 +5,7 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
@@ -13,7 +14,7 @@ import (
 
 var quoterVariables = []string{
 	"PERPS_CHAIN_ID", "PERPS_RPC_URLS", "PORT",
-	"PERPS_QUOTER_KEY_FILE", "PERPS_QUOTER_MARKETS", "PERPS_QUOTER_LEVELS", "PERPS_QUOTER_SPREAD_BPS", "PERPS_QUOTER_STEP_BPS", "PERPS_QUOTER_LEVEL_USD", "PERPS_QUOTER_REFRESH_BPS", "PERPS_QUOTER_MAX_QUOTE_AGE_SECONDS", "PERPS_QUOTER_MAX_POSITION_USD", "PERPS_QUOTER_MAX_PRICE_AGE_SECONDS", "PERPS_QUOTER_INTERVAL_SECONDS", "PERPS_QUOTER_REFUSAL_LIMIT", "PERPS_QUOTER_COOLDOWN_SECONDS", "PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND", "PERPS_QUOTER_MODE", "PERPS_QUOTER_STOP", "PERPS_QUOTER_HANDOVER",
+	"PERPS_QUOTER_KEY_FILE", "PERPS_QUOTER_MARKETS", "PERPS_QUOTER_LEVELS", "PERPS_QUOTER_SPREAD_BPS", "PERPS_QUOTER_STEP_BPS", "PERPS_QUOTER_LEVEL_USD", "PERPS_QUOTER_REFRESH_BPS", "PERPS_QUOTER_MAX_QUOTE_AGE_SECONDS", "PERPS_QUOTER_MAX_POSITION_USD", "PERPS_QUOTER_MAX_PRICE_AGE_SECONDS", "PERPS_QUOTER_INTERVAL_SECONDS", "PERPS_QUOTER_REFUSAL_LIMIT", "PERPS_QUOTER_COOLDOWN_SECONDS", "PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND", "PERPS_QUOTER_MAX_OPEN_READS", "PERPS_QUOTER_MODE", "PERPS_QUOTER_STOP", "PERPS_QUOTER_HANDOVER",
 }
 
 func checkQuoterService(s Service) error {
@@ -44,7 +45,7 @@ func TestQuoterDeploymentAndEnvironment(t *testing.T) {
 	require.NoError(t, err)
 	q := byName["perps-quoter"]
 	require.NoError(t, checkQuoterService(q))
-	values := map[string]string{"PERPS_CHAIN_ID": "125", "PERPS_RPC_URLS": "http://localhost", "PORT": "8081", "PERPS_QUOTER_KEY_FILE": "account-key", "PERPS_QUOTER_MARKETS": "0,11", "PERPS_QUOTER_LEVELS": "2", "PERPS_QUOTER_SPREAD_BPS": "10", "PERPS_QUOTER_STEP_BPS": "10", "PERPS_QUOTER_LEVEL_USD": "25", "PERPS_QUOTER_REFRESH_BPS": "5", "PERPS_QUOTER_MAX_QUOTE_AGE_SECONDS": "30", "PERPS_QUOTER_MAX_POSITION_USD": "500", "PERPS_QUOTER_MAX_PRICE_AGE_SECONDS": "10", "PERPS_QUOTER_INTERVAL_SECONDS": "2", "PERPS_QUOTER_REFUSAL_LIMIT": "3", "PERPS_QUOTER_COOLDOWN_SECONDS": "30", "PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND": "8", "PERPS_QUOTER_MODE": "dry", "PERPS_QUOTER_STOP": "false", "PERPS_QUOTER_HANDOVER": "false"}
+	values := map[string]string{"PERPS_CHAIN_ID": "125", "PERPS_RPC_URLS": "http://localhost", "PORT": "8081", "PERPS_QUOTER_KEY_FILE": "account-key", "PERPS_QUOTER_MARKETS": "0,11", "PERPS_QUOTER_LEVELS": "2", "PERPS_QUOTER_SPREAD_BPS": "10", "PERPS_QUOTER_STEP_BPS": "10", "PERPS_QUOTER_LEVEL_USD": "25", "PERPS_QUOTER_REFRESH_BPS": "5", "PERPS_QUOTER_MAX_QUOTE_AGE_SECONDS": "30", "PERPS_QUOTER_MAX_POSITION_USD": "500", "PERPS_QUOTER_MAX_PRICE_AGE_SECONDS": "10", "PERPS_QUOTER_INTERVAL_SECONDS": "2", "PERPS_QUOTER_REFUSAL_LIMIT": "3", "PERPS_QUOTER_COOLDOWN_SECONDS": "30", "PERPS_QUOTER_MAX_TRANSACTIONS_PER_ROUND": "8", "PERPS_QUOTER_MAX_OPEN_READS": "2", "PERPS_QUOTER_MODE": "dry", "PERPS_QUOTER_STOP": "false", "PERPS_QUOTER_HANDOVER": "false"}
 	for name, value := range values {
 		t.Setenv(name, value)
 	}
@@ -67,4 +68,32 @@ func TestQuoterDeploymentAndEnvironment(t *testing.T) {
 		change(&mutated)
 		require.Error(t, checkQuoterService(mutated))
 	}
+}
+
+func TestQuoterDeploymentOpenReadBound(t *testing.T) {
+	raw, err := os.ReadFile("services.json")
+	require.NoError(t, err)
+	layout, err := decodeServices(raw)
+	require.NoError(t, err)
+	byName, err := layout.byName()
+	require.NoError(t, err)
+	service := byName["perps-quoter"]
+	require.Equal(t, Value{Source: "input"}, service.Variables["PERPS_QUOTER_MAX_OPEN_READS"])
+	for name, value := range acceptedValues {
+		t.Setenv(name, value)
+	}
+	for _, bound := range []int{1, 8, 256} {
+		t.Setenv("PERPS_QUOTER_MAX_OPEN_READS", strconv.Itoa(bound))
+		cfg, err := config.Quoter.Load()
+		require.NoError(t, err)
+		require.Equal(t, bound, cfg.Quoting.MaxOpenReads)
+	}
+	for _, value := range []string{"0", "257", "1.5"} {
+		t.Setenv("PERPS_QUOTER_MAX_OPEN_READS", value)
+		_, err := config.Quoter.Load()
+		require.Error(t, err)
+	}
+	service.Variables = maps.Clone(service.Variables)
+	delete(service.Variables, "PERPS_QUOTER_MAX_OPEN_READS")
+	require.Error(t, checkQuoterService(service))
 }

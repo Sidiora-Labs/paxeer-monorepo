@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -36,7 +37,7 @@ var venueABI, venueABIError = perpsabi.ABI()
 var feedABI, feedABIError = abi.JSON(strings.NewReader(priceabi.JSON))
 
 const requestTimeout = 45 * time.Second
-const maxReadWave = 2
+const maxBusyRetries = 8
 const pendingTagRetryInterval = time.Minute
 
 // RPC owns one signing account and a serial transaction stream. Ambiguous
@@ -54,6 +55,9 @@ type RPC struct {
 	now               func() time.Time
 	pendingTagRetryAt time.Time
 	orderMarkets      map[string]uint64
+	maxOpenReads      int
+	busy              atomic.Uint64
+	wait              func(context.Context, time.Duration) error
 }
 type pendingTx struct {
 	tx   *types.Transaction
@@ -104,7 +108,7 @@ func NewRPC(ctx context.Context, cfg *config.Config) (*RPC, error) {
 	if err != nil {
 		return nil, err
 	}
-	r := &RPC{key: key, account: crypto.PubkeyToAddress(key.PublicKey), chain: new(big.Int).SetUint64(cfg.ChainID), mode: cfg.Quoting.Mode, completed: map[string]bool{}, now: time.Now}
+	r := &RPC{key: key, account: crypto.PubkeyToAddress(key.PublicKey), chain: new(big.Int).SetUint64(cfg.ChainID), mode: cfg.Quoting.Mode, completed: map[string]bool{}, now: time.Now, maxOpenReads: cfg.Quoting.MaxOpenReads}
 	var last error
 	for _, endpoint := range cfg.RPCURLs {
 		attempt, cancel := context.WithTimeout(ctx, requestTimeout)
@@ -177,9 +181,29 @@ func (r *RPC) call(ctx context.Context, contract abi.ABI, to common.Address, at 
 	if err != nil {
 		return nil, failed("invalid chain response")
 	}
-	output, err := r.client.CallContract(ctx, ethereum.CallMsg{From: r.account, To: &to, Data: data}, at)
-	if err != nil {
-		return nil, rpcError(err, false)
+	var output []byte
+	for retry := 0; ; retry++ {
+		if ctx.Err() != nil {
+			return nil, rpcError(ctx.Err(), false)
+		}
+		output, err = r.client.CallContract(ctx, ethereum.CallMsg{From: r.account, To: &to, Data: data}, at)
+		if err == nil {
+			break
+		}
+		if !strings.Contains(strings.ToLower(err.Error()), "rejected due to rate limit") {
+			return nil, rpcError(err, false)
+		}
+		r.busy.Add(1)
+		if retry == maxBusyRetries || ctx.Err() != nil {
+			return nil, rpcError(err, false)
+		}
+		wait := r.wait
+		if wait == nil {
+			wait = waitReadRetry
+		}
+		if err := wait(ctx, (50*time.Millisecond)<<retry); err != nil {
+			return nil, rpcError(err, false)
+		}
 	}
 	values, err := contract.Unpack(method, output)
 	if err != nil {
@@ -255,10 +279,30 @@ type accountTuple struct {
 }
 type summaryTuple struct{ Idle, TotalLocked, PositionCount *big.Int }
 
+func (r *RPC) BusyResponses() uint64 { return r.busy.Load() }
+
+func (r *RPC) openReadLimit() int {
+	if r.maxOpenReads == 0 {
+		return config.DefaultMaxOpenReads
+	}
+	return r.maxOpenReads
+}
+
+func waitReadRetry(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
 // readWave waits for all readers to stop before returning the first failure.
-func readWave(ctx context.Context, reads []func(context.Context) error) error {
+func readWave(ctx context.Context, limit int, reads []func(context.Context) error) error {
 	group, wave := errgroup.WithContext(ctx)
-	group.SetLimit(maxReadWave)
+	group.SetLimit(limit)
 	for _, read := range reads {
 		group.Go(func() error {
 			if err := wave.Err(); err != nil {
@@ -301,7 +345,7 @@ func (r *RPC) orderDetails(ctx context.Context, at *big.Int, ids []*big.Int, mar
 			return nil
 		})
 	}
-	if err := readWave(ctx, reads); err != nil {
+	if err := readWave(ctx, r.openReadLimit(), reads); err != nil {
 		return nil, err
 	}
 	if r.orderMarkets == nil {
@@ -392,7 +436,7 @@ func (r *RPC) Snapshot(ctx context.Context, id uint64) (Snapshot, error) {
 		read(7, venueABI, venueAddress, summaryMethod, r.account, collateralAddress),
 		read(8, venueABI, venueAddress, "getFeeTier", r.account),
 	}
-	if err := readWave(ctx, reads); err != nil {
+	if err := readWave(ctx, r.openReadLimit(), reads); err != nil {
 		return Snapshot{}, err
 	}
 	m := tuple[marketTuple](values[0])

@@ -29,10 +29,13 @@ type QuoterConfig struct {
 	RefusalLimit            int           `json:"refusalLimit"`
 	Cooldown                time.Duration `json:"cooldown"`
 	MaxTransactionsPerRound int           `json:"maxTransactionsPerRound"`
+	MaxOpenReads            int           `json:"maxOpenReads"`
 	Mode                    string        `json:"mode"`
 	Stop                    bool          `json:"stop"`
 	Handover                bool          `json:"handover"`
 }
+
+const DefaultMaxOpenReads = 2
 
 const quoterPrefix = "PERPS_QUOTER_"
 
@@ -41,7 +44,7 @@ func DefaultQuoterConfig() QuoterConfig {
 	return QuoterConfig{Levels: 2, SpreadBPS: 10, StepBPS: 10, LevelUSD: usdWhole(25),
 		RefreshBPS: 5, MaxQuoteAge: 30 * time.Second, MaxPositionUSD: usdWhole(500),
 		MaxPriceAge: 10 * time.Second, Interval: 2 * time.Second, RefusalLimit: 3,
-		Cooldown: 30 * time.Second, MaxTransactionsPerRound: 8, Mode: "dry"}
+		Cooldown: 30 * time.Second, MaxTransactionsPerRound: 8, MaxOpenReads: DefaultMaxOpenReads, Mode: "dry"}
 }
 
 func usdWhole(n int64) *big.Int {
@@ -107,7 +110,7 @@ func loadQuoter() (*QuoterConfig, error) {
 	for _, v := range []struct {
 		name   string
 		target *int
-	}{{"LEVELS", &q.Levels}, {"REFUSAL_LIMIT", &q.RefusalLimit}, {"MAX_TRANSACTIONS_PER_ROUND", &q.MaxTransactionsPerRound}} {
+	}{{"LEVELS", &q.Levels}, {"REFUSAL_LIMIT", &q.RefusalLimit}, {"MAX_TRANSACTIONS_PER_ROUND", &q.MaxTransactionsPerRound}, {"MAX_OPEN_READS", &q.MaxOpenReads}} {
 		if raw, set := os.LookupEnv(quoterPrefix + v.name); set {
 			n, err := strconv.Atoi(raw)
 			if err != nil {
@@ -188,6 +191,9 @@ func (q QuoterConfig) Validate() error {
 	}
 	if q.MaxTransactionsPerRound < 1 || q.MaxTransactionsPerRound > 256 {
 		return errors.New(quoterPrefix + "MAX_TRANSACTIONS_PER_ROUND must be in [1,256]")
+	}
+	if q.MaxOpenReads < 1 || q.MaxOpenReads > 256 {
+		return errors.New(quoterPrefix + "MAX_OPEN_READS must be in [1,256]")
 	}
 	seen := map[uint64]bool{}
 	for _, id := range q.Markets {

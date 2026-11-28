@@ -139,18 +139,26 @@ func fresh(s Snapshot, now time.Time, maxAge time.Duration) bool {
 	return s.Market.Enabled && s.Price.Fresh && valid(s.Price.Mark) && !s.Price.Time.IsZero() && !s.Price.Time.After(now) && now.Sub(s.Price.Time) <= maxAge
 }
 
+func busyResponses(chain Chain) uint64 {
+	if counter, ok := chain.(interface{ BusyResponses() uint64 }); ok {
+		return counter.BusyResponses()
+	}
+	return 0
+}
+
 // Round reads the account on every market and before every live placement.
 // The result is the planned ladder, including orders already resting.
 func (e *Engine) Round(ctx context.Context, now time.Time) (map[uint64][]Order, error) {
 	e.work.Lock()
 	defer e.work.Unlock()
 	started := time.Now()
+	busy := busyResponses(e.chain)
 	transactions := 0
 	defer func() {
 		e.mu.Lock()
 		e.health.TransactionsLastRound = transactions
 		e.mu.Unlock()
-		e.log.Info("quoter round", "mode", e.cfg.Mode, "transactions", transactions, "seconds", time.Since(started).Seconds())
+		e.log.Info("quoter round", "mode", e.cfg.Mode, "transactions", transactions, "busy", busyResponses(e.chain)-busy, "seconds", time.Since(started).Seconds())
 	}()
 	e.mu.RLock()
 	stopped := e.health.Stopped

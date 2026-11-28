@@ -174,6 +174,7 @@ func (r *Reactor) OnStart(ctx context.Context) error {
 	if err := r.state.updateStateFromStore(); err != nil {
 		return err
 	}
+	r.roundState.Store(r.state.GetRoundState())
 	r.SpawnCritical("updateRoundStateRoutine", r.updateRoundStateRoutine)
 	// All of the channel processing routines are noops until readySignal,
 	// but they are spawned immediately so that they keep the channels empty until then.
@@ -225,6 +226,7 @@ func (r *Reactor) SwitchToConsensus(state sm.State, skipWAL bool) {
 	}
 	r.state.mtx.Unlock()
 
+	r.roundState.Store(r.state.GetRoundState())
 	r.readySignal.Store(true)
 }
 
@@ -603,7 +605,7 @@ func (r *Reactor) queryMaj23Routine(ctx context.Context, ps *PeerState) error {
 		rs := r.roundState.Load()
 		prs := ps.GetRoundState()
 
-		if rs.Height == prs.Height {
+		if rs.Votes != nil && rs.Height == prs.Height {
 			// maybe send Height/Round/Prevotes
 			if maj23, ok := rs.Votes.Prevotes(prs.Round).TwoThirdsMajority(); ok {
 				stateCh.Send(MsgToProto(&VoteSetMaj23Message{
