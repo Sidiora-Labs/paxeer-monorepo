@@ -203,8 +203,8 @@ export const TRADES_QUERY = /* GraphQL */ `
 `;
 
 export const ORDERS_QUERY = /* GraphQL */ `
-  query GetOrders($userAddress: String!, $status: String) {
-    orders(userAddress: $userAddress, status: $status) {
+  query GetOrders($userAddress: String!, $status: String, $limit: Int) {
+    orders(userAddress: $userAddress, status: $status, limit: $limit) {
       orderId
       userAddress
       marketId
@@ -213,6 +213,7 @@ export const ORDERS_QUERY = /* GraphQL */ `
       isLong
       triggerPrice
       sizeUsd
+      remainingSize
       status
       positionId
       executionPrice
