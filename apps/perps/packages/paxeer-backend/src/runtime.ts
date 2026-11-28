@@ -10,6 +10,7 @@ export interface NativeSnapshot {
   totalVaultUsd: number | null;
   freeCollateral: number | null;
   unrealizedPnl: number | null;
+  maintenanceMarginUsd: number | null;
   walletBalances: Record<string, string>;
   dailyPnl?: any[];
   leverage: Record<string, number>;
@@ -26,6 +27,7 @@ let snapshot: NativeSnapshot = {
   totalVaultUsd: null,
   freeCollateral: null,
   unrealizedPnl: null,
+  maintenanceMarginUsd: null,
   walletBalances: {},
   leverage: {},
   connected: false,
@@ -44,6 +46,7 @@ export function updateNativeSnapshot(update: Partial<NativeSnapshot>) {
       totalVaultUsd: null,
       freeCollateral: null,
       unrealizedPnl: null,
+      maintenanceMarginUsd: null,
       dailyPnl: undefined,
       leverage: {},
       marginMode: undefined,

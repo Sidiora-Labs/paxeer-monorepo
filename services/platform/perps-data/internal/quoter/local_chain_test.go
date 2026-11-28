@@ -113,7 +113,7 @@ func runLocalChainQuotes(t *testing.T, endpoint, ownerKey string) {
 	dryNonce, err := dryRPC.client.NonceAt(ctx, dryRPC.account, nil)
 	require.NoError(t, err)
 	plans, err := dry.Round(ctx, time.Now().UTC())
-	require.NoError(t, err)
+	require.NoError(t, err, "quoter: %s", dryLogs.String())
 	require.Len(t, plans[0], 4)
 	require.Equal(t, before, orders(t, dryRPC))
 	afterDryNonce, err := dryRPC.client.NonceAt(ctx, dryRPC.account, nil)
